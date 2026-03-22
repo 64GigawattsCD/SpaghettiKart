@@ -28,6 +28,7 @@
 #include "ship/window/gui/resource/FontFactory.h"
 #include "libultraship/controller/controldeck/ControlDeck.h"
 #include "SpaghettiGui.h"
+#include <defines.h>
 
 #include "port/interpolation/FrameInterpolation.h"
 #include <fast/Fast3dWindow.h>
@@ -102,6 +103,16 @@ GameEngine::GameEngine() {
             { BTN_B, { Ship::KbScancode::LUS_KB_CONTROL} },
             { BTN_L, { Ship::KbScancode::LUS_KB_Q} },
             { BTN_R, { Ship::KbScancode::LUS_KB_SPACE} },
+            { BTN_GEAR_SHIFT_UP, { Ship::KbScancode::LUS_KB_E} },
+            { BTN_GEAR_SHIFT_DOWN, { Ship::KbScancode::LUS_KB_R} },
+            { BTN_GEAR_CLUTCH, { Ship::KbScancode::LUS_KB_X} },
+            { BTN_GEAR_REVERSE, { Ship::KbScancode::LUS_KB_OEM_3} },
+            { BTN_GEAR_1, { Ship::KbScancode::LUS_KB_1} },
+            { BTN_GEAR_2, { Ship::KbScancode::LUS_KB_2} },
+            { BTN_GEAR_3, { Ship::KbScancode::LUS_KB_3} },
+            { BTN_GEAR_4, { Ship::KbScancode::LUS_KB_4} },
+            { BTN_GEAR_5, { Ship::KbScancode::LUS_KB_5} },
+            { BTN_GEAR_6, { Ship::KbScancode::LUS_KB_6} },
             { BTN_Z, { Ship::KbScancode::LUS_KB_Z} },
             { BTN_START, { Ship::KbScancode::LUS_KB_ENTER} },
             { BTN_CUP, { Ship::KbScancode::LUS_KB_T} },
@@ -126,6 +137,8 @@ GameEngine::GameEngine() {
         std::unordered_map<CONTROLLERBUTTONS_T, std::unordered_set<SDL_GameControllerButton>>{
             { BTN_A, { SDL_CONTROLLER_BUTTON_A } },
             { BTN_B, { SDL_CONTROLLER_BUTTON_X } },
+            { BTN_GEAR_SHIFT_UP, { SDL_CONTROLLER_BUTTON_RIGHTSTICK } },
+            { BTN_GEAR_SHIFT_DOWN, { SDL_CONTROLLER_BUTTON_LEFTSTICK } },
             { BTN_START, { SDL_CONTROLLER_BUTTON_START } },
             { BTN_CLEFT, { SDL_CONTROLLER_BUTTON_Y } },
             { BTN_CDOWN, { SDL_CONTROLLER_BUTTON_B } },
@@ -164,8 +177,22 @@ GameEngine::GameEngine() {
                       { BTN_DRIGHT, "DRight" },
                       { BTN_DUP, "DUp" },
                       { BTN_DDOWN, "DDown" },
+                      { BTN_GEAR_SHIFT_UP, "Gear Shift Up" },
+                      { BTN_GEAR_SHIFT_DOWN, "Gear Shift Down" },
+                      { BTN_GEAR_CLUTCH, "Gear Clutch" },
+                      { BTN_GEAR_REVERSE, "Gear Reverse" },
+                      { BTN_GEAR_1, "Gear 1" },
+                      { BTN_GEAR_2, "Gear 2" },
+                      { BTN_GEAR_3, "Gear 3" },
+                      { BTN_GEAR_4, "Gear 4" },
+                      { BTN_GEAR_5, "Gear 5" },
+                      { BTN_GEAR_6, "Gear 6" },
                   });
-    auto controlDeck = std::make_shared<LUS::ControlDeck>(std::vector<CONTROLLERBUTTONS_T>(), defaultMappings, buttonNames);
+    auto controlDeck = std::make_shared<LUS::ControlDeck>(
+        std::vector<CONTROLLERBUTTONS_T>({ BTN_GEAR_SHIFT_UP, BTN_GEAR_SHIFT_DOWN, BTN_GEAR_CLUTCH,
+                                           BTN_GEAR_REVERSE, BTN_GEAR_1, BTN_GEAR_2, BTN_GEAR_3, BTN_GEAR_4,
+                                           BTN_GEAR_5, BTN_GEAR_6 }),
+        defaultMappings, buttonNames);
     const std::string assets_path = Ship::Context::LocateFileAcrossAppDirs(engine_asset_file);
     this->context->InitResourceManager({assets_path}, {}, 3); // without this line InitWindow fails in Gui::Init()
     this->context->InitConsole(); // without this line the GuiWindow constructor fails in ConsoleWindow::InitElement()

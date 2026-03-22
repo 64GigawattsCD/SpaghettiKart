@@ -23,6 +23,7 @@
 #include "port/Game.h"
 #include "src/enhancements/moon_jump.h"
 #include "engine/Matrix.h"
+#include "arcade_kart_physics.h"
 
 extern s32 D_8018D168;
 
@@ -1830,6 +1831,333 @@ void func_8002D028(Player* player, s8 arg1) {
     }
 }
 
+static bool sArcadeKartPhysicsInitialized = false;
+static bool sArcadeKartWasEnabled = false;
+static ArcadeKartConfig sArcadeKartBaseConfig;
+static ArcadeKartPhysicsState sArcadeKartStates[NUM_PLAYERS];
+static bool sArcadeKartStateReady[NUM_PLAYERS] = { false };
+static s8 sArcadeKartCharacterByPlayer[NUM_PLAYERS] = { -1 };
+
+static f32 arcade_clampf(f32 value, f32 minValue, f32 maxValue) {
+    if (value < minValue) {
+        return minValue;
+    }
+    if (value > maxValue) {
+        return maxValue;
+    }
+    return value;
+}
+
+static struct Controller* arcade_controller_for_player(s8 playerId) {
+    switch (playerId) {
+        case PLAYER_ONE:
+            return gControllerOne;
+        case PLAYER_TWO:
+            return gControllerTwo;
+        case PLAYER_THREE:
+            return gControllerThree;
+        case PLAYER_FOUR:
+            return gControllerFour;
+        case PLAYER_FIVE:
+            return gControllerFive;
+        case PLAYER_SIX:
+            return gControllerSix;
+        case PLAYER_SEVEN:
+            return gControllerSeven;
+        case PLAYER_EIGHT:
+            return gControllerEight;
+        default:
+            return gControllerOne;
+    }
+}
+
+static ArcadeKartSurfaceType arcade_surface_from_mk64(u8 surfaceType) {
+    switch (surfaceType) {
+        case ASPHALT:
+        case STONE:
+        case BRIDGE:
+        case WOOD_BRIDGE:
+        case ROPE_BRIDGE:
+            return ARCADE_KART_SURFACE_ROAD;
+        case DIRT:
+        case DIRT_OFFROAD:
+        case SNOW:
+        case SNOW_OFFROAD:
+            return ARCADE_KART_SURFACE_DIRT;
+        case GRASS:
+            return ARCADE_KART_SURFACE_GRASS;
+        case SAND:
+        case SAND_OFFROAD:
+        case WET_SAND:
+        case TRAIN_TRACK:
+            return ARCADE_KART_SURFACE_SAND;
+        case ICE:
+            return ARCADE_KART_SURFACE_ICE;
+        case AIRBORNE:
+        default:
+            return ARCADE_KART_SURFACE_AIRBORNE;
+    }
+}
+
+static void arcade_reset_all_states(void) {
+    s32 i;
+
+    for (i = 0; i < NUM_PLAYERS; i++) {
+        sArcadeKartStateReady[i] = false;
+        sArcadeKartCharacterByPlayer[i] = -1;
+    }
+}
+
+static bool arcade_should_use_physics(Player* player) {
+    if (CVarGetInteger("gKartPhysicsModel", 0) != 1) {
+        return false;
+    }
+    if ((player->type & PLAYER_EXISTS) != PLAYER_EXISTS) {
+        return false;
+    }
+    if ((player->type & PLAYER_HUMAN) != PLAYER_HUMAN) {
+        return false;
+    }
+    if ((player->type & PLAYER_CPU) == PLAYER_CPU) {
+        return false;
+    }
+    if ((player->type & PLAYER_START_SEQUENCE) == PLAYER_START_SEQUENCE) {
+        return false;
+    }
+    if ((player->lakituProps & (HELD_BY_LAKITU | LAKITU_SCENE | LAKITU_RETRIEVAL)) != 0) {
+        return false;
+    }
+    if ((player->effects & (HIT_EFFECT | HIT_BY_ITEM_EFFECT | LIGHTNING_EFFECT)) != 0) {
+        return false;
+    }
+    return true;
+}
+
+static bool arcade_apply_physics(Player* player, s8 playerId, s8 screenId) {
+    struct Controller* controller;
+    ArcadeKartInput input;
+    ArcadeKartEnvironment environment;
+    ArcadeKartPhysicsOutput output;
+    ArcadeKartConfig runtimeConfig;
+    Vec3f collisionResponseNormal;
+    Vec3f collisionVelocity;
+    Vec3f zeroCollisionImpulse = { 0.0f, 0.0f, 0.0f };
+    f32 stickThrottle;
+    f32 stickBrake;
+    f32 steer;
+    f32 forwardX;
+    f32 forwardZ;
+    f32 rightX;
+    f32 rightZ;
+    f32 nextX;
+    f32 nextY;
+    f32 nextZ;
+    f32 surfaceDistance;
+    s16 yaw;
+    s16 requestedGear = 0;
+    s32 i;
+    bool hasSurfaceContactHint;
+    bool predictedGroundContact;
+    bool anyWheelContact;
+    bool wasAirborne;
+    bool grounded;
+    f32 resolvedForwardSpeed;
+    f32 resolvedLateralSpeed;
+    bool enabled;
+
+    enabled = (CVarGetInteger("gKartPhysicsModel", 0) == 1);
+    if (enabled != sArcadeKartWasEnabled) {
+        sArcadeKartWasEnabled = enabled;
+        arcade_reset_all_states();
+    }
+    if (!enabled || !arcade_should_use_physics(player)) {
+        return false;
+    }
+
+    if (!sArcadeKartPhysicsInitialized) {
+        arcade_kart_config_set_defaults(&sArcadeKartBaseConfig);
+        arcade_reset_all_states();
+        sArcadeKartPhysicsInitialized = true;
+    }
+
+    if ((playerId < 0) || (playerId >= NUM_PLAYERS)) {
+        return false;
+    }
+
+    arcade_kart_config_apply_class(&runtimeConfig, &sArcadeKartBaseConfig,
+                                   arcade_kart_character_class_for_character(player->characterId));
+    if (!sArcadeKartStateReady[playerId] || (sArcadeKartCharacterByPlayer[playerId] != player->characterId)) {
+        arcade_kart_physics_reset(&runtimeConfig, &sArcadeKartStates[playerId]);
+        sArcadeKartStateReady[playerId] = true;
+        sArcadeKartCharacterByPlayer[playerId] = (s8) player->characterId;
+    }
+
+    controller = arcade_controller_for_player(playerId);
+    stickThrottle = arcade_clampf(((f32) controller->rawStickY - 8.0f) / 68.0f, 0.0f, 1.0f);
+    stickBrake = arcade_clampf(((-((f32) controller->rawStickY)) - 8.0f) / 68.0f, 0.0f, 1.0f);
+    steer = arcade_clampf((f32) controller->rawStickX / 70.0f, -1.0f, 1.0f);
+
+    if (controller->buttonPressed & BTN_GEAR_REVERSE) {
+        requestedGear = -1;
+    } else if (controller->buttonPressed & BTN_GEAR_1) {
+        requestedGear = 1;
+    } else if (controller->buttonPressed & BTN_GEAR_2) {
+        requestedGear = 2;
+    } else if (controller->buttonPressed & BTN_GEAR_3) {
+        requestedGear = 3;
+    } else if (controller->buttonPressed & BTN_GEAR_4) {
+        requestedGear = 4;
+    } else if (controller->buttonPressed & BTN_GEAR_5) {
+        requestedGear = 5;
+    } else if (controller->buttonPressed & BTN_GEAR_6) {
+        requestedGear = 6;
+    }
+
+    input = (ArcadeKartInput){
+        .throttle = MAX(stickThrottle, (controller->button & A_BUTTON) ? 1.0f : 0.0f),
+        .brake = MAX(stickBrake, (controller->button & B_BUTTON) ? 1.0f : 0.0f),
+        .clutch = ((controller->button & BTN_GEAR_CLUTCH) != 0) ? 1.0f : 0.0f,
+        .steer = (fabsf(steer) < 0.08f) ? 0.0f : steer,
+        .driftHeld = ((controller->button & R_TRIG) != 0),
+        .throttlePressed = ((controller->buttonPressed & A_BUTTON) != 0),
+        .shiftUpPressed = ((controller->buttonPressed & BTN_GEAR_SHIFT_UP) != 0),
+        .shiftDownPressed = ((controller->buttonPressed & BTN_GEAR_SHIFT_DOWN) != 0),
+        .requestedGear = requestedGear,
+        .transmissionMode = (CVarGetInteger("gArcadeTransmissionMode", 0) != 0) ? ARCADE_KART_TRANSMISSION_MANUAL
+                                                                                  : ARCADE_KART_TRANSMISSION_AUTOMATIC,
+    };
+
+    wasAirborne = ((player->effects & 8) == 8);
+    hasSurfaceContactHint = (player->collision.surfaceDistance[2] <= 0.0f) && (player->velocity[1] <= 0.05f);
+    anyWheelContact = false;
+    for (i = 0; i < ARCADE_KART_WHEEL_COUNT; i++) {
+        environment.wheelSurface[i] = arcade_surface_from_mk64(player->tyres[i].surfaceType);
+        predictedGroundContact = (!wasAirborne) && (environment.wheelSurface[i] != ARCADE_KART_SURFACE_AIRBORNE);
+        if (!predictedGroundContact && hasSurfaceContactHint) {
+            environment.wheelSurface[i] = ARCADE_KART_SURFACE_ROAD;
+            predictedGroundContact = true;
+        }
+        environment.wheelContact[i] = predictedGroundContact;
+        anyWheelContact = anyWheelContact || environment.wheelContact[i];
+    }
+    if (!anyWheelContact && hasSurfaceContactHint) {
+        for (i = 0; i < ARCADE_KART_WHEEL_COUNT; i++) {
+            environment.wheelSurface[i] = ARCADE_KART_SURFACE_ROAD;
+            environment.wheelContact[i] = true;
+        }
+    }
+
+    arcade_kart_physics_step(&runtimeConfig, &sArcadeKartStates[playerId], &input, &environment, TRACK_TIMER_ITER_f,
+                             &output);
+
+    if (input.throttle > 0.02f) {
+        player->kartProps |= THROTTLE;
+    } else {
+        player->kartProps &= ~THROTTLE;
+    }
+
+    player->kartProps &= ~(RIGHT_TURN | LEFT_TURN | BACK_UP);
+    if (input.steer > 0.1f) {
+        player->kartProps |= RIGHT_TURN;
+    } else if (input.steer < -0.1f) {
+        player->kartProps |= LEFT_TURN;
+    }
+    player->oldPos[0] = player->pos[0];
+    player->oldPos[1] = player->pos[1];
+    player->oldPos[2] = player->pos[2];
+
+    player->unk_0C0 = (s16) (input.steer * 1450.0f);
+    player->rotation[1] += (s16) (output.yawDelta * 182.0f);
+    yaw = player->rotation[1] + player->unk_0C0;
+
+    forwardX = sins(yaw);
+    forwardZ = coss(yaw);
+    rightX = sins((s16) (yaw + 0x4000));
+    rightZ = coss((s16) (yaw + 0x4000));
+
+    player->velocity[0] = (forwardX * output.forwardSpeed) + (rightX * output.lateralSpeed);
+    player->velocity[2] = (forwardZ * output.forwardSpeed) + (rightZ * output.lateralSpeed);
+    if (wasAirborne || output.airborne) {
+        player->velocity[1] -= runtimeConfig.air.gravityPerFrame;
+    } else {
+        player->velocity[1] = 0.0f;
+    }
+
+    nextX = player->pos[0] + player->velocity[0];
+    nextY = player->pos[1] + player->velocity[1];
+    nextZ = player->pos[2] + player->velocity[2];
+    collisionVelocity[0] = player->velocity[0];
+    collisionVelocity[1] = player->velocity[1];
+    collisionVelocity[2] = player->velocity[2];
+    actor_terrain_collision(&player->collision, player->boundingBoxSize, nextX, nextY, nextZ, player->oldPos[0],
+                            player->oldPos[1], player->oldPos[2]);
+    player->effects |= 8;
+    surfaceDistance = player->collision.surfaceDistance[2];
+    if (surfaceDistance <= 0.0f) {
+        player->effects &= ~2;
+        player->effects &= ~8;
+        func_8003F46C(player, collisionResponseNormal, collisionVelocity, zeroCollisionImpulse, &surfaceDistance, &nextX, &nextY,
+                      &nextZ);
+    }
+    surfaceDistance = player->collision.surfaceDistance[0];
+    if (surfaceDistance < 0.0f) {
+        func_8003F734(player, collisionResponseNormal, collisionVelocity, &surfaceDistance, &nextX, &nextY, &nextZ);
+        func_8002C954(player, playerId, collisionVelocity);
+    }
+    surfaceDistance = player->collision.surfaceDistance[1];
+    if (surfaceDistance < 0.0f) {
+        func_8003FBAC(player, collisionResponseNormal, collisionVelocity, &surfaceDistance, &nextX, &nextY, &nextZ);
+        func_8002C954(player, playerId, collisionVelocity);
+    }
+    player->velocity[0] = collisionVelocity[0];
+    player->velocity[1] = collisionVelocity[1];
+    player->velocity[2] = collisionVelocity[2];
+    resolvedForwardSpeed = (player->velocity[0] * forwardX) + (player->velocity[2] * forwardZ);
+    resolvedLateralSpeed = (player->velocity[0] * rightX) + (player->velocity[2] * rightZ);
+    sArcadeKartStates[playerId].forwardSpeed = resolvedForwardSpeed;
+    sArcadeKartStates[playerId].lateralSpeed = resolvedLateralSpeed;
+    if (resolvedForwardSpeed < -0.1f) {
+        player->kartProps |= BACK_UP;
+    }
+    output.airborne = ((player->effects & 8) == 8);
+    grounded = !output.airborne;
+    if (input.driftHeld && grounded) {
+        player->effects |= DRIFTING_EFFECT;
+    } else {
+        player->effects &= ~DRIFTING_EFFECT;
+    }
+
+    player->pos[0] = nextX;
+    player->pos[1] = nextY;
+    player->pos[2] = nextZ;
+    player->previousSpeed = player->speed;
+    player->speed = sqrtf((player->velocity[0] * player->velocity[0]) + (player->velocity[2] * player->velocity[2]));
+    player->currentSpeed = player->speed * 18.0f;
+    player->kartPropulsionStrength = MAX(0.0f, output.driveTorque * 0.25f);
+    player->unk_064[0] = 0.0f;
+    player->unk_064[2] = 0.0f;
+    player->unk_058 = 0.0f;
+    player->unk_05C = 1.0f;
+    player->unk_060 = 0.0f;
+    calculate_orientation_matrix(player->orientationMatrix, player->unk_058, player->unk_05C, player->unk_060,
+                                 player->rotation[1]);
+    gPlayerLastVelocity[playerId][0] = player->velocity[0];
+    gPlayerLastVelocity[playerId][1] = player->velocity[1];
+    gPlayerLastVelocity[playerId][2] = player->velocity[2];
+    player->unk_074 = calculate_surface_height(nextX, nextY, nextZ, player->collision.meshIndexZX);
+
+    if (((player->type & PLAYER_HUMAN) == PLAYER_HUMAN) &&
+        (((gActiveScreenMode == SCREEN_MODE_1P) || (gActiveScreenMode == SCREEN_MODE_2P_SPLITSCREEN_VERTICAL)) ||
+         (gActiveScreenMode == SCREEN_MODE_2P_SPLITSCREEN_HORIZONTAL))) {
+        func_80029B4C(player, nextX, nextY, nextZ);
+    } else {
+        func_8002A194(player, nextX, nextY, nextZ);
+    }
+    func_8002AE38(player, playerId, player->oldPos[0], player->oldPos[2], nextX, nextZ);
+    update_player_environment_and_hazard_state(player, playerId);
+    return true;
+}
+
 void func_8002D268(Player* player, UNUSED Camera* camera, s8 screenId, s8 playerId) {
     Vec3f sp184 = { 0.0, 0.0, 1.0 };
     Vec3f sp178 = { 0.0, 0.0, 0.0 };
@@ -1859,6 +2187,10 @@ void func_8002D268(Player* player, UNUSED Camera* camera, s8 screenId, s8 player
     UNUSED s32 pad3[3];
     s32 sp7C = 0;
     UNUSED s32 pad4[6];
+
+    if (arcade_apply_physics(player, playerId, screenId)) {
+        return;
+    }
 
     func_80027EDC(player, playerId);
     func_8002C11C(player);
@@ -4378,9 +4710,60 @@ void func_80037CFC(Player* player, struct Controller* controller, s8 arg2) {
     }
 }
 
+static void handle_gear_shift_inputs(Player* player, struct Controller* controller, s8 playerId) {
+    (void) player;
+    (void) playerId;
+
+    if (controller->buttonPressed & BTN_GEAR_SHIFT_UP) {
+        // TODO: Hook into future transmission state and trigger shift-up.
+    }
+
+    if (controller->buttonPressed & BTN_GEAR_SHIFT_DOWN) {
+        // TODO: Hook into future transmission state and trigger shift-down.
+    }
+}
+
+static s8 sRequestedGearByPlayer[NUM_PLAYERS] = { 0 };
+
+static void set_requested_gear(s8 playerId, s8 gear) {
+    if (playerId < 0 || playerId >= NUM_PLAYERS) {
+        return;
+    }
+    sRequestedGearByPlayer[playerId] = gear;
+}
+
+static void handle_direct_gear_inputs(struct Controller* controller, s8 playerId) {
+    if (controller->buttonPressed & BTN_GEAR_REVERSE) {
+        set_requested_gear(playerId, -1);
+    }
+    if (controller->buttonPressed & BTN_GEAR_1) {
+        set_requested_gear(playerId, 1);
+    }
+    if (controller->buttonPressed & BTN_GEAR_2) {
+        set_requested_gear(playerId, 2);
+    }
+    if (controller->buttonPressed & BTN_GEAR_3) {
+        set_requested_gear(playerId, 3);
+    }
+    if (controller->buttonPressed & BTN_GEAR_4) {
+        set_requested_gear(playerId, 4);
+    }
+    if (controller->buttonPressed & BTN_GEAR_5) {
+        set_requested_gear(playerId, 5);
+    }
+    if (controller->buttonPressed & BTN_GEAR_6) {
+        set_requested_gear(playerId, 6);
+    }
+
+    // TODO: Apply sRequestedGearByPlayer[playerId] to the transmission system once gear logic lands.
+}
+
 void handle_a_press_for_player_during_race(Player* player, struct Controller* controller, s8 arg2) {
     if (((player->type & PLAYER_EXISTS) == PLAYER_EXISTS) && ((player->type & PLAYER_HUMAN) == PLAYER_HUMAN) &&
         ((player->type & PLAYER_CPU) != PLAYER_CPU)) {
+        handle_gear_shift_inputs(player, controller, arg2);
+        handle_direct_gear_inputs(controller, arg2);
+
         if ((player->type & PLAYER_START_SEQUENCE) != PLAYER_START_SEQUENCE) {
             if (((player->lakituProps & HELD_BY_LAKITU) == HELD_BY_LAKITU) || ((player->lakituProps & LAKITU_SCENE) == LAKITU_SCENE)) {
                 if (controller->button & A_BUTTON) {

@@ -62,6 +62,22 @@
     (A_BUTTON | B_BUTTON | L_TRIG | R_TRIG | Z_TRIG | START_BUTTON | U_JPAD | L_JPAD | R_JPAD | D_JPAD | U_CBUTTONS | \
      L_CBUTTONS | R_CBUTTONS | D_CBUTTONS)
 
+// Custom non-N64 input bits used for port-only actions.
+#define BTN_GEAR_SHIFT_DOWN 0x00000040u
+#define BTN_GEAR_SHIFT_UP 0x00000080u
+#define BTN_GEAR_CLUTCH 0x00800000u
+#define BTN_GEAR_REVERSE 0x01000000u
+#define BTN_GEAR_1 0x02000000u
+#define BTN_GEAR_2 0x04000000u
+#define BTN_GEAR_3 0x08000000u
+#define BTN_GEAR_4 0x10000000u
+#define BTN_GEAR_5 0x20000000u
+#define BTN_GEAR_6 0x40000000u
+
+// Backward-compatible aliases used by earlier local edits.
+#define GEAR_SHIFT_DOWN_BUTTON BTN_GEAR_SHIFT_DOWN
+#define GEAR_SHIFT_UP_BUTTON BTN_GEAR_SHIFT_UP
+
 /**
  * Replay controller buttons
  * Used for time trial replays (including staff and player ghosts)

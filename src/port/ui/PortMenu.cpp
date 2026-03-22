@@ -347,6 +347,15 @@ void PortMenu::AddSettings() {
               "it's a compatibility issue.\n",
               WIDGET_TEXT);
     AddWidget(path, "Bindings", WIDGET_SEPARATOR_TEXT);
+    AddWidget(path, "Arcade Transmission Bindings:\n"
+                    "- Gear Shift Up\n"
+                    "- Gear Shift Down\n"
+                    "- Gear Clutch\n"
+                    "- Gear Reverse\n"
+                    "- Gear 1 through Gear 6\n"
+                    "\n"
+                    "These can be mapped in the Input Editor like any other button.",
+              WIDGET_TEXT);
     AddWidget(path, "Popout Bindings Window", WIDGET_WINDOW_BUTTON)
         .CVar(CVAR_CONTROLLER_CONFIGURATION_WINDOW_OPEN)
         .WindowName("Input Editor")
@@ -402,6 +411,10 @@ void PortMenu::AddEnhancements() {
     AddWidget(path, "Enable Look Behind Camera", WIDGET_CVAR_CHECKBOX)
         .CVar("gLookBehind")
         .Options(CheckboxOptions().Tooltip("Press C-Left to look behind you"));
+
+    AddWidget(path, "Enable Arcade Physics (Experimental)", WIDGET_CVAR_CHECKBOX)
+        .CVar("gKartPhysicsModel")
+        .Options(CheckboxOptions().Tooltip("Toggle between Classic (off) and Arcade (on) kart handling."));
 
     AddRulesets();
 

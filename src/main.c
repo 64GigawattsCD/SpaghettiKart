@@ -397,14 +397,13 @@ void read_controllers(void) {
     update_controller(1);
     update_controller(2);
     update_controller(3);
-    gControllerFive->button = (s16) (((gControllerOne->button | gControllerTwo->button) | gControllerThree->button) |
-                                     gControllerFour->button);
+    gControllerFive->button = (gControllerOne->button | gControllerTwo->button | gControllerThree->button |
+                               gControllerFour->button);
     gControllerFive->buttonPressed =
-        (s16) (((gControllerOne->buttonPressed | gControllerTwo->buttonPressed) | gControllerThree->buttonPressed) |
-               gControllerFour->buttonPressed);
-    gControllerFive->buttonDepressed = (s16) (((gControllerOne->buttonDepressed | gControllerTwo->buttonDepressed) |
-                                               gControllerThree->buttonDepressed) |
-                                              gControllerFour->buttonDepressed);
+        (gControllerOne->buttonPressed | gControllerTwo->buttonPressed | gControllerThree->buttonPressed |
+         gControllerFour->buttonPressed);
+    gControllerFive->buttonDepressed = (gControllerOne->buttonDepressed | gControllerTwo->buttonDepressed |
+                                        gControllerThree->buttonDepressed | gControllerFour->buttonDepressed);
     gControllerFive->stickDirection =
         (s16) (((gControllerOne->stickDirection | gControllerTwo->stickDirection) | gControllerThree->stickDirection) |
                gControllerFour->stickDirection);
