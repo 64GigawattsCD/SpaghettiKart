@@ -1,0 +1,28 @@
+<map id="GameUI::PortMenu::AddEnhancements" name="GameUI::PortMenu::AddEnhancements">
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,183,280,208"/>
+<area shape="rect" id="Node000002" href="$classShip_1_1Menu.html#ab11c570db7278bb11d2106d1b3584830" title=" " alt="" coords="347,5,544,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="155,180,224,117,273,80,327,48,366,32,368,37,329,52,276,84,227,121,158,184"/>
+<area shape="rect" id="Node000003" href="$classGameUI_1_1PortMenu.html#acf1c08d9ed088b6b33ec91a0e0a48494" title=" " alt="" coords="328,157,563,183"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="280,181,314,178,314,184,281,186"/>
+<area shape="rect" id="Node000004" href="$classGameUI_1_1PortMenu.html#a13c853deed0530fa8e1810ffe6fef9a5" title=" " alt="" coords="611,45,837,85"/>
+<area shape="poly" id="edge10_Node000001_Node000004" title=" " alt="" coords="167,180,238,147,327,114,396,98,466,85,597,70,597,75,467,91,397,103,329,119,240,151,169,185"/>
+<area shape="rect" id="Node000005" href="$classGameUI_1_1PortMenu.html#a35ff589db0705776ae252a50fa1cee7d" title=" " alt="" coords="612,109,836,135"/>
+<area shape="poly" id="edge11_Node000001_Node000005" title=" " alt="" coords="180,180,248,160,328,142,467,126,598,120,598,125,468,131,328,147,250,165,182,185"/>
+<area shape="rect" id="Node000006" href="$structWidgetInfo.html#a90231c4f7b3b153e6ede3f853748db3a" title=" " alt="" coords="659,208,789,233"/>
+<area shape="poly" id="edge12_Node000001_Node000006" title=" " alt="" coords="280,199,645,215,644,220,280,204"/>
+<area shape="rect" id="Node000007" href="$structWidgetInfo.html#a8fb193d773f8f491d161798ec34a3569" title=" " alt="" coords="649,259,799,284"/>
+<area shape="poly" id="edge13_Node000001_Node000007" title=" " alt="" coords="241,205,635,257,634,262,241,211"/>
+<area shape="rect" id="Node000008" href="$namespaceUIWidgets.html#a4d98c5aaae7bc50d0349332872902b84" title=" " alt="" coords="654,308,794,333"/>
+<area shape="poly" id="edge15_Node000001_Node000008" title=" " alt="" coords="179,206,247,229,329,253,495,286,641,308,640,313,494,291,327,258,246,234,177,211"/>
+<area shape="rect" id="Node000011" href="$structWidgetInfo.html#aa5a2f8ac208a9a4bb743df31284b9823" title=" " alt="" coords="369,360,521,385"/>
+<area shape="poly" id="edge14_Node000001_Node000011" title=" " alt="" coords="158,206,227,269,276,306,329,338,368,354,366,359,327,343,273,311,224,273,155,210"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="471,155,534,125,610,94,633,86,635,91,612,99,536,130,473,160"/>
+<area shape="poly" id="edge4_Node000003_Node000005" title=" " alt="" coords="519,155,635,134,636,140,520,160"/>
+<area shape="poly" id="edge5_Node000003_Node000006" title=" " alt="" coords="516,180,646,204,645,209,515,185"/>
+<area shape="poly" id="edge6_Node000003_Node000007" title=" " alt="" coords="472,181,535,211,612,242,648,253,646,258,610,247,532,216,470,185"/>
+<area shape="poly" id="edge7_Node000003_Node000008" title=" " alt="" coords="461,181,522,236,565,268,612,294,641,305,640,310,610,299,562,272,519,240,457,185"/>
+<area shape="rect" id="Node000010" href="$structWidgetInfo.html#a989db9af6c076da6263e8d8b5430f4b8" title=" " alt="" coords="633,159,815,184"/>
+<area shape="poly" id="edge9_Node000003_Node000010" title=" " alt="" coords="563,168,619,168,619,173,563,173"/>
+<area shape="rect" id="Node000009" href="$namespaceUIWidgets.html#a01b8f77a826ec1dcc1ee8c9a21c219d6" title=" " alt="" coords="885,308,1068,333"/>
+<area shape="poly" id="edge8_Node000008_Node000009" title=" " alt="" coords="794,318,872,318,872,323,794,323"/>
+</map>

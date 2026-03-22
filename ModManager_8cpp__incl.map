@@ -1,0 +1,27 @@
+<map id="src/engine/mods/ModManager.cpp" name="src/engine/mods/ModManager.cpp">
+<area shape="rect" id="Node000001" title=" " alt="" coords="769,5,1013,31"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="5,79,167,119"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="769,28,503,46,344,62,181,81,180,76,343,56,503,41,769,23"/>
+<area shape="rect" id="Node000003" href="$ModMetadata_8h.html" title=" " alt="" coords="191,86,315,111"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="769,30,562,49,444,63,328,81,307,85,306,80,327,76,444,58,562,44,769,25"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="339,79,500,119"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="813,33,514,81,513,76,812,28"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="524,79,685,119"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="850,33,687,78,686,73,849,28"/>
+<area shape="rect" id="Node000006" href="$Engine_8h.html" title=" " alt="" coords="709,86,817,111"/>
+<area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="874,33,795,81,792,76,871,29"/>
+<area shape="rect" id="Node000008" title=" " alt="" coords="842,86,941,111"/>
+<area shape="poly" id="edge7_Node000001_Node000008" title=" " alt="" coords="894,31,894,72,889,72,889,31"/>
+<area shape="rect" id="Node000009" title=" " alt="" coords="965,86,1111,111"/>
+<area shape="poly" id="edge8_Node000001_Node000009" title=" " alt="" coords="914,28,1005,77,1003,82,912,33"/>
+<area shape="rect" id="Node000010" title=" " alt="" coords="1135,86,1213,111"/>
+<area shape="poly" id="edge9_Node000001_Node000010" title=" " alt="" coords="943,28,1028,49,1124,76,1133,79,1131,84,1123,81,1027,54,941,33"/>
+<area shape="rect" id="Node000011" title=" " alt="" coords="1237,86,1311,111"/>
+<area shape="poly" id="edge10_Node000001_Node000011" title=" " alt="" coords="982,28,1098,47,1225,76,1235,79,1233,84,1224,81,1097,53,981,33"/>
+<area shape="rect" id="Node000012" title=" " alt="" coords="1335,86,1394,111"/>
+<area shape="poly" id="edge11_Node000001_Node000012" title=" " alt="" coords="1014,24,1163,42,1245,57,1324,76,1331,78,1329,83,1323,81,1244,62,1162,47,1013,29"/>
+<area shape="rect" id="Node000013" href="$ModManager_8h.html" title=" " alt="" coords="1419,86,1537,111"/>
+<area shape="poly" id="edge12_Node000001_Node000013" title=" " alt="" coords="1014,26,1200,45,1406,76,1426,80,1425,85,1406,81,1199,50,1013,31"/>
+<area shape="rect" id="Node000007" href="$HMAS_8h.html" title=" " alt="" coords="692,167,835,192"/>
+<area shape="poly" id="edge6_Node000006_Node000007" title=" " alt="" coords="766,112,766,153,761,153,761,112"/>
+</map>

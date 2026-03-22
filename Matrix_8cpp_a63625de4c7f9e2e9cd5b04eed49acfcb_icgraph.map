@@ -1,0 +1,27 @@
+<map id="ApplyMatrixTransformations" name="ApplyMatrixTransformations">
+<area shape="rect" id="Node000001" title=" " alt="" coords="480,243,687,268"/>
+<area shape="rect" id="Node000002" href="$classAActor.html#a85d714b98fe1a42151871f865c0e37f7" title=" " alt="" coords="261,5,368,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="569,231,549,189,519,138,479,87,456,64,431,44,400,30,368,23,369,18,402,25,433,40,460,60,483,83,524,135,554,187,574,229"/>
+<area shape="rect" id="Node000003" href="$classABowserStatue.html#a0ae791ad3e5a3f89aeff3c0fd829dc88" title=" " alt="" coords="233,55,396,80"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="565,233,542,200,512,162,474,125,431,94,395,80,397,75,433,89,477,121,516,159,547,197,569,230"/>
+<area shape="rect" id="Node000004" href="$classASpaghettiShip.html#a858f477eef6a77fed29a3816132f6c8e" title=" " alt="" coords="233,104,396,129"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="558,235,503,188,468,163,431,143,395,131,397,126,433,138,471,159,506,183,561,231"/>
+<area shape="rect" id="Node000005" href="$classStaticMeshActor.html#a1b8a72c0ae7a52b58870994efe83e55a" title=" " alt="" coords="229,153,400,179"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="543,239,490,216,431,194,384,181,385,176,433,189,492,211,545,234"/>
+<area shape="rect" id="Node000006" href="$classTrackEditor_1_1LightObject.html#a61b3a5910a00ffe5dfb5aff55566c638" title=" " alt="" coords="227,203,403,243"/>
+<area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="466,244,403,236,403,231,466,239"/>
+<area shape="rect" id="Node000007" href="$classTrackEditor_1_1ObjectPicker.html#a70abb28b0cc2f26b475cee54b8addb72" title=" " alt="" coords="223,267,406,307"/>
+<area shape="poly" id="edge6_Node000001_Node000007" title=" " alt="" coords="466,272,406,279,406,274,466,267"/>
+<area shape="rect" id="Node000008" href="$classTrackEditor_1_1Gizmo.html#a5f5509a37443442a1f9d6d80495b898b" title=" " alt="" coords="243,331,387,371"/>
+<area shape="poly" id="edge7_Node000001_Node000008" title=" " alt="" coords="544,276,433,322,388,336,386,331,431,317,542,271"/>
+<area shape="rect" id="Node000010" href="$classAText.html#aa57b324c99af31fbffa359dc9f73e173" title=" " alt="" coords="243,396,387,421"/>
+<area shape="poly" id="edge9_Node000001_Node000010" title=" " alt="" coords="564,280,509,334,473,362,433,386,388,401,386,396,431,381,470,358,505,330,560,276"/>
+<area shape="rect" id="Node000012" href="$classCustomTrack.html#a1acd4fb6d75c8e0567e182d734dcc0f8" title=" " alt="" coords="197,445,432,471"/>
+<area shape="poly" id="edge11_Node000001_Node000012" title=" " alt="" coords="571,281,549,317,518,359,479,401,433,436,409,448,406,443,431,432,476,397,514,356,545,314,566,279"/>
+<area shape="rect" id="Node000013" href="$Game_8cpp.html#a1741b8e08fafebe122d78e8702da037f" title=" " alt="" coords="257,495,372,520"/>
+<area shape="poly" id="edge12_Node000001_Node000013" title=" " alt="" coords="575,282,556,327,526,383,485,439,461,464,433,486,404,500,373,507,372,502,402,495,431,481,457,460,481,435,521,380,551,325,570,280"/>
+<area shape="rect" id="Node000009" href="$classTrackEditor_1_1Gizmo.html#a385576fd8da261ebe1d245905d825997" title=" " alt="" coords="5,331,149,371"/>
+<area shape="poly" id="edge8_Node000008_Node000009" title=" " alt="" coords="229,354,149,354,149,349,229,349"/>
+<area shape="rect" id="Node000011" href="$classAText.html#a36c1faa0b784e56886071b22dc65755b" title=" " alt="" coords="28,396,127,421"/>
+<area shape="poly" id="edge10_Node000010_Node000011" title=" " alt="" coords="229,411,127,411,127,406,229,406"/>
+</map>
