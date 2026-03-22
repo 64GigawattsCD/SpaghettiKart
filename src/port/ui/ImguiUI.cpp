@@ -7,6 +7,7 @@
 #include "Properties.h"
 #include "TrackProperties.h"
 #include "ContentBrowser.h"
+#include "LanMultiplayerWindow.h"
 
 #include <spdlog/spdlog.h>
 #include <imgui.h>
@@ -38,6 +39,7 @@ std::shared_ptr<Ship::GuiWindow> mSceneExplorerWindow;
 std::shared_ptr<Ship::GuiWindow> mPropertiesWindow;
 std::shared_ptr<Ship::GuiWindow> mTrackPropertiesWindow;
 std::shared_ptr<Ship::GuiWindow> mContentBrowserWindow;
+std::shared_ptr<Ship::GuiWindow> mLanMultiplayerWindow;
 
 void SetupGuiElements() {
     auto gui = Ship::Context::GetInstance()->GetWindow()->GetGui();
@@ -85,6 +87,10 @@ void SetupGuiElements() {
     mContentBrowserWindow =
         std::make_shared<TrackEditor::ContentBrowserWindow>("gEditorEnabled", "Content Browser");
     gui->AddGuiWindow(mContentBrowserWindow);
+
+    mLanMultiplayerWindow =
+        std::make_shared<LanMultiplayerWindow>("gLanMultiplayerWindowOpen", "LAN Multiplayer");
+    gui->AddGuiWindow(mLanMultiplayerWindow);
 }
 
 void Destroy() {
@@ -96,6 +102,7 @@ void Destroy() {
     mPropertiesWindow = nullptr;
     mTrackPropertiesWindow = nullptr;
     mContentBrowserWindow = nullptr;
+    mLanMultiplayerWindow = nullptr;
 }
 
 std::string GetWindowButtonText(const char* text, bool menuOpen) {

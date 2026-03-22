@@ -231,6 +231,7 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/engine/particles
     ${CMAKE_CURRENT_SOURCE_DIR}/src/enhancements
     ${CMAKE_CURRENT_SOURCE_DIR}/src/enhancements/freecam
+    ${CMAKE_CURRENT_SOURCE_DIR}/lib/enet/include
 )
 
 # Collect source files to build the executable
@@ -265,6 +266,8 @@ file(GLOB_RECURSE ALL_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
     "src/port/*.h"
     "src/port/*.c"
     "src/port/*.cpp"
+    "src/port/net/*.h"
+    "src/port/net/*.cpp"
     "src/mods/*.h"
     "src/mods/*.c"
     "src/mods/*.cpp"
@@ -403,14 +406,16 @@ include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_CURRENT_SOURCE_DIR}/libultraship/include
   ${CMAKE_CURRENT_SOURCE_DIR}/libultraship/include/libultraship
+  ${CMAKE_CURRENT_SOURCE_DIR}/lib/enet/include
   ${SDL2_INCLUDE_DIRS}
   ${GLEW_INCLUDE_DIRS}
   ${dr_libs_SOURCE_DIR}
 )
 
+add_subdirectory(lib/enet ${CMAKE_CURRENT_SOURCE_DIR}/lib/enet)
 add_subdirectory(libultraship ${CMAKE_CURRENT_SOURCE_DIR}/libultraship)
 add_dependencies(${PROJECT_NAME} libultraship)
-target_link_libraries(${PROJECT_NAME} PRIVATE libultraship)
+target_link_libraries(${PROJECT_NAME} PRIVATE enet libultraship)
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
   target_compile_definitions(${PROJECT_NAME} PRIVATE

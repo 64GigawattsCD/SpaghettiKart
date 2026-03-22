@@ -27,6 +27,7 @@ extern s32 gMenuSelection;
 
 namespace GameUI {
 extern std::shared_ptr<PortMenu> mPortMenu;
+extern std::shared_ptr<Ship::GuiWindow> mLanMultiplayerWindow;
 
 using namespace UIWidgets;
 
@@ -351,6 +352,17 @@ void PortMenu::AddSettings() {
         .CVar(CVAR_CONTROLLER_CONFIGURATION_WINDOW_OPEN)
         .WindowName("Input Editor")
         .Options(ButtonOptions().Tooltip("Enables the separate Bindings Window.").Size(Sizes::Inline));
+
+    path.sidebarName = "Multiplayer";
+    AddSidebarEntry("Settings", "Multiplayer", 1);
+    AddWidget(path,
+              "The LAN multiplayer window handles local session discovery over broadcast UDP and opens ENet host/client "
+              "connections for future race replication work.",
+              WIDGET_TEXT);
+    AddWidget(path, "Open LAN Multiplayer Window", WIDGET_WINDOW_BUTTON)
+        .CVar("gLanMultiplayerWindowOpen")
+        .WindowName("LAN Multiplayer")
+        .Options(ButtonOptions().Tooltip("Opens the LAN browser and hosting window.").Size(Sizes::Inline));
 }
 int32_t motionBlurStrength;
 

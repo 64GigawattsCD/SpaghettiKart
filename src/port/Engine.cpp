@@ -28,6 +28,7 @@
 #include "ship/window/gui/resource/FontFactory.h"
 #include "libultraship/controller/controldeck/ControlDeck.h"
 #include "SpaghettiGui.h"
+#include "net/NetworkManager.h"
 
 #include "port/interpolation/FrameInterpolation.h"
 #include <fast/Fast3dWindow.h>
@@ -348,6 +349,7 @@ void GameEngine::Create() {
     InitModsSystem();
     instance->gHMAS = new HMAS();
     instance->AudioInit();
+    Network::NetworkManager::Instance().Initialize();
     GameUI::SetupGuiElements();
 #if defined(__SWITCH__) || defined(__WIIU__)
     CVarRegisterInteger("gControlNav", 1); // always enable controller nav on switch/wii u
@@ -360,6 +362,7 @@ void GameEngine::Destroy() {
     Ship::Switch::Exit();
 #endif
     UnloadMods();
+    Network::NetworkManager::Instance().Shutdown();
     GameUI::Destroy();
     delete GameEngine::Instance;
     GameEngine::Instance = nullptr;

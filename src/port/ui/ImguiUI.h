@@ -4,6 +4,7 @@
 namespace GameUI {
 void SetupGuiElements();
 void Destroy();
+extern std::shared_ptr<Ship::GuiWindow> mLanMultiplayerWindow;
 } // namespace GameUI
 
 class GameMenuBar : public Ship::GuiMenuBar {
