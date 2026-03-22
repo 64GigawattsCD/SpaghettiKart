@@ -150,20 +150,20 @@ GameEngine::GameEngine() {
     );
 
     auto buttonNames = std::unordered_map<CONTROLLERBUTTONS_T, std::string>({
-                      { BTN_A, "A" },
-                      { BTN_B, "B" },
-                      { BTN_L, "L" },
-                      { BTN_R, "R" },
-                      { BTN_Z, "Z" },
-                      { BTN_START, "Start" },
-                      { BTN_CLEFT, "CLeft" },
-                      { BTN_CRIGHT, "CRight" },
-                      { BTN_CUP, "CUp" },
-                      { BTN_CDOWN, "CDown" },
-                      { BTN_DLEFT, "DLeft" },
-                      { BTN_DRIGHT, "DRight" },
-                      { BTN_DUP, "DUp" },
-                      { BTN_DDOWN, "DDown" },
+                      { BTN_A, "Btn_Menu_Yes" },
+                      { BTN_B, "Btn_Menu_No" },
+                      { BTN_L, "Btn_Shoulder_Left" },
+                      { BTN_R, "Btn_Drift" },
+                      { BTN_Z, "Btn_UseItem" },
+                      { BTN_START, "Btn_Menu_Pause" },
+                      { BTN_CLEFT, "Btn_Camera_Left" },
+                      { BTN_CRIGHT, "Btn_Camera_Right" },
+                      { BTN_CUP, "Btn_Camera_Up" },
+                      { BTN_CDOWN, "Btn_Camera_Down" },
+                      { BTN_DLEFT, "Btn_Menu_Left" },
+                      { BTN_DRIGHT, "Btn_Menu_Right" },
+                      { BTN_DUP, "Btn_Menu_Up" },
+                      { BTN_DDOWN, "Btn_Menu_Down" },
                   });
     auto controlDeck = std::make_shared<LUS::ControlDeck>(std::vector<CONTROLLERBUTTONS_T>(), defaultMappings, buttonNames);
     const std::string assets_path = Ship::Context::LocateFileAcrossAppDirs(engine_asset_file);
