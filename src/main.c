@@ -361,6 +361,8 @@ void update_controller(s32 index) {
 
     controller->rightRawStickX = gControllerPads[index].right_stick_x;
     controller->rightRawStickY = gControllerPads[index].right_stick_y;
+    controller->leftTrigger = gControllerPads[index].left_trigger;
+    controller->rightTrigger = gControllerPads[index].right_trigger;
 
     if ((gControllerPads[index].button & 4) != 0) {
         gControllerPads[index].button |= Z_TRIG;

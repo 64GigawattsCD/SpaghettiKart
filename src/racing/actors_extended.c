@@ -15,6 +15,7 @@
 #include "update_objects.h"
 #include "effects.h"
 #include "sounds.h"
+#include "kart_input.h"
 #include "port/Game.h"
 
 void copy_collision(Collision* src, Collision* dest) {
@@ -297,8 +298,8 @@ void update_actor_banana_bunch(struct BananaBunchParent* banana_bunch) {
                 owner->triggers &= ~DRAG_ITEM_EFFECT;
             } else if ((owner->type & PLAYER_HUMAN) != 0) {
                 controller = &gControllers[banana_bunch->playerId];
-                if ((controller->buttonPressed & Z_TRIG) != 0) {
-                    controller->buttonPressed &= ~Z_TRIG;
+                if (kart_input_was_command_pressed(controller, KART_INPUT_USE_ITEM)) {
+                    kart_input_consume_command_press(controller, KART_INPUT_USE_ITEM);
                     func_800C9060(owner - gPlayerOne, SOUND_ARG_LOAD(0x19, 0x00, 0x80, 0x12));
                     if ((controller->rawStickY >= 0x1F) &&
                         ((controller->rawStickX < 0x28) && (controller->rawStickX >= -0x27))) {
@@ -427,13 +428,13 @@ void update_actor_triple_shell(TripleShellParent* parent, s16 shellType) {
                 destroy_actor((struct Actor*) parent);
                 break;
             }
-            if ((gControllers[parent->playerId].buttonPressed & Z_TRIG) != 0) {
+            if (kart_input_was_command_pressed(&gControllers[parent->playerId], KART_INPUT_USE_ITEM)) {
                 /**
                  * Fires shell. Uses += 1.0f because this code is ran multiple times per frame.
                  * A bool would be turned on and off again resulting in no change
                  */
                 parent->firePressed += 1.0f;
-                gControllers[parent->playerId].buttonPressed &= ~Z_TRIG;
+                kart_input_consume_command_press(&gControllers[parent->playerId], KART_INPUT_USE_ITEM);
             }
             if (parent->firePressed > 0.0f) { // Fires a shell and resets firePressed to zero
                 if (parent->shellIndices[0] > 0.0f) {
@@ -974,8 +975,8 @@ void check_player_use_item(void) {
 
             if (((player->type & PLAYER_HUMAN) != 0) && (player->currentItemCopy != ITEM_NONE) &&
                 ((player->type & PLAYER_START_SEQUENCE) == 0)) {
-                if ((controller->buttonPressed & Z_TRIG) != 0) {
-                    controller->buttonPressed &= ~Z_TRIG;
+                if (kart_input_was_command_pressed(controller, KART_INPUT_USE_ITEM)) {
+                    kart_input_consume_command_press(controller, KART_INPUT_USE_ITEM);
                     player_use_item(player);
                 }
             }

@@ -68,6 +68,8 @@ struct Controller {
     s16 rawStickY;
     s16 rightRawStickX;
     s16 rightRawStickY;
+    f32 leftTrigger;
+    f32 rightTrigger;
     u16 button;          // HeldButton
     u16 buttonPressed;   // OnTriggered
     u16 buttonDepressed; // OffTriggered

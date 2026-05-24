@@ -124,8 +124,7 @@ GameEngine::GameEngine() {
         },
         // SDLButtonToButtonMappings
         std::unordered_map<CONTROLLERBUTTONS_T, std::unordered_set<SDL_GameControllerButton>>{
-            { BTN_A, { SDL_CONTROLLER_BUTTON_A } },
-            { BTN_B, { SDL_CONTROLLER_BUTTON_X } },
+            { BTN_L, { SDL_CONTROLLER_BUTTON_A } },
             { BTN_START, { SDL_CONTROLLER_BUTTON_START } },
             { BTN_CLEFT, { SDL_CONTROLLER_BUTTON_Y } },
             { BTN_CDOWN, { SDL_CONTROLLER_BUTTON_B } },
@@ -133,15 +132,15 @@ GameEngine::GameEngine() {
             { BTN_DDOWN, { SDL_CONTROLLER_BUTTON_DPAD_DOWN } },
             { BTN_DLEFT, { SDL_CONTROLLER_BUTTON_DPAD_LEFT } },
             { BTN_DRIGHT, { SDL_CONTROLLER_BUTTON_DPAD_RIGHT } },
-            { BTN_R, { SDL_CONTROLLER_BUTTON_RIGHTSHOULDER } },
-            { BTN_L, { SDL_CONTROLLER_BUTTON_LEFTSHOULDER } }
+            { BTN_R, { SDL_CONTROLLER_BUTTON_LEFTSHOULDER } },
+            { BTN_Z, { SDL_CONTROLLER_BUTTON_RIGHTSHOULDER } }
         },
         // SDLButtonToAxisDirectionMappings - use built-in LUS defaults
         std::unordered_map<Ship::StickIndex, std::vector<std::pair<Ship::Direction, SDL_GameControllerButton>>>(),
         // SDLAxisDirectionToButtonMappings
         std::unordered_map<CONTROLLERBUTTONS_T, std::vector<std::pair<SDL_GameControllerAxis, int32_t>>>{
-            { BTN_R, { { SDL_CONTROLLER_AXIS_TRIGGERRIGHT, 1 } } },
-            { BTN_Z, { { SDL_CONTROLLER_AXIS_TRIGGERLEFT, 1 } } },
+            { BTN_A, { { SDL_CONTROLLER_AXIS_TRIGGERRIGHT, 1 } } },
+            { BTN_B, { { SDL_CONTROLLER_AXIS_TRIGGERLEFT, 1 } } },
             { BTN_CUP, { { SDL_CONTROLLER_AXIS_RIGHTY, -1 } } },
             { BTN_CRIGHT, { { SDL_CONTROLLER_AXIS_RIGHTX, 1 } } }
         },
@@ -150,11 +149,11 @@ GameEngine::GameEngine() {
     );
 
     auto buttonNames = std::unordered_map<CONTROLLERBUTTONS_T, std::string>({
-                      { BTN_A, "A" },
-                      { BTN_B, "B" },
-                      { BTN_L, "L" },
-                      { BTN_R, "R" },
-                      { BTN_Z, "Z" },
+                      { BTN_A, "Throttle" },
+                      { BTN_B, "Brake" },
+                      { BTN_L, "Jump" },
+                      { BTN_R, "Drift" },
+                      { BTN_Z, "Use Item" },
                       { BTN_START, "Start" },
                       { BTN_CLEFT, "CLeft" },
                       { BTN_CRIGHT, "CRight" },
