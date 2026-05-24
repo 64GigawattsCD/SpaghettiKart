@@ -208,6 +208,11 @@ if (UNIX AND NOT APPLE)
 endif()
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
+  foreach(VERSION_PART MAJOR MINOR PATCH)
+    if ("${CMAKE_PROJECT_VERSION_${VERSION_PART}}" STREQUAL "")
+      set(CMAKE_PROJECT_VERSION_${VERSION_PART} 0)
+    endif()
+  endforeach()
   configure_file( ${CMAKE_CURRENT_SOURCE_DIR}/properties.h.in ${CMAKE_CURRENT_SOURCE_DIR}/properties.h @ONLY)
 endif()
 

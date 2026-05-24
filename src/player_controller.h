@@ -1,6 +1,8 @@
 #ifndef player_controller_H
 #define player_controller_H
 
+#include <stdbool.h>
+
 #include <common_structs.h>
 #include "camera.h"
 
@@ -30,6 +32,7 @@ void func_8002A704(Player*, s8);
 void func_8002A79C(Player*, s8);
 void func_8002A8A4(Player*, s8);
 void kart_hop(Player*);
+void kart_hop_with_drift(Player*, bool);
 void func_8002AAC0(Player*);
 void func_8002AB70(Player*);
 void func_8002AE20(void);
@@ -67,15 +70,20 @@ void update_player_kart_hop(Player*);
 void detect_triple_a_combo_a_released(Player*);
 void detect_triple_a_combo_a_pressed(Player*);
 void player_accelerate_alternative(Player*);
+void player_accelerate_alternative_with_input(Player*, f32);
 void player_decelerate_alternative(Player*, f32);
 void detect_triple_b_combo_b_released(Player*);
 void detect_triple_b_combo_b_pressed(Player*);
 void func_800323E4(Player*);
+void func_800323E4_with_input(Player*, f32);
 void player_accelerate_during_start_sequence(Player*);
+void player_accelerate_during_start_sequence_with_input(Player*, f32);
 void player_decelerate_during_start_sequence(Player*, f32);
 void player_accelerate(Player*);
+void player_accelerate_with_input(Player*, f32);
 void player_decelerate(Player*, f32);
 void player_accelerate_global(Player*, s32);
+void player_accelerate_global_with_input(Player*, s32, f32);
 void player_decelerate_global(Player*, f32, s32);
 void func_80033850(Player*, f32);
 void func_80033884(Player*, s32*, s32*, s32, s32, s32, s32);

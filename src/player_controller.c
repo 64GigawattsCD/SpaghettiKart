@@ -21,8 +21,19 @@
 #include "code_80005FD0.h"
 #include "sounds.h"
 #include "port/Game.h"
+#include "kart_input.h"
 #include "src/enhancements/moon_jump.h"
 #include "engine/Matrix.h"
+
+static f32 clamp_command_amount(f32 amount) {
+    if (amount < 0.0f) {
+        return 0.0f;
+    }
+    if (amount > 1.0f) {
+        return 1.0f;
+    }
+    return amount;
+}
 
 extern s32 D_8018D168;
 
@@ -935,13 +946,19 @@ void func_8002A8A4(Player* player, s8 arg1) {
 }
 
 void kart_hop(Player* player) {
+    kart_hop_with_drift(player, true);
+}
+
+void kart_hop_with_drift(Player* player, bool shouldStartDrift) {
     player->kartHopJerk = gKartHopJerkTable[player->characterId];
     player->kartHopAcceleration = 0.0f;
     player->kartHopVelocity = gKartHopInitialVelocityTable[player->characterId];
     player->effects |= HIGH_TUMBLE_TRIGGER;
     player->unk_DAC = 3.0f;
     player->kartGravity = 500.0f;
-    func_80036C5C(player);
+    if (shouldStartDrift) {
+        func_80036C5C(player);
+    }
 }
 
 /**
@@ -3002,8 +3019,18 @@ void detect_triple_a_combo_a_pressed(Player* player) {
 }
 
 void player_accelerate_alternative(Player* player) {
-    s32 player_index;
+    player_accelerate_alternative_with_input(player, 1.0f);
+}
 
+void player_accelerate_alternative_with_input(Player* player, f32 throttleAmount) {
+    s32 player_index;
+    f32 startingSpeed;
+
+    throttleAmount = clamp_command_amount(throttleAmount);
+    if (throttleAmount <= 0.0f) {
+        return;
+    }
+    startingSpeed = player->currentSpeed;
     player_index = get_player_index_for_player(player);
     if (gIsPlayerTripleAButtonCombo[player_index] == false) {
         if ((0.0 <= player->currentSpeed) && (player->currentSpeed < (player->topSpeed * 0.1))) {
@@ -3104,6 +3131,7 @@ void player_accelerate_alternative(Player* player) {
     if (player->topSpeed <= player->currentSpeed) {
         player->currentSpeed = player->topSpeed;
     }
+    player->currentSpeed = startingSpeed + ((player->currentSpeed - startingSpeed) * throttleAmount);
     if (!((player->effects & 8)) || ((player->effects & LIGHTNING_EFFECT))) {
         player->kartPropulsionStrength = (player->currentSpeed * player->currentSpeed) / 25.0f;
     }
@@ -3263,10 +3291,20 @@ void detect_triple_b_combo_b_pressed(Player* player) {
 }
 
 void func_800323E4(Player* player) {
+    func_800323E4_with_input(player, 1.0f);
+}
+
+void func_800323E4_with_input(Player* player, f32 brakeAmount) {
     s32 var_v1;
     f32 test;
     f32 var_f2;
+    f32 startingSpeed;
 
+    brakeAmount = clamp_command_amount(brakeAmount);
+    if (brakeAmount <= 0.0f) {
+        return;
+    }
+    startingSpeed = player->currentSpeed;
     var_f2 = 0.0f;
     if (player == gPlayerOne) {
         var_v1 = 0;
@@ -3330,13 +3368,27 @@ void func_800323E4(Player* player) {
             }
         }
     }
+    player->currentSpeed = startingSpeed + ((player->currentSpeed - startingSpeed) * brakeAmount);
+    if ((player->effects & 8) != 8) {
+        player->kartPropulsionStrength = (player->currentSpeed * player->currentSpeed) / 25.0f;
+    }
 }
 
 void player_accelerate_during_start_sequence(Player* player) {
+    player_accelerate_during_start_sequence_with_input(player, 1.0f);
+}
+
+void player_accelerate_during_start_sequence_with_input(Player* player, f32 throttleAmount) {
     s32 temp_v0;
     s32 var_v0;
     s32 test;
+    f32 startingSpeed;
 
+    throttleAmount = clamp_command_amount(throttleAmount);
+    if (throttleAmount <= 0.0f) {
+        return;
+    }
+    startingSpeed = player->currentSpeed;
     temp_v0 = get_player_index_for_player(player);
     if ((player->currentSpeed >= 0.0) && (player->currentSpeed < (player->topSpeed * 0.1))) {
         player->currentSpeed += gKartAccelerationTables[player->characterId][0] * 3.0;
@@ -3385,6 +3437,7 @@ void player_accelerate_during_start_sequence(Player* player) {
         }
     }
     player->kartProps |= THROTTLE;
+    player->currentSpeed = startingSpeed + ((player->currentSpeed - startingSpeed) * throttleAmount);
     player->unk_098 = (player->currentSpeed * player->currentSpeed) / 25.0f;
 }
 
@@ -3408,8 +3461,18 @@ void player_decelerate_during_start_sequence(Player* player, f32 speedReduction)
 }
 
 void player_accelerate(Player* player) {
-    UNUSED s32 player_index;
+    player_accelerate_with_input(player, 1.0f);
+}
 
+void player_accelerate_with_input(Player* player, f32 throttleAmount) {
+    UNUSED s32 player_index;
+    f32 startingSpeed;
+
+    throttleAmount = clamp_command_amount(throttleAmount);
+    if (throttleAmount <= 0.0f) {
+        return;
+    }
+    startingSpeed = player->currentSpeed;
     player_index = get_player_index_for_player(player);
     if ((0.0 <= player->currentSpeed) && (player->currentSpeed < (player->topSpeed * 0.1))) {
         player->currentSpeed += gKartAccelerationTables[player->characterId][0] * 3.2;
@@ -3444,6 +3507,7 @@ void player_accelerate(Player* player) {
     if (player->currentSpeed < 0.0f) {
         player->currentSpeed = 0.0f;
     }
+    player->currentSpeed = startingSpeed + ((player->currentSpeed - startingSpeed) * throttleAmount);
     player->unk_098 = (player->currentSpeed * player->currentSpeed) / 25.0f;
 }
 
@@ -3459,6 +3523,17 @@ void player_decelerate(Player* player, f32 speedReduction) {
 }
 
 void player_accelerate_global(Player* player, s32 playerIndex) {
+    player_accelerate_global_with_input(player, playerIndex, 1.0f);
+}
+
+void player_accelerate_global_with_input(Player* player, s32 playerIndex, f32 throttleAmount) {
+    f32 startingSpeed;
+
+    throttleAmount = clamp_command_amount(throttleAmount);
+    if (throttleAmount <= 0.0f) {
+        return;
+    }
+    startingSpeed = gPlayerCurrentSpeed[playerIndex];
     if ((gPlayerCurrentSpeed[playerIndex] >= 0.0) && (gPlayerCurrentSpeed[playerIndex] < ((f64) player->topSpeed * 0.1))) {
         gPlayerCurrentSpeed[playerIndex] += gKartAccelerationTables[player->characterId][0] * 3.2;
     }
@@ -3493,6 +3568,7 @@ void player_accelerate_global(Player* player, s32 playerIndex) {
     if (gPlayerCurrentSpeed[playerIndex] < 0.0f) {
         gPlayerCurrentSpeed[playerIndex] = 0.0f;
     }
+    gPlayerCurrentSpeed[playerIndex] = startingSpeed + ((gPlayerCurrentSpeed[playerIndex] - startingSpeed) * throttleAmount);
     player->unk_098 = (gPlayerCurrentSpeed[playerIndex] * gPlayerCurrentSpeed[playerIndex]) / 25.0f;
 }
 
@@ -3615,8 +3691,9 @@ void func_80033AE0(Player* player, struct Controller* controller, s8 arg2) {
                       0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8,
                       0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8 };
 
-    if (((((player->effects & 2) != 2) && ((((player->unk_0C0 / 182) <= 6) && ((player->unk_0C0 / 182) >= (-6))) ||
-                                           ((controller->button & R_TRIG) != R_TRIG))) ||
+    if (((((player->effects & 2) != 2) &&
+          ((((player->unk_0C0 / 182) <= 6) && ((player->unk_0C0 / 182) >= (-6))) ||
+           !kart_input_is_command_active(controller, KART_INPUT_DRIFT))) ||
          (((player->speed / 18.0f) * 216.0f) <= 20.0f)) ||
         ((player->effects & 0x8000) == 0x8000)) {
         func_80036CB4(player);
@@ -4280,6 +4357,12 @@ void func_80037BB4(Player* player, Vec3f arg1) {
 }
 
 void func_80037CFC(Player* player, struct Controller* controller, s8 arg2) {
+    const f32 throttleAmount = kart_input_get_command_value(controller, KART_INPUT_THROTTLE);
+    const f32 brakeAmount = kart_input_get_command_value(controller, KART_INPUT_BRAKE);
+    const bool throttleActive = throttleAmount > 0.0f;
+    const bool brakeActive = brakeAmount > 0.0f;
+    const bool jumpPressed = kart_input_was_command_pressed(controller, KART_INPUT_JUMP);
+    const bool driftActive = kart_input_is_command_active(controller, KART_INPUT_DRIFT);
 
     if (CVarGetInteger("gEnableMoonJump", 0)) {
         moon_jump(player, controller);
@@ -4292,12 +4375,17 @@ void func_80037CFC(Player* player, struct Controller* controller, s8 arg2) {
         ((player->effects & 0x20000) != 0x20000)) {
         if (((player->effects & HIT_EFFECT) != HIT_EFFECT) && ((player->effects & 8) != 8) &&
             ((player->effects & 2) != 2) && ((player->effects & DRIFTING_EFFECT) != DRIFTING_EFFECT) &&
-            (controller->buttonPressed & R_TRIG)) {
-            kart_hop(player);
+            jumpPressed) {
+            kart_hop_with_drift(player, driftActive);
             if (((player->type & PLAYER_HUMAN) == PLAYER_HUMAN) &&
                 ((player->type & PLAYER_INVISIBLE_OR_BOMB) != PLAYER_INVISIBLE_OR_BOMB)) {
                 func_800C9060(arg2, 0x19008000);
             }
+        }
+        if (((player->effects & HIT_EFFECT) != HIT_EFFECT) && ((player->effects & 8) != 8) &&
+            ((player->effects & 2) != 2) && ((player->effects & DRIFTING_EFFECT) != DRIFTING_EFFECT) &&
+            !jumpPressed && driftActive) {
+            func_80036C5C(player);
         }
         if ((player->effects & 8) != 8) {
             func_80033AE0(player, controller, arg2);
@@ -4307,8 +4395,8 @@ void func_80037CFC(Player* player, struct Controller* controller, s8 arg2) {
         player->effects &= ~1;
         if ((!(player->effects & BOOST_RAMP_ASPHALT_EFFECT)) && (!(player->effects & BOOST_RAMP_WOOD_EFFECT))) {
             if (((player->speed / 18.0f) * 216.0f) <= 12.0f) {
-                if (controller->button & A_BUTTON) {
-                    if (controller->button & B_BUTTON) {
+                if (throttleActive) {
+                    if (brakeActive) {
                         player->effects |= 0x20;
                         if ((player->effects & 0x20) != 0x20) {
                             player->currentSpeed += 100.0f;
@@ -4317,13 +4405,13 @@ void func_80037CFC(Player* player, struct Controller* controller, s8 arg2) {
                 }
             }
             if (((player->effects & 0x20) == 0x20) &&
-                (((controller->button & B_BUTTON) == 0) || (!(controller->button & A_BUTTON)))) {
+                (!brakeActive || !throttleActive)) {
                 player->effects &= ~0x20;
             }
         }
         if ((player->kartProps & BACK_UP) != BACK_UP) {
-            if (controller->button & A_BUTTON) {
-                player_accelerate_alternative(player);
+            if (throttleActive) {
+                player_accelerate_alternative_with_input(player, throttleAmount);
                 detect_triple_a_combo_a_pressed(player);
             } else {
                 if (gModeSelection == BATTLE) {
@@ -4333,8 +4421,8 @@ void func_80037CFC(Player* player, struct Controller* controller, s8 arg2) {
                 }
                 detect_triple_a_combo_a_released(player);
             }
-            if (controller->button & B_BUTTON) {
-                func_800323E4(player);
+            if (brakeActive) {
+                func_800323E4_with_input(player, brakeAmount);
                 detect_triple_b_combo_b_pressed(player);
             } else {
                 player->unk_20C = 0.0f;
@@ -4343,13 +4431,13 @@ void func_80037CFC(Player* player, struct Controller* controller, s8 arg2) {
         }
         if ((!(player->effects & BOOST_RAMP_ASPHALT_EFFECT)) && (!(player->effects & 4))) {
             if (((func_800388B0(controller) < (-0x31)) && (((player->speed / 18.0f) * 216.0f) <= 5.0f)) &&
-                (controller->button & B_BUTTON)) {
+                brakeActive) {
                 player->currentSpeed = 140.0f;
                 player->kartProps |= BACK_UP;
                 player->kartPropulsionStrength = (player->currentSpeed * player->currentSpeed) / 25.0f;
                 player->unk_20C = 0.0f;
             }
-            if ((func_800388B0(controller) >= -0x1D) || (!(controller->button & B_BUTTON))) {
+            if ((func_800388B0(controller) >= -0x1D) || !brakeActive) {
                 if ((player->kartProps & BACK_UP) == BACK_UP) {
                     player->kartProps &= ~BACK_UP;
                     player->currentSpeed = 0.0f;
@@ -4358,8 +4446,8 @@ void func_80037CFC(Player* player, struct Controller* controller, s8 arg2) {
         }
     } else {
         if ((player->effects & 0x4000) == 0x4000) {
-            if (controller->button & A_BUTTON) {
-                player_accelerate_alternative(player);
+            if (throttleActive) {
+                player_accelerate_alternative_with_input(player, throttleAmount);
             } else {
                 player_decelerate_alternative(player, 5.0f);
             }
@@ -4367,9 +4455,9 @@ void func_80037CFC(Player* player, struct Controller* controller, s8 arg2) {
         if (((((player->effects & 0x80) == 0x80) || ((player->effects & 0x40) == 0x40)) ||
              ((player->effects & 0x01000000) == 0x01000000)) ||
             ((player->effects & HIT_BY_ITEM_EFFECT) == HIT_BY_ITEM_EFFECT)) {
-            if (controller->button & A_BUTTON) {
+            if (throttleActive) {
                 detect_triple_a_combo_a_pressed(player);
-                player_accelerate_global(player, arg2);
+                player_accelerate_global_with_input(player, arg2, throttleAmount);
                 return;
             }
             detect_triple_a_combo_a_released(player);
@@ -4379,12 +4467,15 @@ void func_80037CFC(Player* player, struct Controller* controller, s8 arg2) {
 }
 
 void handle_a_press_for_player_during_race(Player* player, struct Controller* controller, s8 arg2) {
+    const f32 throttleAmount = kart_input_get_command_value(controller, KART_INPUT_THROTTLE);
+    const bool throttleActive = throttleAmount > 0.0f;
+
     if (((player->type & PLAYER_EXISTS) == PLAYER_EXISTS) && ((player->type & PLAYER_HUMAN) == PLAYER_HUMAN) &&
         ((player->type & PLAYER_CPU) != PLAYER_CPU)) {
         if ((player->type & PLAYER_START_SEQUENCE) != PLAYER_START_SEQUENCE) {
             if (((player->lakituProps & HELD_BY_LAKITU) == HELD_BY_LAKITU) || ((player->lakituProps & LAKITU_SCENE) == LAKITU_SCENE)) {
-                if (controller->button & A_BUTTON) {
-                    player_accelerate(player);
+                if (throttleActive) {
+                    player_accelerate_with_input(player, throttleAmount);
                 } else {
                     player_decelerate(player, 5.0f);
                 }
@@ -4398,8 +4489,8 @@ void handle_a_press_for_player_during_race(Player* player, struct Controller* co
                     D_801652E0[arg2] = gRaceFrameCounter;
                 }
             }
-            if (controller->button & A_BUTTON) {
-                player_accelerate_during_start_sequence(player);
+            if (throttleActive) {
+                player_accelerate_during_start_sequence_with_input(player, throttleAmount);
             } else {
                 player_decelerate_during_start_sequence(player, 5.0f);
             }
