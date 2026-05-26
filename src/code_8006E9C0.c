@@ -206,6 +206,10 @@ void func_8006F008(void) {
     }
 
     switch (gPlayerCount) {
+        case 1:
+            CM_GetProps()->Minimap.Pos[PLAYER_ONE].X = 260;
+            CM_GetProps()->Minimap.Pos[PLAYER_ONE].Y = 104;
+            break;
         case 2:
             // Set X coord
             if (!IsToadsTurnpike()) {
@@ -247,7 +251,7 @@ void func_8006F8CC(void) {
     if (gTrackMapInit == 0) {
         gTrackMapInit = 1;
         gHUDModes = 0;
-        D_801657E6 = 0;
+        D_801657E6 = 1;
         D_801657F0 = 0;
         D_801657E8 = 1;
         D_80165800[0] = D_80165800[1] = 1;
@@ -660,26 +664,26 @@ void init_hud_one_player(void) {
     func_8007055C(gScreenOneCtx);
     func_8007055C(gScreenTwoCtx);
     init_course_object();
-    playerHUD[PLAYER_ONE].speedometerX = 0x0156;
-    playerHUD[PLAYER_ONE].speedometerY = 0x0106;
+    playerHUD[PLAYER_ONE].speedometerX = 0x0106;
+    playerHUD[PLAYER_ONE].speedometerY = 0x00B6;
     D_8018CFEC = playerHUD[PLAYER_ONE].speedometerX + 0x18;
     D_8018CFF4 = playerHUD[PLAYER_ONE].speedometerY + 6;
     D_8016579E = 0xDD00;
-    playerHUD[PLAYER_ONE].rankX = 52;
-    playerHUD[PLAYER_ONE].rankY = 0x00C8;
+    playerHUD[PLAYER_ONE].rankX = 38;
+    playerHUD[PLAYER_ONE].rankY = 0x001C;
     playerHUD[PLAYER_ONE].slideRankX = 0;
     playerHUD[PLAYER_ONE].slideRankY = 0;
     playerHUD[PLAYER_ONE].stagingPosition = gGPCurrentRaceRankByPlayerId[0];
-    playerHUD[PLAYER_ONE].timerX = 0x012C;
-    playerHUD[PLAYER_ONE].lapCompletionTimeXs[0] = 0x012C;
-    playerHUD[PLAYER_ONE].lapCompletionTimeXs[1] = 0x012C;
-    playerHUD[PLAYER_ONE].timerY = 0x0011;
+    playerHUD[PLAYER_ONE].timerX = 0x0090;
+    playerHUD[PLAYER_ONE].lapCompletionTimeXs[0] = 0x0090;
+    playerHUD[PLAYER_ONE].lapCompletionTimeXs[1] = 0x0090;
+    playerHUD[PLAYER_ONE].timerY = 0x000A;
     playerHUD[PLAYER_ONE].lapX = -40;
     playerHUD[PLAYER_ONE].lapAfterImage1X = -40;
     playerHUD[PLAYER_ONE].lapAfterImage2X = -40;
     playerHUD[PLAYER_ONE].lapY = 0x0019;
-    playerHUD[PLAYER_ONE].itemBoxX = 0x00A0;
-    playerHUD[PLAYER_ONE].itemBoxY = -0x0020;
+    playerHUD[PLAYER_ONE].itemBoxX = 0x008C;
+    playerHUD[PLAYER_ONE].itemBoxY = -0x0016;
     playerHUD[PLAYER_ONE].slideItemBoxX = 0;
     playerHUD[PLAYER_ONE].slideItemBoxY = 0;
     // permuter magic

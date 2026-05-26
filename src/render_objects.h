@@ -294,6 +294,7 @@ void func_8004EB30(s32);
 void func_8004EB38(s32);
 void render_digital_speedometer(s32 playerIdx);
 void render_speedometer(s32);
+void render_shift_feedback_hud(s32 playerIdx);
 void func_8004EE54(s32);
 
 void func_8004EF9C(s32);

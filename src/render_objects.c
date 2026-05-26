@@ -43,6 +43,7 @@
 #include <assets/models/tracks/frappe_snowland/frappe_snowland_data.h>
 #include "port/Game.h"
 #include "port/Engine.h"
+#include "kart_transmission.h"
 
 #include "engine/Matrix.h"
 #include "engine/tracks/Track.h"
@@ -2712,15 +2713,15 @@ void func_8004EB38(s32 playerId) {
 
 void render_digital_speedometer(s32 playerIdx) {
     char str[16];
-    f32 speed = (gPlayers[playerIdx].speed / 18.0f) * 216.0f;
+    f32 rpm = kart_transmission_get_engine_rpm(&gPlayers[playerIdx], playerIdx);
     set_text_color(TEXT_YELLOW);
 
-    size_t len = (size_t) snprintf(str, sizeof(str), "%.2f", speed);
+    size_t len = (size_t) snprintf(str, sizeof(str), "%.0f RPM", rpm);
     if (len >= sizeof(str)) {
         printf("[render_objects.c] [render_digital_speedometer] str buffer too small, characters were discarded!\n");
     }
 
-    text_draw_wide(270, 224, str, 0, 0.5f, 0.5f);
+    text_draw_wide(playerHUD[playerIdx].speedometerX - 22, playerHUD[playerIdx].speedometerY + 34, str, 0, 0.5f, 0.5f);
 }
 
 Vtx speedometer_vtx[] = {
@@ -2732,14 +2733,50 @@ Vtx speedometer_vtx[] = {
 
 // render the speedometer for the player
 void render_speedometer(s32 playerIdx) {
+    f32 rpm = kart_transmission_get_engine_rpm(&gPlayers[playerIdx], playerIdx);
+    f32 rpmRatio = (rpm - 900.0f) / 6650.0f;
+    u16 needleRotation;
+
+    if (rpmRatio < 0.0f) {
+        rpmRatio = 0.0f;
+    }
+    if (rpmRatio > 1.0f) {
+        rpmRatio = 1.0f;
+    }
+    needleRotation = 0xDD00 + (u16) (rpmRatio * 0x1980);
+
     gSPClearGeometryMode(gDisplayListHead++, G_ZBUFFER);
     func_8004A2F4(playerHUD[playerIdx].speedometerX, playerHUD[playerIdx].speedometerY, 0U, 1.0f,
                   // RGBA
                   CM_GetProps()->Minimap.Colour.r, CM_GetProps()->Minimap.Colour.g, CM_GetProps()->Minimap.Colour.b,
                   0xFF, common_texture_speedometer, speedometer_vtx, 64, 96, 64, 48);
     // x, y, needle rot
-    func_8004A258(D_8018CFEC, D_8018CFF4, D_8016579E, 1.0f, common_texture_speedometer_needle, D_0D005FF0, 0x40, 0x20,
+    func_8004A258(D_8018CFEC, D_8018CFF4, needleRotation, 1.0f, common_texture_speedometer_needle, D_0D005FF0, 0x40, 0x20,
                   0x40, 0x20);
+    set_text_color(TEXT_YELLOW);
+    text_draw_wide(playerHUD[playerIdx].speedometerX - 9, playerHUD[playerIdx].speedometerY + 20, "RPM", 0, 0.5f, 0.5f);
+}
+
+void render_shift_feedback_hud(s32 playerIdx) {
+    KartShiftFeedback feedback = kart_transmission_get_shift_feedback(playerIdx);
+    s16 timer = kart_transmission_get_shift_feedback_timer(playerIdx);
+    f32 scale = 0.75f;
+
+    if ((feedback == KART_SHIFT_FEEDBACK_NONE) || (timer <= 0)) {
+        return;
+    }
+
+    if (timer > 30) {
+        scale = 0.90f;
+    }
+
+    if (feedback == KART_SHIFT_FEEDBACK_GOOD) {
+        set_text_color(TEXT_YELLOW);
+        text_draw_wide(124, 132, "GOOD SHIFT", 0, scale, scale);
+    } else if (feedback == KART_SHIFT_FEEDBACK_BAD) {
+        set_text_color(TEXT_RED);
+        text_draw_wide(142, 132, "GRIND", 0, scale, scale);
+    }
 }
 
 // player is only 0 or 1

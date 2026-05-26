@@ -732,16 +732,15 @@ void func_80058F78(void) {
         set_matrix_hud_screen();
         if ((!gDemoMode) && (gIsHUDVisible != 0) && (D_801657D8 == 0)) {
             draw_item_window(PLAYER_ONE);
-            if (gHUDModes != 2) {
-                render_hud_timer(PLAYER_ONE);
-                draw_simplified_lap_count(PLAYER_ONE);
-                func_8004EB38(0);
-                if (D_801657E6 != false) {
-                    if (CVarGetInteger("gEnableDigitalSpeedometer", false) == true) {
-                        render_digital_speedometer(PLAYER_ONE);
-                    }
-                    render_speedometer(PLAYER_ONE);
+            render_hud_timer(PLAYER_ONE);
+            draw_simplified_lap_count(PLAYER_ONE);
+            func_8004EB38(0);
+            render_shift_feedback_hud(PLAYER_ONE);
+            if (D_801657E6 != false) {
+                if (CVarGetInteger("gEnableDigitalSpeedometer", false) == true) {
+                    render_digital_speedometer(PLAYER_ONE);
                 }
+                render_speedometer(PLAYER_ONE);
             }
         }
 
@@ -1309,20 +1308,15 @@ void func_8005A3C0(void) {
         switch (gPlayerCountSelection1) {
             case 1:
                 if (gControllerOne->buttonPressed & R_CBUTTONS) {
-                    if (++gHUDModes >= 3) {
-                        gHUDModes = 0;
-                    }
                     if (gHUDModes == 2) {
-                        D_801657E8 = false;
-                        D_801657E6 = false;
-                        D_801657F0 = true;
-                    } else if (gHUDModes == 1) {
-                        D_801657E8 = false;
+                        gHUDModes = 0;
                         D_801657E6 = true;
+                        D_801657E8 = true;
                         D_801657F0 = false;
                     } else {
-                        D_801657E8 = true;
+                        gHUDModes = 2;
                         D_801657E6 = false;
+                        D_801657E8 = false;
                         D_801657F0 = false;
                     }
                     b = true;
@@ -1565,37 +1559,37 @@ void func_8005AB60(void) {
         case 0:
             break;
         case 1:
-            if (s16_step_towards(&playerHUD[PLAYER_ONE].timerX, 0xE4, 0x10) != 0) {
+            if (s16_step_towards(&playerHUD[PLAYER_ONE].timerX, 0x90, 0x10) != 0) {
                 playerHUD[PLAYER_ONE].unk_7A++;
             }
             break;
         case 2:
-            if (s16_step_towards(&playerHUD[PLAYER_ONE].timerX, 0xF4, 4) != 0) {
+            if (s16_step_towards(&playerHUD[PLAYER_ONE].timerX, 0xA0, 4) != 0) {
                 playerHUD[PLAYER_ONE].unk_7A++;
             }
             break;
         case 3:
-            if (s16_step_towards(&playerHUD[PLAYER_ONE].timerX, 0xE4, 4) != 0) {
+            if (s16_step_towards(&playerHUD[PLAYER_ONE].timerX, 0x90, 4) != 0) {
                 playerHUD[PLAYER_ONE].unk_7A++;
             }
             break;
         case 4:
-            if (s16_step_towards(&playerHUD[PLAYER_ONE].timerX, 0xEC, 4) != 0) {
+            if (s16_step_towards(&playerHUD[PLAYER_ONE].timerX, 0x98, 4) != 0) {
                 playerHUD[PLAYER_ONE].unk_7A++;
             }
             break;
         case 5:
-            if (s16_step_towards(&playerHUD[PLAYER_ONE].timerX, 0xE4, 4) != 0) {
+            if (s16_step_towards(&playerHUD[PLAYER_ONE].timerX, 0x90, 4) != 0) {
                 playerHUD[PLAYER_ONE].unk_7A++;
             }
             break;
         case 6:
-            if (s16_step_towards(&playerHUD[PLAYER_ONE].timerX, 0xE8, 2) != 0) {
+            if (s16_step_towards(&playerHUD[PLAYER_ONE].timerX, 0x94, 2) != 0) {
                 playerHUD[PLAYER_ONE].unk_7A++;
             }
             break;
         case 7:
-            if (s16_step_towards(&playerHUD[PLAYER_ONE].timerX, 0xE4, 2) != 0) {
+            if (s16_step_towards(&playerHUD[PLAYER_ONE].timerX, 0x90, 2) != 0) {
                 playerHUD[PLAYER_ONE].unk_7A++;
             }
             break;
@@ -1651,37 +1645,37 @@ void func_8005AB60(void) {
         case 0:
             break;
         case 1:
-            if (s16_step_towards(&playerHUD[PLAYER_ONE].lap1CompletionTimeX, 0xE4, 0x10) != 0) {
+            if (s16_step_towards(&playerHUD[PLAYER_ONE].lap1CompletionTimeX, 0x90, 0x10) != 0) {
                 playerHUD[PLAYER_ONE].unk_7B++;
             }
             break;
         case 2:
-            if (s16_step_towards(&playerHUD[PLAYER_ONE].lap1CompletionTimeX, 0xF4, 4) != 0) {
+            if (s16_step_towards(&playerHUD[PLAYER_ONE].lap1CompletionTimeX, 0xA0, 4) != 0) {
                 playerHUD[PLAYER_ONE].unk_7B++;
             }
             break;
         case 3:
-            if (s16_step_towards(&playerHUD[PLAYER_ONE].lap1CompletionTimeX, 0xE4, 4) != 0) {
+            if (s16_step_towards(&playerHUD[PLAYER_ONE].lap1CompletionTimeX, 0x90, 4) != 0) {
                 playerHUD[PLAYER_ONE].unk_7B++;
             }
             break;
         case 4:
-            if (s16_step_towards(&playerHUD[PLAYER_ONE].lap1CompletionTimeX, 0xEC, 4) != 0) {
+            if (s16_step_towards(&playerHUD[PLAYER_ONE].lap1CompletionTimeX, 0x98, 4) != 0) {
                 playerHUD[PLAYER_ONE].unk_7B++;
             }
             break;
         case 5:
-            if (s16_step_towards(&playerHUD[PLAYER_ONE].lap1CompletionTimeX, 0xE4, 4) != 0) {
+            if (s16_step_towards(&playerHUD[PLAYER_ONE].lap1CompletionTimeX, 0x90, 4) != 0) {
                 playerHUD[PLAYER_ONE].unk_7B++;
             }
             break;
         case 6:
-            if (s16_step_towards(&playerHUD[PLAYER_ONE].lap1CompletionTimeX, 0xE8, 2) != 0) {
+            if (s16_step_towards(&playerHUD[PLAYER_ONE].lap1CompletionTimeX, 0x94, 2) != 0) {
                 playerHUD[PLAYER_ONE].unk_7B++;
             }
             break;
         case 7:
-            if (s16_step_towards(&playerHUD[PLAYER_ONE].lap1CompletionTimeX, 0xE4, 2) != 0) {
+            if (s16_step_towards(&playerHUD[PLAYER_ONE].lap1CompletionTimeX, 0x90, 2) != 0) {
                 playerHUD[PLAYER_ONE].unk_7B++;
             }
             break;
@@ -1735,37 +1729,37 @@ void func_8005AB60(void) {
         case 0:
             break;
         case 1:
-            if (s16_step_towards(&playerHUD[PLAYER_ONE].lap2CompletionTimeX, 0xE4, 0x10) != 0) {
+            if (s16_step_towards(&playerHUD[PLAYER_ONE].lap2CompletionTimeX, 0x90, 0x10) != 0) {
                 playerHUD[PLAYER_ONE].unk_7C++;
             }
             break;
         case 2:
-            if (s16_step_towards(&playerHUD[PLAYER_ONE].lap2CompletionTimeX, 0xF4, 4) != 0) {
+            if (s16_step_towards(&playerHUD[PLAYER_ONE].lap2CompletionTimeX, 0xA0, 4) != 0) {
                 playerHUD[PLAYER_ONE].unk_7C++;
             }
             break;
         case 3:
-            if (s16_step_towards(&playerHUD[PLAYER_ONE].lap2CompletionTimeX, 0xE4, 4) != 0) {
+            if (s16_step_towards(&playerHUD[PLAYER_ONE].lap2CompletionTimeX, 0x90, 4) != 0) {
                 playerHUD[PLAYER_ONE].unk_7C++;
             }
             break;
         case 4:
-            if (s16_step_towards(&playerHUD[PLAYER_ONE].lap2CompletionTimeX, 0xEC, 4) != 0) {
+            if (s16_step_towards(&playerHUD[PLAYER_ONE].lap2CompletionTimeX, 0x98, 4) != 0) {
                 playerHUD[PLAYER_ONE].unk_7C++;
             }
             break;
         case 5:
-            if (s16_step_towards(&playerHUD[PLAYER_ONE].lap2CompletionTimeX, 0xE4, 4) != 0) {
+            if (s16_step_towards(&playerHUD[PLAYER_ONE].lap2CompletionTimeX, 0x90, 4) != 0) {
                 playerHUD[PLAYER_ONE].unk_7C++;
             }
             break;
         case 6:
-            if (s16_step_towards(&playerHUD[PLAYER_ONE].lap2CompletionTimeX, 0xE8, 2) != 0) {
+            if (s16_step_towards(&playerHUD[PLAYER_ONE].lap2CompletionTimeX, 0x94, 2) != 0) {
                 playerHUD[PLAYER_ONE].unk_7C++;
             }
             break;
         case 7:
-            if (s16_step_towards(&playerHUD[PLAYER_ONE].lap2CompletionTimeX, 0xE4, 2) != 0) {
+            if (s16_step_towards(&playerHUD[PLAYER_ONE].lap2CompletionTimeX, 0x90, 2) != 0) {
                 playerHUD[PLAYER_ONE].unk_7C++;
             }
             break;

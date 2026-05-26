@@ -36,6 +36,14 @@ static f32 clamp_command_amount(f32 amount) {
     return amount;
 }
 
+static f32 get_transmission_propulsion_strength(Player* player, s32 playerIndex) {
+    f32 propulsionStrength = (player->currentSpeed * player->currentSpeed) / 25.0f;
+    if (kart_transmission_is_reverse_gear(playerIndex)) {
+        propulsionStrength = -propulsionStrength;
+    }
+    return propulsionStrength;
+}
+
 extern s32 D_8018D168;
 
 s16 cpu_forMario[] = { LUIGI, YOSHI, TOAD, DK, WARIO, PEACH, BOWSER, 0 };
@@ -3136,7 +3144,7 @@ void player_accelerate_alternative_with_input(Player* player, f32 throttleAmount
     kart_transmission_apply_speed_limits(player, player_index);
     player->currentSpeed = startingSpeed + ((player->currentSpeed - startingSpeed) * throttleAmount);
     if (!((player->effects & 8)) || ((player->effects & LIGHTNING_EFFECT))) {
-        player->kartPropulsionStrength = (player->currentSpeed * player->currentSpeed) / 25.0f;
+        player->kartPropulsionStrength = get_transmission_propulsion_strength(player, player_index);
     }
     player->kartProps |= THROTTLE;
     // Hacky way to check for START_SPINOUT_TRIGGER
@@ -3443,7 +3451,7 @@ void player_accelerate_during_start_sequence_with_input(Player* player, f32 thro
     player->kartProps |= THROTTLE;
     kart_transmission_apply_speed_limits(player, temp_v0);
     player->currentSpeed = startingSpeed + ((player->currentSpeed - startingSpeed) * throttleAmount);
-    player->unk_098 = (player->currentSpeed * player->currentSpeed) / 25.0f;
+    player->unk_098 = get_transmission_propulsion_strength(player, temp_v0);
 }
 
 void player_decelerate_during_start_sequence(Player* player, f32 speedReduction) {
@@ -3470,7 +3478,7 @@ void player_accelerate(Player* player) {
 }
 
 void player_accelerate_with_input(Player* player, f32 throttleAmount) {
-    UNUSED s32 player_index;
+    s32 player_index;
     f32 startingSpeed;
 
     throttleAmount = clamp_command_amount(throttleAmount);
@@ -3515,7 +3523,7 @@ void player_accelerate_with_input(Player* player, f32 throttleAmount) {
     }
     kart_transmission_apply_speed_limits(player, player_index);
     player->currentSpeed = startingSpeed + ((player->currentSpeed - startingSpeed) * throttleAmount);
-    player->unk_098 = (player->currentSpeed * player->currentSpeed) / 25.0f;
+    player->unk_098 = get_transmission_propulsion_strength(player, player_index);
 }
 
 void player_decelerate(Player* player, f32 speedReduction) {
@@ -3580,7 +3588,8 @@ void player_accelerate_global_with_input(Player* player, s32 playerIndex, f32 th
     kart_transmission_apply_speed_limits(player, playerIndex);
     gPlayerCurrentSpeed[playerIndex] = player->currentSpeed;
     gPlayerCurrentSpeed[playerIndex] = startingSpeed + ((gPlayerCurrentSpeed[playerIndex] - startingSpeed) * throttleAmount);
-    player->unk_098 = (gPlayerCurrentSpeed[playerIndex] * gPlayerCurrentSpeed[playerIndex]) / 25.0f;
+    player->currentSpeed = gPlayerCurrentSpeed[playerIndex];
+    player->unk_098 = get_transmission_propulsion_strength(player, playerIndex);
 }
 
 void player_decelerate_global(Player* player, f32 speedReduction, s32 playerIndex) {
