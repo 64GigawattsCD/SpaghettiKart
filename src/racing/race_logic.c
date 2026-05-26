@@ -773,18 +773,6 @@ void func_8028F970(void) {
             continue;
         }
 
-        if (gActiveScreenMode != SCREEN_MODE_3P_4P_SPLITSCREEN) {
-            if ((controller->buttonPressed & L_TRIG) && !(controller->button & R_TRIG)) {
-                controller->buttonPressed &= 0xFFDF;
-
-                D_800DC5A8++;
-                if (D_800DC5A8 >= 3) {
-                    D_800DC5A8 = 0;
-                }
-                play_sound2(SOUND_ACTION_PING);
-                func_800029B0();
-            }
-        }
         if ((controller->buttonPressed & START_BUTTON) && (!(controller->button & R_TRIG)) &&
             (!(controller->button & L_TRIG))) {
             func_8028DF00();

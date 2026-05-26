@@ -21,6 +21,9 @@ static const f32 sGearMinSpeed[KART_GEAR_TOP + 1] = { 0.0f, 0.0f, 0.06f, 0.16f, 
 static const f32 sGearMaxSpeed[KART_GEAR_TOP + 1] = { 0.0f, 0.30f, 0.48f, 0.66f, 0.84f, 1.00f, 1.14f };
 static const f32 sAutomaticUpshiftSpeed[KART_GEAR_TOP + 1] = { 0.0f, 0.25f, 0.43f, 0.61f, 0.79f, 0.96f, 1.20f };
 static const f32 sAutomaticDownshiftSpeed[KART_GEAR_TOP + 1] = { 0.0f, 0.00f, 0.10f, 0.25f, 0.43f, 0.61f, 0.80f };
+static const f32 sGearTorqueMultiplier[KART_GEAR_TOP + 1] = { 0.0f, 1.22f, 1.10f, 0.98f, 0.86f, 0.74f, 0.62f };
+static const f32 sGearLaunchMultiplier[KART_GEAR_TOP + 1] = { 0.0f, 1.00f, 0.62f, 0.32f, 0.18f, 0.10f, 0.06f };
+static const f32 sKartWeightTorqueMultiplier[8] = { 1.00f, 1.00f, 0.94f, 0.94f, 1.10f, 1.08f, 0.94f, 1.12f };
 
 static s32 kart_transmission_clamp_player_index(s32 playerIndex) {
     if (playerIndex < 0) {
@@ -103,6 +106,38 @@ static f32 kart_transmission_get_gear_load(const Player* player, s32 gear) {
     }
 
     return kart_transmission_clampf((speedRatio - sGearMinSpeed[gear]) / gearRange, 0.0f, 1.0f);
+}
+
+static f32 kart_transmission_get_weight_torque_multiplier(const Player* player) {
+    if ((player == NULL) || (player->characterId >= 8)) {
+        return 1.0f;
+    }
+
+    return sKartWeightTorqueMultiplier[player->characterId];
+}
+
+static f32 kart_transmission_get_launch_torque_multiplier(f32 speedRatio, s32 gear) {
+    f32 launchBlend;
+
+    if (gear <= KART_GEAR_FIRST) {
+        return 1.0f;
+    }
+
+    launchBlend = kart_transmission_clampf(speedRatio / 0.08f, 0.0f, 1.0f);
+    return sGearLaunchMultiplier[gear] + ((1.0f - sGearLaunchMultiplier[gear]) * launchBlend);
+}
+
+static f32 kart_transmission_get_underspeed_bog_multiplier(f32 speedRatio, s32 gear) {
+    f32 underspeedRatio;
+    f32 bogAmount;
+
+    if ((gear <= KART_GEAR_FIRST) || (speedRatio >= sGearMinSpeed[gear])) {
+        return 1.0f;
+    }
+
+    underspeedRatio = (sGearMinSpeed[gear] - speedRatio) / (sGearMinSpeed[gear] + 0.08f);
+    bogAmount = underspeedRatio * (0.42f + (gear * 0.08f));
+    return kart_transmission_clampf(1.0f - bogAmount, 0.12f, 1.0f);
 }
 
 static void kart_transmission_update_automatic_gear(const Player* player, s32 playerIndex) {
@@ -247,13 +282,16 @@ f32 kart_transmission_get_drive_amount(const Player* player, s32 playerIndex, f3
 
     speedRatio = kart_transmission_get_speed_ratio(player);
     gearLoad = kart_transmission_get_gear_load(player, gear);
+    driveAmount *= sGearTorqueMultiplier[gear] * kart_transmission_get_weight_torque_multiplier(player);
+    driveAmount *= kart_transmission_get_launch_torque_multiplier(speedRatio, gear);
+    driveAmount *= kart_transmission_get_underspeed_bog_multiplier(speedRatio, gear);
 
     if (speedRatio < sGearMinSpeed[gear]) {
-        driveAmount *= 0.72f + (sKartClutchAmount[playerIndex] * 0.16f);
+        driveAmount *= 0.82f + (sKartClutchAmount[playerIndex] * 0.12f);
     } else if (speedRatio > sGearMaxSpeed[gear]) {
-        driveAmount *= 0.42f;
+        driveAmount *= 0.30f;
     } else if (gearLoad > 0.88f) {
-        driveAmount *= 1.0f - ((gearLoad - 0.88f) * 3.0f);
+        driveAmount *= 1.0f - ((gearLoad - 0.88f) * 4.0f);
     }
 
     if (sKartShiftBonusTimer[playerIndex] > 0) {
@@ -266,8 +304,8 @@ f32 kart_transmission_get_drive_amount(const Player* player, s32 playerIndex, f3
         driveAmount *= 0.70f;
     }
 
-    if (driveAmount > 1.15f) {
-        driveAmount = 1.15f;
+    if (driveAmount > 1.22f) {
+        driveAmount = 1.22f;
     }
     return driveAmount;
 }
@@ -332,15 +370,19 @@ f32 kart_transmission_get_engine_rpm(const Player* player, s32 playerIndex) {
 
     gearLoad = kart_transmission_get_gear_load(player, gear);
     clutchAmount = sKartClutchAmount[playerIndex];
-    rpm = 900.0f + (gearLoad * 6200.0f) + (sKartLastThrottleAmount[playerIndex] * 700.0f);
+    rpm = 950.0f + (gearLoad * 6600.0f) + (sKartLastThrottleAmount[playerIndex] * 650.0f);
+    if ((gear > KART_GEAR_FIRST) && (kart_transmission_get_speed_ratio(player) < sGearMinSpeed[gear])) {
+        f32 bogMultiplier = kart_transmission_get_underspeed_bog_multiplier(kart_transmission_get_speed_ratio(player), gear);
+        rpm *= 0.45f + (bogMultiplier * 0.55f);
+    }
     if (clutchAmount > 0.55f) {
-        rpm += (clutchAmount - 0.55f) * 2600.0f * sKartLastThrottleAmount[playerIndex];
+        rpm += (clutchAmount - 0.55f) * 3000.0f * sKartLastThrottleAmount[playerIndex];
     }
     if (sKartRpmFlareTimer[playerIndex] > 0) {
         rpm += ((f32) sKartRpmFlareTimer[playerIndex] / 18.0f) * 1800.0f;
     }
-    if (rpm > 8200.0f) {
-        rpm = 8200.0f;
+    if (rpm > 8800.0f) {
+        rpm = 8800.0f;
     }
 
     return rpm;

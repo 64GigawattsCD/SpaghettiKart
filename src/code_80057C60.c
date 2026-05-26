@@ -29,6 +29,7 @@
 #include "skybox_and_splitscreen.h"
 #include <assets/models/common_data.h>
 #include "audio/external.h"
+#include "kart_input.h"
 #include "objects.h"
 #include "bomb_kart.h"
 #include "menus.h"
@@ -1295,6 +1296,15 @@ void func_8005A380(void) {
 
 void func_8005A3C0(void) {
     bool b = false;
+    if (kart_input_was_command_pressed(gControllerOne, KART_INPUT_TOGGLE_MUSIC)) {
+        D_800DC5A8++;
+        if (D_800DC5A8 >= 3) {
+            D_800DC5A8 = 0;
+        }
+        play_sound2(SOUND_ACTION_PING);
+        func_800029B0();
+    }
+
     if ((gGamestate != ENDING) && (gGamestate != CREDITS_SEQUENCE) && !D_8018D204) {
         switch (gPlayerCountSelection1) {
             case 1:

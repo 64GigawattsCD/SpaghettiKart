@@ -17,6 +17,7 @@
 #define KART_SHIFT_NEUTRAL_BUTTON 0x01000000
 #define KART_USE_ITEM_FORWARD_BUTTON 0x02000000
 #define KART_USE_ITEM_BACKWARD_BUTTON 0x04000000
+#define KART_TOGGLE_MUSIC_BUTTON 0x08000000
 
 typedef enum {
     KART_INPUT_THROTTLE,
@@ -37,6 +38,7 @@ typedef enum {
     KART_INPUT_SHIFT_GEAR_6,
     KART_INPUT_SHIFT_REVERSE,
     KART_INPUT_SHIFT_NEUTRAL,
+    KART_INPUT_TOGGLE_MUSIC,
 } KartInputCommand;
 
 f32 kart_input_get_command_value(const struct Controller* controller, KartInputCommand command);

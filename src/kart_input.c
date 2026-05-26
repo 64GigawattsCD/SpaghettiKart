@@ -40,6 +40,8 @@ static u32 kart_input_get_legacy_button(KartInputCommand command) {
             return KART_SHIFT_REVERSE_BUTTON;
         case KART_INPUT_SHIFT_NEUTRAL:
             return KART_SHIFT_NEUTRAL_BUTTON;
+        case KART_INPUT_TOGGLE_MUSIC:
+            return KART_TOGGLE_MUSIC_BUTTON;
     }
 
     return 0;
