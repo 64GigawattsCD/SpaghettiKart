@@ -22,6 +22,7 @@
 #include "sounds.h"
 #include "port/Game.h"
 #include "kart_input.h"
+#include "kart_transmission.h"
 #include "src/enhancements/moon_jump.h"
 #include "engine/Matrix.h"
 
@@ -3027,6 +3028,7 @@ void player_accelerate_alternative_with_input(Player* player, f32 throttleAmount
     f32 startingSpeed;
 
     throttleAmount = clamp_command_amount(throttleAmount);
+    throttleAmount = kart_transmission_get_drive_amount(player, get_player_index_for_player(player), throttleAmount);
     if (throttleAmount <= 0.0f) {
         return;
     }
@@ -3131,6 +3133,7 @@ void player_accelerate_alternative_with_input(Player* player, f32 throttleAmount
     if (player->topSpeed <= player->currentSpeed) {
         player->currentSpeed = player->topSpeed;
     }
+    kart_transmission_apply_speed_limits(player, player_index);
     player->currentSpeed = startingSpeed + ((player->currentSpeed - startingSpeed) * throttleAmount);
     if (!((player->effects & 8)) || ((player->effects & LIGHTNING_EFFECT))) {
         player->kartPropulsionStrength = (player->currentSpeed * player->currentSpeed) / 25.0f;
@@ -3385,6 +3388,7 @@ void player_accelerate_during_start_sequence_with_input(Player* player, f32 thro
     f32 startingSpeed;
 
     throttleAmount = clamp_command_amount(throttleAmount);
+    throttleAmount = kart_transmission_get_drive_amount(player, get_player_index_for_player(player), throttleAmount);
     if (throttleAmount <= 0.0f) {
         return;
     }
@@ -3437,6 +3441,7 @@ void player_accelerate_during_start_sequence_with_input(Player* player, f32 thro
         }
     }
     player->kartProps |= THROTTLE;
+    kart_transmission_apply_speed_limits(player, temp_v0);
     player->currentSpeed = startingSpeed + ((player->currentSpeed - startingSpeed) * throttleAmount);
     player->unk_098 = (player->currentSpeed * player->currentSpeed) / 25.0f;
 }
@@ -3469,6 +3474,7 @@ void player_accelerate_with_input(Player* player, f32 throttleAmount) {
     f32 startingSpeed;
 
     throttleAmount = clamp_command_amount(throttleAmount);
+    throttleAmount = kart_transmission_get_drive_amount(player, get_player_index_for_player(player), throttleAmount);
     if (throttleAmount <= 0.0f) {
         return;
     }
@@ -3507,6 +3513,7 @@ void player_accelerate_with_input(Player* player, f32 throttleAmount) {
     if (player->currentSpeed < 0.0f) {
         player->currentSpeed = 0.0f;
     }
+    kart_transmission_apply_speed_limits(player, player_index);
     player->currentSpeed = startingSpeed + ((player->currentSpeed - startingSpeed) * throttleAmount);
     player->unk_098 = (player->currentSpeed * player->currentSpeed) / 25.0f;
 }
@@ -3530,6 +3537,7 @@ void player_accelerate_global_with_input(Player* player, s32 playerIndex, f32 th
     f32 startingSpeed;
 
     throttleAmount = clamp_command_amount(throttleAmount);
+    throttleAmount = kart_transmission_get_drive_amount(player, playerIndex, throttleAmount);
     if (throttleAmount <= 0.0f) {
         return;
     }
@@ -3568,6 +3576,9 @@ void player_accelerate_global_with_input(Player* player, s32 playerIndex, f32 th
     if (gPlayerCurrentSpeed[playerIndex] < 0.0f) {
         gPlayerCurrentSpeed[playerIndex] = 0.0f;
     }
+    player->currentSpeed = gPlayerCurrentSpeed[playerIndex];
+    kart_transmission_apply_speed_limits(player, playerIndex);
+    gPlayerCurrentSpeed[playerIndex] = player->currentSpeed;
     gPlayerCurrentSpeed[playerIndex] = startingSpeed + ((gPlayerCurrentSpeed[playerIndex] - startingSpeed) * throttleAmount);
     player->unk_098 = (gPlayerCurrentSpeed[playerIndex] * gPlayerCurrentSpeed[playerIndex]) / 25.0f;
 }
@@ -4472,6 +4483,7 @@ void handle_a_press_for_player_during_race(Player* player, struct Controller* co
 
     if (((player->type & PLAYER_EXISTS) == PLAYER_EXISTS) && ((player->type & PLAYER_HUMAN) == PLAYER_HUMAN) &&
         ((player->type & PLAYER_CPU) != PLAYER_CPU)) {
+        kart_transmission_update(player, controller, arg2);
         if ((player->type & PLAYER_START_SEQUENCE) != PLAYER_START_SEQUENCE) {
             if (((player->lakituProps & HELD_BY_LAKITU) == HELD_BY_LAKITU) || ((player->lakituProps & LAKITU_SCENE) == LAKITU_SCENE)) {
                 if (throttleActive) {

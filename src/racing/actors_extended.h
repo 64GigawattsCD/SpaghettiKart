@@ -31,6 +31,7 @@ s32 use_banana_item(Player*);
 void use_thunder_item(Player*);
 void player_use_item(Player*);
 void check_player_use_item(void);
+s8 consume_item_release_direction(struct Controller*, s32);
 void update_actor_green_shell(struct ShellActor*);
 void func_802B3B44(struct ShellActor*);
 void func_802B3E7C(struct ShellActor*, Player*);

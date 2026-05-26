@@ -363,6 +363,9 @@ void update_controller(s32 index) {
     controller->rightRawStickY = gControllerPads[index].right_stick_y;
     controller->leftTrigger = gControllerPads[index].left_trigger;
     controller->rightTrigger = gControllerPads[index].right_trigger;
+    for (int i = 0; i < CONTROLLER_BUTTON_VALUE_COUNT; i++) {
+        controller->buttonValue[i] = gControllerPads[index].button_value[i];
+    }
 
     if ((gControllerPads[index].button & 4) != 0) {
         gControllerPads[index].button |= Z_TRIG;
@@ -399,14 +402,14 @@ void read_controllers(void) {
     update_controller(1);
     update_controller(2);
     update_controller(3);
-    gControllerFive->button = (s16) (((gControllerOne->button | gControllerTwo->button) | gControllerThree->button) |
-                                     gControllerFour->button);
+    gControllerFive->button =
+        (((gControllerOne->button | gControllerTwo->button) | gControllerThree->button) | gControllerFour->button);
     gControllerFive->buttonPressed =
-        (s16) (((gControllerOne->buttonPressed | gControllerTwo->buttonPressed) | gControllerThree->buttonPressed) |
-               gControllerFour->buttonPressed);
-    gControllerFive->buttonDepressed = (s16) (((gControllerOne->buttonDepressed | gControllerTwo->buttonDepressed) |
-                                               gControllerThree->buttonDepressed) |
-                                              gControllerFour->buttonDepressed);
+        (((gControllerOne->buttonPressed | gControllerTwo->buttonPressed) | gControllerThree->buttonPressed) |
+         gControllerFour->buttonPressed);
+    gControllerFive->buttonDepressed =
+        (((gControllerOne->buttonDepressed | gControllerTwo->buttonDepressed) | gControllerThree->buttonDepressed) |
+         gControllerFour->buttonDepressed);
     gControllerFive->stickDirection =
         (s16) (((gControllerOne->stickDirection | gControllerTwo->stickDirection) | gControllerThree->stickDirection) |
                gControllerFour->stickDirection);

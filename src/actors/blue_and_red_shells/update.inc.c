@@ -276,8 +276,7 @@ void update_actor_red_blue_shell(struct ShellActor* shell) {
             //     controller = gControllerOne;
             // }
     
-                if ((controller->buttonDepressed & Z_TRIG) != 0) {
-                    controller->buttonDepressed &= ~Z_TRIG;
+                if (consume_item_release_direction(controller, shell->playerId) != 0) {
                     shell->state = RELEASED_SHELL;
                     if (player->unk_0C0 > 0) {
                         shell->rotAngle = 0x78E3;

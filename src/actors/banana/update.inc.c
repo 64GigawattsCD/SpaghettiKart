@@ -56,14 +56,14 @@ void update_actor_banana(struct BananaActor* banana) {
                 } else {
                     controller = &gControllers[banana->playerId];
                 }
-                if ((controller->buttonDepressed & Z_TRIG) != 0) {
-                    controller->buttonDepressed &= ~Z_TRIG;
+                s8 itemDirection = consume_item_release_direction(controller, banana->playerId);
+                if (itemDirection != 0) {
                     banana->state = 1;
                     banana->unk_04 = 0x00B4;
                     player->triggers &= ~DRAG_ITEM_EFFECT;
                     func_800C9060(player - gPlayerOne, SOUND_ARG_LOAD(0x19, 0x00, 0x80, 0x12));
-                    pad3 = controller->rawStickY;
-                    if ((pad3 > 30.0f) && (controller->rawStickX < 10) && (controller->rawStickX >= -9)) {
+                    pad3 = (itemDirection == KART_ITEM_DIRECTION_FORWARD) ? 85.0f : -85.0f;
+                    if (itemDirection == KART_ITEM_DIRECTION_FORWARD) {
                         pad3 = pad3 - ((f32) 30);
                         pad3 = (pad3 / 20.0f) + 0.5f;
                         if (player->speed < 2.0f) {

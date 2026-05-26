@@ -1,7 +1,9 @@
 #include <libultraship.h>
+#include "libultraship/controller/wheel/WheelDevice.h"
 #include "SpaghettiGui.h"
 #include <ship/window/gui/Gui.h>
 #include <ship/window/Window.h>
+#include "ship/config/ConsoleVariable.h"
 #ifdef __SWITCH__
 #include "ConfigVersion.h"
 #else
@@ -40,11 +42,136 @@ IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARA
 
 #endif
 
+#include <algorithm>
+#include <cmath>
+#include <cstdio>
+
+extern "C" {
+#include "defines.h"
+#include "code_800029B0.h"
+#include "main.h"
+#include "mk64.h"
+#include "kart_input.h"
+#include "kart_transmission.h"
+}
+
 namespace Ship {
 #define TOGGLE_BTN ImGuiKey_F1
 #define TOGGLE_PAD_BTN ImGuiKey_GamepadBack
 
+    static const char* GetGearLabel(s32 gear) {
+        switch (gear) {
+            case KART_GEAR_REVERSE:
+                return "R";
+            case KART_GEAR_NEUTRAL:
+                return "N";
+            default:
+                break;
+        }
+
+        static char gearLabel[4];
+        snprintf(gearLabel, sizeof(gearLabel), "%d", gear);
+        return gearLabel;
+    }
+
+    static bool IsWheelForceFeedbackGrounded(const Player* player) {
+        return player->surfaceType != AIRBORNE && player->collision.surfaceDistance[2] < 50.0f &&
+               (player->effects & 8) == 0;
+    }
+
+    static bool IsWheelForceFeedbackHitActive(const Player* player) {
+        return (player->effects & (HIT_BY_ITEM_EFFECT | HIT_EFFECT)) != 0;
+    }
+
+    static bool IsWheelForceFeedbackLightningActive(const Player* player) {
+        return (player->effects & LIGHTNING_EFFECT) != 0;
+    }
+
+    static float ComputeWheelSlopeSteeringForce(const Player* player, bool grounded, float speedKmh) {
+        if (!grounded) {
+            return 0.0f;
+        }
+
+        const float downhillX = -player->collision.orientationVector[0];
+        const float downhillZ = -player->collision.orientationVector[2];
+        const float slopeSteepness = sqrtf((downhillX * downhillX) + (downhillZ * downhillZ));
+        if (slopeSteepness < 0.02f) {
+            return 0.0f;
+        }
+
+        const float normalizedDownhillX = downhillX / slopeSteepness;
+        const float normalizedDownhillZ = downhillZ / slopeSteepness;
+        const float yawRadians = -(player->rotation[1] + player->unk_0C0) * (6.28318530718f / 65536.0f);
+        const float forwardX = sinf(yawRadians);
+        const float forwardZ = cosf(yawRadians);
+        const float rightX = forwardZ;
+        const float rightZ = -forwardX;
+        const float downhillToRight = (normalizedDownhillX * rightX) + (normalizedDownhillZ * rightZ);
+        const float perpendicularToSlope = fabs(downhillToRight);
+        const float speedScale = 0.35f + (std::clamp(speedKmh / 80.0f, 0.0f, 1.0f) * 0.65f);
+
+        return std::clamp(downhillToRight * perpendicularToSlope * slopeSteepness * speedScale * 0.85f, -0.75f, 0.75f);
+    }
+
+    static void UpdateWheelForceFeedback() {
+        if (gPlayerOne == nullptr) {
+            return;
+        }
+
+        Player* player = gPlayerOne;
+        float speedKmh = (player->speed / 18.0f) * 216.0f;
+        bool grounded = IsWheelForceFeedbackGrounded(player);
+        float slopeSteeringForce = ComputeWheelSlopeSteeringForce(player, grounded, speedKmh);
+        Context::GetInstance()->GetConsoleVariables()->SetFloat("gArcadeKart.ControllerSlopeSteeringForce",
+                                                                slopeSteeringForce);
+        LUS::WheelDeviceManager::Instance().UpdatePlayerOneForceFeedback(speedKmh, slopeSteeringForce, grounded,
+                                                                         IsWheelForceFeedbackHitActive(player),
+                                                                         IsWheelForceFeedbackLightningActive(player),
+                                                                         player->surfaceType, gCurrentCourseId);
+    }
+
+    static void DrawKartDebugTelemetry() {
+        if (gPlayerOne == nullptr || gControllerOne == nullptr) {
+            return;
+        }
+
+        const ImGuiViewport* viewport = ImGui::GetMainViewport();
+        const ImVec2 pivot(1.0f, 1.0f);
+        const ImVec2 pos(viewport->WorkPos.x + viewport->WorkSize.x - 12.0f,
+                         viewport->WorkPos.y + viewport->WorkSize.y - 12.0f);
+        Player* player = gPlayerOne;
+        const s32 playerIndex = 0;
+        const f32 speed = (player->speed / 18.0f) * 216.0f;
+        const f32 rpm = kart_transmission_get_engine_rpm(player, playerIndex);
+        const f32 throttle = kart_input_get_command_value(gControllerOne, KART_INPUT_THROTTLE);
+        const f32 brake = kart_input_get_command_value(gControllerOne, KART_INPUT_BRAKE);
+        const f32 clutch = kart_input_get_command_value(gControllerOne, KART_INPUT_CLUTCH);
+        const f32 handbrake = kart_input_get_command_value(gControllerOne, KART_INPUT_DRIFT);
+        const f32 forwardBack = kart_input_get_forward_backward_axis(gControllerOne);
+        const f32 slopeSteeringForce =
+            ComputeWheelSlopeSteeringForce(player, IsWheelForceFeedbackGrounded(player), speed);
+
+        ImGui::SetNextWindowPos(pos, ImGuiCond_Always, pivot);
+        ImGui::SetNextWindowBgAlpha(0.35f);
+        ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
+                                 ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
+                                 ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove;
+        if (ImGui::Begin("Kart Telemetry", nullptr, flags)) {
+            ImGui::SetWindowFontScale(1.8f);
+            ImGui::Text("Gear %s", GetGearLabel(kart_transmission_get_gear(playerIndex)));
+            ImGui::Text("RPM  %.0f", rpm);
+            ImGui::Text("Speed %.1f", speed);
+            ImGui::Text("T %.2f  B %.2f  C %.2f", throttle, brake, clutch);
+            ImGui::Text("H %.2f", handbrake);
+            ImGui::Text("F/B %.2f", forwardBack);
+            ImGui::Text("Slope %.2f", slopeSteeringForce);
+        }
+        ImGui::End();
+    }
+
     void SpaghettiGui::DrawMenu() {
+        UpdateWheelForceFeedback();
+
         const std::shared_ptr<Window> wnd = Context::GetInstance()->GetWindow();
         const std::shared_ptr<Config> conf = Context::GetInstance()->GetConfig();
 
@@ -156,6 +283,8 @@ namespace Ship {
             windowIter.second->Update();
             windowIter.second->Draw();
         }
+
+        DrawKartDebugTelemetry();
 
         ImGui::End();
     }

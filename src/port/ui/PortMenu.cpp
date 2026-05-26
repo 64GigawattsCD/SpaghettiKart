@@ -360,7 +360,7 @@ void PortMenu::AddEnhancements() {
     AddSidebarEntry("Enhancements", "General", 3);
     AddWidget(path, "No multiplayer feature cuts", WIDGET_CVAR_CHECKBOX)
         .CVar("gMultiplayerNoFeatureCuts")
-        .Options(CheckboxOptions().Tooltip("Allows full train and jumbotron in multiplayer, etc."));
+        .Options(CheckboxOptions().DefaultValue(true).Tooltip("Allows full train and jumbotron in multiplayer, etc."));
     AddWidget(path, "Widescreen portrait spacing", WIDGET_CVAR_CHECKBOX)
         .CVar("gBetterResultPortraits")
         .Options(CheckboxOptions().Tooltip("Alters result portrait spacing for better aesthetics on widescreen"));
@@ -388,6 +388,43 @@ void PortMenu::AddEnhancements() {
         .CVar("gCustomCC")
         .PreFunc([](WidgetInfo& info) { info.isHidden = !CVarGetInteger("gEnableCustomCC", 0); })
         .Options(FloatSliderOptions().Min(0.0f).Max(1000.0f).DefaultValue(150.0f).Step(10.0f));
+
+    AddWidget(path, "Wheel Steering Tuning: %.2f", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar("gArcadeKart.WheelSteeringTuning")
+        .Options(FloatSliderOptions()
+                     .Min(0.25f)
+                     .Max(2.0f)
+                     .DefaultValue(0.8f)
+                     .Step(0.05f)
+                     .Format("%.2f")
+                     .Tooltip("Adjusts the wheel steering curve. Lower values sharpen center response."));
+    AddWidget(path, "Wheel Throttle Tuning: %.2f", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar("gArcadeKart.WheelThrottleTuning")
+        .Options(FloatSliderOptions()
+                     .Min(0.25f)
+                     .Max(2.0f)
+                     .DefaultValue(1.0f)
+                     .Step(0.05f)
+                     .Format("%.2f")
+                     .Tooltip("Adjusts the wheel throttle pedal curve."));
+    AddWidget(path, "Wheel Brake Tuning: %.2f", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar("gArcadeKart.WheelBrakeTuning")
+        .Options(FloatSliderOptions()
+                     .Min(0.25f)
+                     .Max(2.0f)
+                     .DefaultValue(1.0f)
+                     .Step(0.05f)
+                     .Format("%.2f")
+                     .Tooltip("Adjusts the wheel brake pedal curve."));
+    AddWidget(path, "Wheel Clutch Tuning: %.2f", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar("gArcadeKart.WheelClutchTuning")
+        .Options(FloatSliderOptions()
+                     .Min(0.25f)
+                     .Max(2.0f)
+                     .DefaultValue(1.0f)
+                     .Step(0.05f)
+                     .Format("%.2f")
+                     .Tooltip("Adjusts the wheel clutch pedal curve."));
 
     AddWidget(path, "Enable Digital Speedometer", WIDGET_CVAR_CHECKBOX)
         .CVar("gEnableDigitalSpeedometer")

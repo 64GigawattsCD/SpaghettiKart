@@ -70,9 +70,10 @@ struct Controller {
     s16 rightRawStickY;
     f32 leftTrigger;
     f32 rightTrigger;
-    u16 button;          // HeldButton
-    u16 buttonPressed;   // OnTriggered
-    u16 buttonDepressed; // OffTriggered
+    f32 buttonValue[CONTROLLER_BUTTON_VALUE_COUNT];
+    u32 button;          // HeldButton
+    u32 buttonPressed;   // OnTriggered
+    u32 buttonDepressed; // OffTriggered
     u16 stickDirection;
     u16 stickPressed;   // OffTriggered
     u16 stickDepressed; // OnTriggered

@@ -18,6 +18,14 @@
 #include "kart_input.h"
 #include "port/Game.h"
 
+#define KART_ITEM_DIRECTION_FORWARD 1
+#define KART_ITEM_DIRECTION_BACKWARD -1
+
+static s8 sKartItemUseDirection[NUM_PLAYERS];
+
+static s8 get_player_item_direction_from_pressed_commands(struct Controller* controller);
+static void consume_item_command_press(struct Controller* controller);
+
 void copy_collision(Collision* src, Collision* dest) {
     dest->unk30 = src->unk30;
     dest->unk32 = src->unk32;
@@ -298,12 +306,12 @@ void update_actor_banana_bunch(struct BananaBunchParent* banana_bunch) {
                 owner->triggers &= ~DRAG_ITEM_EFFECT;
             } else if ((owner->type & PLAYER_HUMAN) != 0) {
                 controller = &gControllers[banana_bunch->playerId];
-                if (kart_input_was_command_pressed(controller, KART_INPUT_USE_ITEM)) {
-                    kart_input_consume_command_press(controller, KART_INPUT_USE_ITEM);
+                s8 itemDirection = get_player_item_direction_from_pressed_commands(controller);
+                if (itemDirection != 0) {
+                    consume_item_command_press(controller);
                     func_800C9060(owner - gPlayerOne, SOUND_ARG_LOAD(0x19, 0x00, 0x80, 0x12));
-                    if ((controller->rawStickY >= 0x1F) &&
-                        ((controller->rawStickX < 0x28) && (controller->rawStickX >= -0x27))) {
-                        func_802B0788(controller->rawStickY, banana_bunch, owner);
+                    if (itemDirection == KART_ITEM_DIRECTION_FORWARD) {
+                        func_802B0788(85, banana_bunch, owner);
                     } else {
                         drop_banana_in_banana_bunch(banana_bunch);
                     }
@@ -428,13 +436,13 @@ void update_actor_triple_shell(TripleShellParent* parent, s16 shellType) {
                 destroy_actor((struct Actor*) parent);
                 break;
             }
-            if (kart_input_was_command_pressed(&gControllers[parent->playerId], KART_INPUT_USE_ITEM)) {
+            if (get_player_item_direction_from_pressed_commands(&gControllers[parent->playerId]) != 0) {
                 /**
                  * Fires shell. Uses += 1.0f because this code is ran multiple times per frame.
                  * A bool would be turned on and off again resulting in no change
                  */
                 parent->firePressed += 1.0f;
-                kart_input_consume_command_press(&gControllers[parent->playerId], KART_INPUT_USE_ITEM);
+                consume_item_command_press(&gControllers[parent->playerId]);
             }
             if (parent->firePressed > 0.0f) { // Fires a shell and resets firePressed to zero
                 if (parent->shellIndices[0] > 0.0f) {
@@ -896,6 +904,58 @@ void use_thunder_item(Player* player) {
     }
 }
 
+static s8 get_player_item_direction_from_pressed_commands(struct Controller* controller) {
+    if (kart_input_was_command_pressed(controller, KART_INPUT_USE_ITEM_BACKWARD)) {
+        return KART_ITEM_DIRECTION_BACKWARD;
+    }
+    if (kart_input_was_command_pressed(controller, KART_INPUT_USE_ITEM_FORWARD)) {
+        return KART_ITEM_DIRECTION_FORWARD;
+    }
+    if (kart_input_was_command_pressed(controller, KART_INPUT_USE_ITEM)) {
+        return (kart_input_get_forward_backward_axis(controller) < -0.25f) ? KART_ITEM_DIRECTION_BACKWARD
+                                                                          : KART_ITEM_DIRECTION_FORWARD;
+    }
+    return 0;
+}
+
+static s8 get_player_item_direction_from_released_commands(struct Controller* controller, s32 playerId) {
+    if (kart_input_was_command_released(controller, KART_INPUT_USE_ITEM_BACKWARD)) {
+        return KART_ITEM_DIRECTION_BACKWARD;
+    }
+    if (kart_input_was_command_released(controller, KART_INPUT_USE_ITEM_FORWARD)) {
+        return KART_ITEM_DIRECTION_FORWARD;
+    }
+    if (kart_input_was_command_released(controller, KART_INPUT_USE_ITEM)) {
+        if (sKartItemUseDirection[playerId] != 0) {
+            return sKartItemUseDirection[playerId];
+        }
+        return (kart_input_get_forward_backward_axis(controller) < -0.25f) ? KART_ITEM_DIRECTION_BACKWARD
+                                                                          : KART_ITEM_DIRECTION_FORWARD;
+    }
+    return 0;
+}
+
+static void consume_item_command_press(struct Controller* controller) {
+    kart_input_consume_command_press(controller, KART_INPUT_USE_ITEM);
+    kart_input_consume_command_press(controller, KART_INPUT_USE_ITEM_FORWARD);
+    kart_input_consume_command_press(controller, KART_INPUT_USE_ITEM_BACKWARD);
+}
+
+static void consume_item_command_release(struct Controller* controller) {
+    kart_input_consume_command_release(controller, KART_INPUT_USE_ITEM);
+    kart_input_consume_command_release(controller, KART_INPUT_USE_ITEM_FORWARD);
+    kart_input_consume_command_release(controller, KART_INPUT_USE_ITEM_BACKWARD);
+}
+
+s8 consume_item_release_direction(struct Controller* controller, s32 playerId) {
+    s8 direction = get_player_item_direction_from_released_commands(controller, playerId);
+    if (direction != 0) {
+        consume_item_command_release(controller);
+        sKartItemUseDirection[playerId] = 0;
+    }
+    return direction;
+}
+
 // Handles item use
 void player_use_item(Player* player) {
     s32 playerId = player - gPlayerOne;
@@ -975,8 +1035,10 @@ void check_player_use_item(void) {
 
             if (((player->type & PLAYER_HUMAN) != 0) && (player->currentItemCopy != ITEM_NONE) &&
                 ((player->type & PLAYER_START_SEQUENCE) == 0)) {
-                if (kart_input_was_command_pressed(controller, KART_INPUT_USE_ITEM)) {
-                    kart_input_consume_command_press(controller, KART_INPUT_USE_ITEM);
+                s8 itemDirection = get_player_item_direction_from_pressed_commands(controller);
+                if (itemDirection != 0) {
+                    sKartItemUseDirection[player - gPlayerOne] = itemDirection;
+                    consume_item_command_press(controller);
                     player_use_item(player);
                 }
             }
