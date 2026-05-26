@@ -22,6 +22,7 @@
 #include "save_data.h"
 #include <sounds.h>
 #include "spawn_players.h"
+#include "kart_input.h"
 #include "port/Game.h"
 
 /** BSS **/
@@ -241,7 +242,7 @@ void options_menu_act(struct Controller* controller, u16 controllerIdx) {
     bool tempVar; // cursorWasMoved or communicateStoredAction
     UNUSED u32 pad;
 
-    btnAndStick = (controller->buttonPressed | controller->stickPressed);
+    btnAndStick = kart_input_get_menu_pressed(controller);
 
     if (!gEnableDebugMode && (btnAndStick & START_BUTTON)) {
         btnAndStick |= A_BUTTON;
@@ -630,7 +631,7 @@ void options_menu_act(struct Controller* controller, u16 controllerIdx) {
  * Navigation of the data menu
  */
 void data_menu_act(struct Controller* controller, UNUSED u16 controllerIdx) {
-    u16 btnAndStick = (controller->buttonPressed | controller->stickPressed);
+    u16 btnAndStick = kart_input_get_menu_pressed(controller);
 
     // Make pressing Start have the same effect as pressing A
     if ((gEnableDebugMode == 0) && ((btnAndStick & START_BUTTON) != 0)) {
@@ -698,7 +699,7 @@ void course_data_menu_act(struct Controller* controller, UNUSED u16 controllerId
     CourseTimeTrialRecords* sp24;
     s32 res;
 
-    btnAndStick = (controller->buttonPressed | controller->stickPressed);
+    btnAndStick = kart_input_get_menu_pressed(controller);
 
     if (!gEnableDebugMode && (btnAndStick & START_BUTTON)) {
         btnAndStick |= A_BUTTON;
@@ -855,7 +856,7 @@ void course_data_menu_act(struct Controller* controller, UNUSED u16 controllerId
  * On input skip logo screen
  **/
 void logo_intro_menu_act(struct Controller* controller, UNUSED u16 controllerIdx) {
-    u16 btnAndStick = (controller->buttonPressed | controller->stickPressed);
+    u16 btnAndStick = kart_input_get_menu_pressed(controller);
 
     // If any button is pressed then fade audio out
     if ((is_screen_being_faded() == 0) && (btnAndStick)) {
@@ -875,7 +876,7 @@ void controller_pak_menu_act(struct Controller* controller, UNUSED u16 controlle
     s32 selectedTableRow;
     UNUSED s8 pad;
 
-    btnAndStick = (controller->buttonPressed | controller->stickPressed);
+    btnAndStick = kart_input_get_menu_pressed(controller);
     if (is_screen_being_faded() == 0) {
         switch (gControllerPakMenuSelection) {
             case CONTROLLER_PAK_MENU_SELECT_RECORD:
@@ -1021,7 +1022,7 @@ void splash_menu_act(struct Controller* controller, u16 controllerIdx) {
     u16 btnAndStick;
     u16 i;
     s32 isDebug = true;
-    btnAndStick = controller->buttonPressed | controller->stickPressed;
+    btnAndStick = kart_input_get_menu_pressed(controller);
 
     if (is_screen_being_faded() == 0) {
         if (controllerIdx == PLAYER_ONE) {
@@ -1302,7 +1303,7 @@ void main_menu_act(struct Controller* controller, u16 controllerIdx) {
     bool cursorMoved;
     s32 newMode;
 
-    btnAndStick = controller->buttonPressed | controller->stickPressed;
+    btnAndStick = kart_input_get_menu_pressed(controller);
     if (!gEnableDebugMode && (btnAndStick & START_BUTTON)) {
         btnAndStick |= A_BUTTON;
     }
@@ -1568,7 +1569,7 @@ void player_select_menu_act(struct Controller* controller, u16 controllerIdx) {
     s8 savedSelection;
     u16 btnAndStick;
 
-    btnAndStick = (controller->buttonPressed) | (controller->stickPressed);
+    btnAndStick = kart_input_get_menu_pressed(controller);
     if (!gEnableDebugMode && btnAndStick & CONT_START) {
         btnAndStick |= A_BUTTON;
     }
@@ -1756,7 +1757,7 @@ u32 GetCupIndex(void);
  * Navigation of the map select track menu screen
  */
 void course_select_menu_act(struct Controller* controller, u16 controllerIdx) {
-    u16 btnAndStick = (controller->buttonPressed | controller->stickPressed);
+    u16 btnAndStick = kart_input_get_menu_pressed(controller);
 
     if ((!gEnableDebugMode) && ((btnAndStick & START_BUTTON) != 0)) {
         btnAndStick |= A_BUTTON;

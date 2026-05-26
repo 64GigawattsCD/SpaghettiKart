@@ -28,6 +28,7 @@
 #include "ship/window/gui/resource/FontFactory.h"
 #include "libultraship/controller/controldeck/ControlDeck.h"
 #include "SpaghettiGui.h"
+#include "kart_input.h"
 
 #include "port/interpolation/FrameInterpolation.h"
 #include <fast/Fast3dWindow.h>
@@ -103,6 +104,8 @@ GameEngine::GameEngine() {
             { BTN_L, { Ship::KbScancode::LUS_KB_Q} },
             { BTN_R, { Ship::KbScancode::LUS_KB_SPACE} },
             { BTN_Z, { Ship::KbScancode::LUS_KB_Z} },
+            { KART_MENU_CONFIRM_BUTTON, { Ship::KbScancode::LUS_KB_ENTER} },
+            { KART_MENU_CANCEL_BUTTON, { Ship::KbScancode::LUS_KB_ESCAPE} },
             { BTN_START, { Ship::KbScancode::LUS_KB_ENTER} },
             { BTN_CUP, { Ship::KbScancode::LUS_KB_T} },
             { BTN_CDOWN, { Ship::KbScancode::LUS_KB_G} },
@@ -125,6 +128,8 @@ GameEngine::GameEngine() {
         // SDLButtonToButtonMappings
         std::unordered_map<CONTROLLERBUTTONS_T, std::unordered_set<SDL_GameControllerButton>>{
             { BTN_L, { SDL_CONTROLLER_BUTTON_A } },
+            { KART_MENU_CONFIRM_BUTTON, { SDL_CONTROLLER_BUTTON_A, SDL_CONTROLLER_BUTTON_START } },
+            { KART_MENU_CANCEL_BUTTON, { SDL_CONTROLLER_BUTTON_B } },
             { BTN_START, { SDL_CONTROLLER_BUTTON_START } },
             { BTN_CLEFT, { SDL_CONTROLLER_BUTTON_Y } },
             { BTN_CDOWN, { SDL_CONTROLLER_BUTTON_B } },
@@ -154,15 +159,17 @@ GameEngine::GameEngine() {
                       { BTN_L, "Jump" },
                       { BTN_R, "Drift" },
                       { BTN_Z, "Use Item" },
-                      { BTN_START, "Start" },
-                      { BTN_CLEFT, "CLeft" },
-                      { BTN_CRIGHT, "CRight" },
-                      { BTN_CUP, "CUp" },
-                      { BTN_CDOWN, "CDown" },
-                      { BTN_DLEFT, "DLeft" },
-                      { BTN_DRIGHT, "DRight" },
-                      { BTN_DUP, "DUp" },
-                      { BTN_DDOWN, "DDown" },
+                      { KART_MENU_CONFIRM_BUTTON, "Menu Confirm" },
+                      { KART_MENU_CANCEL_BUTTON, "Menu Cancel" },
+                      { BTN_START, "Open Menu" },
+                      { BTN_CLEFT, "Look Behind" },
+                      { BTN_CRIGHT, "Toggle HUD" },
+                      { BTN_CUP, "Unused CUp" },
+                      { BTN_CDOWN, "Unused CDown" },
+                      { BTN_DLEFT, "Menu Left" },
+                      { BTN_DRIGHT, "Menu Right" },
+                      { BTN_DUP, "Menu Up" },
+                      { BTN_DDOWN, "Menu Down" },
                   });
     auto controlDeck = std::make_shared<LUS::ControlDeck>(std::vector<CONTROLLERBUTTONS_T>(), defaultMappings, buttonNames);
     const std::string assets_path = Ship::Context::LocateFileAcrossAppDirs(engine_asset_file);

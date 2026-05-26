@@ -14,6 +14,10 @@ static u16 kart_input_get_legacy_button(KartInputCommand command) {
             return R_TRIG;
         case KART_INPUT_USE_ITEM:
             return Z_TRIG;
+        case KART_INPUT_MENU_CONFIRM:
+            return KART_MENU_CONFIRM_BUTTON;
+        case KART_INPUT_MENU_CANCEL:
+            return KART_MENU_CANCEL_BUTTON;
     }
 
     return 0;
@@ -68,4 +72,22 @@ void kart_input_consume_command_press(struct Controller* controller, KartInputCo
     }
 
     controller->buttonPressed &= ~kart_input_get_legacy_button(command);
+}
+
+u16 kart_input_get_menu_pressed(const struct Controller* controller) {
+    u16 pressed;
+
+    if (controller == NULL) {
+        return 0;
+    }
+
+    pressed = (controller->buttonPressed & ~(A_BUTTON | B_BUTTON)) | controller->stickPressed;
+    if (kart_input_was_command_pressed(controller, KART_INPUT_MENU_CONFIRM)) {
+        pressed |= A_BUTTON;
+    }
+    if (kart_input_was_command_pressed(controller, KART_INPUT_MENU_CANCEL)) {
+        pressed |= B_BUTTON;
+    }
+
+    return pressed;
 }

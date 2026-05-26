@@ -23,6 +23,7 @@
 #include "audio/external.h"
 #include "render_objects.h"
 #include "replays.h"
+#include "kart_input.h"
 #include <assets/models/common_data.h>
 #include "textures.h"
 #include "math_util.h"
@@ -11561,7 +11562,7 @@ void func_800ACA14(MenuItem* arg0) {
                 break;
             }
 
-            if ((gControllerFive->buttonPressed | gControllerFive->stickPressed) & 0x800) {
+            if (kart_input_get_menu_pressed(gControllerFive) & 0x800) {
                 if (arg0->state >= 0xC) {
                     arg0->state--;
                     play_sound2(SOUND_MENU_CURSOR_MOVE);
@@ -11571,7 +11572,7 @@ void func_800ACA14(MenuItem* arg0) {
                     arg0->subState = -1;
                 }
             }
-            if ((gControllerFive->buttonPressed | gControllerFive->stickPressed) & 0x400) {
+            if (kart_input_get_menu_pressed(gControllerFive) & 0x400) {
                 if (arg0->state < 0xC) {
                     arg0->state++;
                     play_sound2(SOUND_MENU_CURSOR_MOVE);
@@ -11581,7 +11582,7 @@ void func_800ACA14(MenuItem* arg0) {
                     arg0->subState = 1;
                 }
             }
-            if (gControllerFive->buttonPressed & 0x9000) {
+            if (kart_input_get_menu_pressed(gControllerFive) & 0x9000) {
                 func_8009DFE0(0x0000001E);
                 func_800CA330(0x19U);
                 play_sound2(SOUND_ACTION_CONTINUE_UNKNOWN);
@@ -11633,7 +11634,7 @@ void func_800ACC50(MenuItem* arg0) {
         case 12:
         case 13:
             if (is_screen_being_faded() == 0) {
-                if ((gControllerFive->buttonPressed | gControllerFive->stickPressed) & 0x800) {
+                if (kart_input_get_menu_pressed(gControllerFive) & 0x800) {
                     if (arg0->state >= 0xB) {
                         arg0->state--;
                         play_sound2(SOUND_MENU_CURSOR_MOVE);
@@ -11643,7 +11644,7 @@ void func_800ACC50(MenuItem* arg0) {
                         arg0->subState = -1;
                     }
                 }
-                if ((gControllerFive->buttonPressed | gControllerFive->stickPressed) & 0x400) {
+                if (kart_input_get_menu_pressed(gControllerFive) & 0x400) {
                     if (arg0->state < 0xD) {
                         arg0->state++;
                         play_sound2(SOUND_MENU_CURSOR_MOVE);
@@ -11653,7 +11654,7 @@ void func_800ACC50(MenuItem* arg0) {
                         arg0->subState = 1;
                     }
                 }
-                if (gControllerFive->buttonPressed & 0x9000) {
+                if (kart_input_get_menu_pressed(gControllerFive) & 0x9000) {
                     func_8009DFE0(0x0000001E);
                     play_sound2(SOUND_MENU_OK_CLICKED);
                     if (gModeSelection == VERSUS) {
@@ -11826,7 +11827,7 @@ void func_800AD2E8(MenuItem* arg0) {
         case 9:
         case 10:
             if (is_screen_being_faded() == 0) {
-                if ((gControllerOne->buttonPressed | gControllerOne->stickPressed) & 0x800) {
+                if (kart_input_get_menu_pressed(gControllerOne) & 0x800) {
                     if (arg0->state >= 6) {
                         arg0->state--;
                         if ((gPostTimeTrialReplayCannotSave == 1) && (arg0->state == 9)) {
@@ -11839,7 +11840,7 @@ void func_800AD2E8(MenuItem* arg0) {
                         arg0->subState = -1;
                     }
                 }
-                if ((gControllerOne->buttonPressed | gControllerOne->stickPressed) & 0x400) {
+                if (kart_input_get_menu_pressed(gControllerOne) & 0x400) {
                     if (arg0->state < 0xA) {
                         arg0->state++;
                         if ((gPostTimeTrialReplayCannotSave == 1) && (arg0->state == 9)) {
@@ -11856,7 +11857,7 @@ void func_800AD2E8(MenuItem* arg0) {
                         }
                     }
                 }
-                if (gControllerOne->buttonPressed & (A_BUTTON | START_BUTTON)) {
+                if (kart_input_get_menu_pressed(gControllerOne) & (A_BUTTON | START_BUTTON)) {
                     if (arg0->state == 10) {
                         var_v1 = 0;
                         if (arg0->paramf < 4.2) {
@@ -11956,7 +11957,7 @@ void func_800AD2E8(MenuItem* arg0) {
         case 15:
         case 16:
         case 26:
-            if (gControllerOne->buttonPressed & 0xD000) {
+            if (kart_input_get_menu_pressed(gControllerOne) & 0xD000) {
                 arg0->state = 0x0000000A;
                 play_sound2(SOUND_MENU_GO_BACK);
                 if (arg0->paramf < 4.2) {
@@ -11968,7 +11969,7 @@ void func_800AD2E8(MenuItem* arg0) {
         case 18:
             arg0->param2 = arg0->state - 0x11;
             if (func_800B639C((GetCupIndex() * 4) + GetCupCursorPosition()) != arg0->param2) {
-                if ((gControllerOne->buttonPressed | gControllerOne->stickPressed) & 0x800) {
+                if (kart_input_get_menu_pressed(gControllerOne) & 0x800) {
                     if (arg0->state >= 0x12) {
                         arg0->state--;
                         play_sound2(SOUND_MENU_CURSOR_MOVE);
@@ -11978,7 +11979,7 @@ void func_800AD2E8(MenuItem* arg0) {
                         arg0->subState = -1;
                     }
                 }
-                if ((gControllerOne->buttonPressed | gControllerOne->stickPressed) & 0x400) {
+                if (kart_input_get_menu_pressed(gControllerOne) & 0x400) {
                     if (arg0->state < 0x12) {
                         arg0->state++;
                         play_sound2(SOUND_MENU_CURSOR_MOVE);
@@ -11989,12 +11990,12 @@ void func_800AD2E8(MenuItem* arg0) {
                     }
                 }
             }
-            if (gControllerOne->buttonPressed & 0x4000) {
+            if (kart_input_get_menu_pressed(gControllerOne) & 0x4000) {
                 arg0->state = 0x0000000A;
                 play_sound2(SOUND_MENU_GO_BACK);
                 return;
             }
-            if (gControllerOne->buttonPressed & 0x9000) {
+            if (kart_input_get_menu_pressed(gControllerOne) & 0x9000) {
                 thing = &D_8018EE10[arg0->param2];
                 if (thing->ghostDataSaved == 0) {
                     arg0->state = 0x00000019;
@@ -12023,7 +12024,7 @@ void func_800AD2E8(MenuItem* arg0) {
             break;
         case 20:
         case 21:
-            if (((gControllerOne->buttonPressed | gControllerOne->stickPressed) & 0x800) && (arg0->state >= 21)) {
+            if ((kart_input_get_menu_pressed(gControllerOne) & 0x800) && (arg0->state >= 21)) {
                 arg0->state--;
                 play_sound2(SOUND_MENU_CURSOR_MOVE);
                 if (arg0->paramf < 4.2) {
@@ -12031,7 +12032,7 @@ void func_800AD2E8(MenuItem* arg0) {
                 }
                 arg0->subState = -1;
             }
-            if ((gControllerOne->buttonPressed | gControllerOne->stickPressed) & 0x400) {
+            if (kart_input_get_menu_pressed(gControllerOne) & 0x400) {
                 if (arg0->state < 21) {
                     arg0->state++;
                     play_sound2(SOUND_MENU_CURSOR_MOVE);
@@ -12041,12 +12042,12 @@ void func_800AD2E8(MenuItem* arg0) {
                     arg0->subState = 1;
                 }
             }
-            if (gControllerOne->buttonPressed & 0x4000) {
+            if (kart_input_get_menu_pressed(gControllerOne) & 0x4000) {
                 arg0->state = arg0->param2 + 0x11;
                 play_sound2(SOUND_MENU_GO_BACK);
                 return;
             }
-            if (gControllerOne->buttonPressed & 0x9000) {
+            if (kart_input_get_menu_pressed(gControllerOne) & 0x9000) {
                 if (arg0->state == 21) {
                     arg0->state = 25;
                     arg0->param1 = 0;
@@ -12153,7 +12154,7 @@ void func_800ADF48(MenuItem* arg0) {
             case 44:
                 if (is_screen_being_faded() == 0) {
                     controller = &gControllers[gIsGamePaused - 1];
-                    if ((controller->buttonPressed | controller->stickPressed) & 0x800) {
+                    if (kart_input_get_menu_pressed(controller) & 0x800) {
                         if (D_800F0B50[gModeSelection] < arg0->state) {
                             arg0->state--;
                             play_sound2(SOUND_MENU_CURSOR_MOVE);
@@ -12163,7 +12164,7 @@ void func_800ADF48(MenuItem* arg0) {
                             arg0->subState = -1;
                         }
                     }
-                    if ((controller->buttonPressed | controller->stickPressed) & 0x400) {
+                    if (kart_input_get_menu_pressed(controller) & 0x400) {
                         if (arg0->state < D_800F0B54[gModeSelection]) {
                             arg0->state++;
                             play_sound2(SOUND_MENU_CURSOR_MOVE);
@@ -12173,14 +12174,14 @@ void func_800ADF48(MenuItem* arg0) {
                             arg0->subState = 1;
                         }
                     }
-                    if (controller->buttonPressed & B_BUTTON) {
+                    if (kart_input_get_menu_pressed(controller) & B_BUTTON) {
                         if (arg0->state != D_800F0B50[gModeSelection]) {
                             arg0->state = D_800F0B50[gModeSelection];
                             play_sound2(SOUND_MENU_GO_BACK);
                             return;
                         }
                     }
-                    if (controller->buttonPressed & (START_BUTTON | A_BUTTON)) {
+                    if (kart_input_get_menu_pressed(controller) & (START_BUTTON | A_BUTTON)) {
                         if (arg0->state == D_800F0B50[gModeSelection]) {
                             arg0->state = 0;
                             gIsGamePaused = 0;
@@ -12240,7 +12241,7 @@ void func_800AE218(MenuItem* arg0) {
         case 15:
         case 16:
             if (is_screen_being_faded() == 0) {
-                if ((gControllerOne->buttonPressed | gControllerOne->stickPressed) & 0x800) {
+                if (kart_input_get_menu_pressed(gControllerOne) & 0x800) {
                     if (arg0->state >= 0xC) {
                         arg0->state--;
                         play_sound2(SOUND_MENU_CURSOR_MOVE);
@@ -12250,7 +12251,7 @@ void func_800AE218(MenuItem* arg0) {
                         arg0->subState = -1;
                     }
                 }
-                if ((gControllerOne->buttonPressed | gControllerOne->stickPressed) & 0x400) {
+                if (kart_input_get_menu_pressed(gControllerOne) & 0x400) {
                     if (arg0->state < 0x10) {
                         arg0->state++;
                         play_sound2(SOUND_MENU_CURSOR_MOVE);
@@ -12260,7 +12261,7 @@ void func_800AE218(MenuItem* arg0) {
                         arg0->subState = 1;
                     }
                 }
-                if (gControllerOne->buttonPressed & 0x9000) {
+                if (kart_input_get_menu_pressed(gControllerOne) & 0x9000) {
                     if (arg0->state == 0x00000010) {
                         var_v1 = 0;
                         if (arg0->paramf < 4.2) {
@@ -12358,7 +12359,7 @@ void func_800AE218(MenuItem* arg0) {
         case 25:
         case 26:
         case 41:
-            if (gControllerOne->buttonPressed & 0xD000) {
+            if (kart_input_get_menu_pressed(gControllerOne) & 0xD000) {
                 arg0->state = 0x00000010;
                 play_sound2(SOUND_MENU_GO_BACK);
                 if (arg0->paramf < 4.2) {
@@ -12370,7 +12371,7 @@ void func_800AE218(MenuItem* arg0) {
         case 31:
             arg0->param2 = (u32) arg0->state - 0x1E;
             if (func_800B639C((GetCupIndex() * 4) + GetCupCursorPosition()) != arg0->param2) {
-                if ((gControllerOne->buttonPressed | gControllerOne->stickPressed) & 0x800) {
+                if (kart_input_get_menu_pressed(gControllerOne) & 0x800) {
                     if (arg0->state >= 0x1F) {
                         arg0->state--;
                         play_sound2(SOUND_MENU_CURSOR_MOVE);
@@ -12380,7 +12381,7 @@ void func_800AE218(MenuItem* arg0) {
                         arg0->subState = -1;
                     }
                 }
-                if ((gControllerOne->buttonPressed | gControllerOne->stickPressed) & 0x400) {
+                if (kart_input_get_menu_pressed(gControllerOne) & 0x400) {
                     if (arg0->state < 0x1F) {
                         arg0->state++;
                         play_sound2(SOUND_MENU_CURSOR_MOVE);
@@ -12391,10 +12392,10 @@ void func_800AE218(MenuItem* arg0) {
                     }
                 }
             }
-            if (gControllerOne->buttonPressed & 0x4000) {
+            if (kart_input_get_menu_pressed(gControllerOne) & 0x4000) {
                 arg0->state = 0x00000010;
                 play_sound2(SOUND_MENU_GO_BACK);
-            } else if (gControllerOne->buttonPressed & 0x9000) {
+            } else if (kart_input_get_menu_pressed(gControllerOne) & 0x9000) {
                 thing = &D_8018EE10[arg0->param2];
                 if (thing->ghostDataSaved == 0) {
                     arg0->state = 0x00000028;
@@ -12422,7 +12423,7 @@ void func_800AE218(MenuItem* arg0) {
             break;
         case 35:
         case 36:
-            if (((gControllerOne->buttonPressed | gControllerOne->stickPressed) & 0x800) &&
+            if ((kart_input_get_menu_pressed(gControllerOne) & 0x800) &&
                 ((s32) (u32) arg0->state >= 0x24)) {
                 arg0->state--;
                 play_sound2(SOUND_MENU_CURSOR_MOVE);
@@ -12431,7 +12432,7 @@ void func_800AE218(MenuItem* arg0) {
                 }
                 arg0->subState = -1;
             }
-            if ((gControllerOne->buttonPressed | gControllerOne->stickPressed) & 0x400) {
+            if (kart_input_get_menu_pressed(gControllerOne) & 0x400) {
                 if (arg0->state < 0x24) {
                     arg0->state++;
                     play_sound2(SOUND_MENU_CURSOR_MOVE);
@@ -12441,10 +12442,10 @@ void func_800AE218(MenuItem* arg0) {
                     arg0->subState = 1;
                 }
             }
-            if (gControllerOne->buttonPressed & 0x4000) {
+            if (kart_input_get_menu_pressed(gControllerOne) & 0x4000) {
                 arg0->state = arg0->param2 + 0x1E;
                 play_sound2(SOUND_MENU_GO_BACK);
-            } else if (gControllerOne->buttonPressed & 0x9000) {
+            } else if (kart_input_get_menu_pressed(gControllerOne) & 0x9000) {
                 if (arg0->state == 36) {
                     arg0->state = 40;
                     arg0->param1 = 0;
