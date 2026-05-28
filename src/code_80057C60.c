@@ -49,6 +49,11 @@
 #define ARCADEKART_SPRING_BASELINE_STEP 1.0f
 #define ARCADEKART_SPRING_BASELINE_MIN 0.25f
 #define ARCADEKART_SPRING_BASELINE_MAX 16.0f
+#define ARCADEKART_POSTFX_MANUAL_OVERRIDE_CVAR "gArcadeKart.PostFx.ManualOverride"
+#define ARCADEKART_POSTFX_MANUAL_INTENSITY_CVAR "gArcadeKart.PostFx.ManualIntensity"
+#define ARCADEKART_POSTFX_MANUAL_STEP 0.05f
+#define ARCADEKART_POSTFX_MANUAL_MIN 0.0f
+#define ARCADEKART_POSTFX_MANUAL_MAX 1.0f
 
 s32 D_80165590;
 s32 D_80165594;
@@ -183,6 +188,60 @@ UNUSED s32 D_80165864;
 UNUSED s32 D_80165868;
 s32 D_8016586C;
 
+static f32 clamp_arcadekart_postfx_intensity(f32 intensity) {
+    if (intensity < ARCADEKART_POSTFX_MANUAL_MIN) {
+        return ARCADEKART_POSTFX_MANUAL_MIN;
+    }
+    if (intensity > ARCADEKART_POSTFX_MANUAL_MAX) {
+        return ARCADEKART_POSTFX_MANUAL_MAX;
+    }
+    return intensity;
+}
+
+static f32 get_arcadekart_current_postfx_intensity(void) {
+    f32 speedRatio = CVarGetFloat("gArcadeKart.PostFx.Player1.SpeedRatio", 0.0f);
+    f32 boostAmount = CVarGetFloat("gArcadeKart.PostFx.Player1.BoostAmount", 0.0f);
+    f32 shakeAmount = CVarGetFloat("gArcadeKart.PostFx.Player1.ShakeAmount", 0.0f);
+    f32 intensity = (speedRatio * 0.65f) + boostAmount;
+
+    if (shakeAmount > intensity) {
+        intensity = shakeAmount;
+    }
+    return clamp_arcadekart_postfx_intensity(intensity);
+}
+
+static void update_arcadekart_race_postfx_tuning(u16 menuPressed) {
+    f32 intensity;
+
+    if ((menuPressed & (L_JPAD | R_JPAD)) == 0) {
+        CVarSetInteger("gArcadeKart.PostFx.DebugRaceTunePressed", 0);
+        return;
+    }
+
+    if (CVarGetInteger(ARCADEKART_POSTFX_MANUAL_OVERRIDE_CVAR, 0) != 0) {
+        intensity = CVarGetFloat(ARCADEKART_POSTFX_MANUAL_INTENSITY_CVAR, 0.0f);
+    } else {
+        intensity = get_arcadekart_current_postfx_intensity();
+    }
+
+    if (menuPressed & R_JPAD) {
+        intensity += ARCADEKART_POSTFX_MANUAL_STEP;
+        gControllerOne->buttonPressed &= ~R_JPAD;
+        gControllerOne->stickPressed &= ~R_JPAD;
+    }
+    if (menuPressed & L_JPAD) {
+        intensity -= ARCADEKART_POSTFX_MANUAL_STEP;
+        gControllerOne->buttonPressed &= ~L_JPAD;
+        gControllerOne->stickPressed &= ~L_JPAD;
+    }
+
+    intensity = clamp_arcadekart_postfx_intensity(intensity);
+    CVarSetInteger(ARCADEKART_POSTFX_MANUAL_OVERRIDE_CVAR, 1);
+    CVarSetFloat(ARCADEKART_POSTFX_MANUAL_INTENSITY_CVAR, intensity);
+    CVarSetFloat("gArcadeKart.PostFx.DebugManualIntensity", intensity);
+    CVarSetInteger("gArcadeKart.PostFx.DebugRaceTunePressed", menuPressed & (L_JPAD | R_JPAD));
+}
+
 static void update_arcadekart_race_spring_tuning(void) {
     f32 baseline;
     u16 menuPressed;
@@ -193,6 +252,7 @@ static void update_arcadekart_race_spring_tuning(void) {
 
     baseline = CVarGetFloat(ARCADEKART_SPRING_BASELINE_CVAR, 8.0f);
     menuPressed = kart_input_get_menu_pressed(gControllerOne);
+    update_arcadekart_race_postfx_tuning(menuPressed);
     if (menuPressed & U_JPAD) {
         baseline += ARCADEKART_SPRING_BASELINE_STEP;
         gControllerOne->buttonPressed &= ~U_JPAD;

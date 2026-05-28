@@ -468,6 +468,20 @@ void PortMenu::AddEnhancements() {
     AddWidget(path, "Arcade post effects", WIDGET_CVAR_CHECKBOX)
         .CVar("gArcadeKart.PostFx.Enabled")
         .Options(CheckboxOptions().DefaultValue(true).Tooltip("Applies speed warp, blur, and screen shake."));
+    AddWidget(path, "Manual post FX intensity", WIDGET_CVAR_CHECKBOX)
+        .CVar("gArcadeKart.PostFx.ManualOverride")
+        .Options(CheckboxOptions()
+                     .DefaultValue(false)
+                     .Tooltip("Locks post effects to the manual intensity instead of race speed and impacts."));
+    AddWidget(path, "Post FX manual intensity: %.0f%%", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar("gArcadeKart.PostFx.ManualIntensity")
+        .Options(FloatSliderOptions()
+                     .Min(0.0f)
+                     .Max(1.0f)
+                     .DefaultValue(0.0f)
+                     .Step(0.05f)
+                     .Format("%.2f")
+                     .Tooltip("Race menu left/right adjusts this value and enables the manual override."));
     AddWidget(path, "Post FX overscan: %.0f%%", WIDGET_CVAR_SLIDER_FLOAT)
         .CVar("gArcadeKart.PostFx.OverscanPercent")
         .Options(FloatSliderOptions()
