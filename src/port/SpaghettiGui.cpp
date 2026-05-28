@@ -53,6 +53,7 @@ extern "C" {
 #include "mk64.h"
 #include "kart_input.h"
 #include "kart_transmission.h"
+#include "kart_character_stats.h"
 }
 
 namespace Ship {
@@ -115,6 +116,7 @@ namespace Ship {
 
     static void UpdateWheelForceFeedback() {
         if (gPlayerOne == nullptr) {
+            LUS::WheelDeviceManager::Instance().UpdatePlayerOneMenuForceFeedback();
             return;
         }
 
@@ -122,12 +124,14 @@ namespace Ship {
         float speedKmh = (player->speed / 18.0f) * 216.0f;
         bool grounded = IsWheelForceFeedbackGrounded(player);
         float slopeSteeringForce = ComputeWheelSlopeSteeringForce(player, grounded, speedKmh);
+        float steeringSpringMultiplier = kart_character_stats_get_steering_spring_multiplier(player->characterId);
         Context::GetInstance()->GetConsoleVariables()->SetFloat("gArcadeKart.ControllerSlopeSteeringForce",
                                                                 slopeSteeringForce);
         LUS::WheelDeviceManager::Instance().UpdatePlayerOneForceFeedback(speedKmh, slopeSteeringForce, grounded,
                                                                          IsWheelForceFeedbackHitActive(player),
                                                                          IsWheelForceFeedbackLightningActive(player),
-                                                                         player->surfaceType, gCurrentCourseId);
+                                                                         player->surfaceType, gCurrentCourseId,
+                                                                         steeringSpringMultiplier);
     }
 
     static void DrawKartDebugTelemetry() {
@@ -136,20 +140,59 @@ namespace Ship {
         }
 
         const ImGuiViewport* viewport = ImGui::GetMainViewport();
-        const ImVec2 pivot(1.0f, 1.0f);
-        const ImVec2 pos(viewport->WorkPos.x + viewport->WorkSize.x - 12.0f,
+        const ImVec2 pivot(0.5f, 1.0f);
+        const ImVec2 pos(viewport->WorkPos.x + (viewport->WorkSize.x * 0.5f),
                          viewport->WorkPos.y + viewport->WorkSize.y - 12.0f);
         Player* player = gPlayerOne;
         const s32 playerIndex = 0;
         const f32 speed = (player->speed / 18.0f) * 216.0f;
-        const f32 rpm = kart_transmission_get_engine_rpm(player, playerIndex);
-        const f32 throttle = kart_input_get_command_value(gControllerOne, KART_INPUT_THROTTLE);
-        const f32 brake = kart_input_get_command_value(gControllerOne, KART_INPUT_BRAKE);
-        const f32 clutch = kart_input_get_command_value(gControllerOne, KART_INPUT_CLUTCH);
-        const f32 handbrake = kart_input_get_command_value(gControllerOne, KART_INPUT_DRIFT);
-        const f32 forwardBack = kart_input_get_forward_backward_axis(gControllerOne);
+        const f32 rpm = kart_transmission_get_engine_rpm(player, playerIndex) *
+                        CVarGetFloat("gArcadeKart.RpmDisplayMultiplier", 4.5f);
         const f32 slopeSteeringForce =
             ComputeWheelSlopeSteeringForce(player, IsWheelForceFeedbackGrounded(player), speed);
+        const f32 springRawBase = CVarGetFloat("gArcadeKart.DebugSpringRawBase", 0.0f);
+        const f32 springBase = CVarGetFloat("gArcadeKart.DebugSpringBase", 0.0f);
+        const f32 springCharacterMultiplier = CVarGetFloat("gArcadeKart.DebugSpringCharacterMultiplier", 1.0f);
+        const f32 springSurfaceMultiplier = CVarGetFloat("gArcadeKart.DebugSpringSurfaceMultiplier", 1.0f);
+        const f32 springPercent = CVarGetFloat("gArcadeKart.DebugSpringPercent", 0.0f);
+        const f32 springBaselineMultiplier = CVarGetFloat("gArcadeKart.DebugSpringBaselineMultiplier", 1.0f);
+        const f32 springCenteringRatio = CVarGetFloat("gArcadeKart.DebugSpringCenteringRatio", 0.0f);
+        const s32 springGrounded = CVarGetInteger("gArcadeKart.DebugSpringGrounded", 0);
+        const s32 springSurface = CVarGetInteger("gArcadeKart.DebugSpringSurface", 0);
+        const s32 springTunePressed = CVarGetInteger("gArcadeKart.DebugSpringTunePressed", 0);
+        const s32 profilerRequested = CVarGetInteger("gArcadeKart.DebugSpringProfilerRequested", 0);
+        const s32 profilerLast = CVarGetInteger("gArcadeKart.DebugSpringProfilerLast", -1);
+        const s32 profilerSkipped = CVarGetInteger("gArcadeKart.DebugSpringProfilerSkipped", 0);
+        const s32 profilerEnabled = CVarGetInteger("gArcadeKart.DebugSpringProfilerEnabled", 0);
+        const s32 profilerDriverWrite = CVarGetInteger("gArcadeKart.DebugSpringProfilerDriverWrite", 0);
+        const s32 profilerGlobalWrite = CVarGetInteger("gArcadeKart.DebugSpringProfilerGlobalWrite", 0);
+        const s32 profilerWriteOk = CVarGetInteger("gArcadeKart.DebugSpringProfilerWriteOk", 0);
+        const s32 profilerDriverValue = CVarGetInteger("gArcadeKart.DebugSpringProfilerDriverValue", 0);
+        const s32 sdlCenteringEnabled = CVarGetInteger("gArcadeKart.DebugSpringSdlCenteringEnabled", 0);
+        const s32 sdlAutocenterWriteOk = CVarGetInteger("gArcadeKart.DebugSpringSdlAutocenterWriteOk", 0);
+        const s32 sdlAutocenterPercent = CVarGetInteger("gArcadeKart.DebugSpringSdlAutocenterPercent", 0);
+        const s32 hapticOpen = CVarGetInteger("gArcadeKart.DebugSpringHapticOpen", 0);
+        const s32 hapticSpring = CVarGetInteger("gArcadeKart.DebugSpringSupportsSpring", 0);
+        const s32 hapticConstant = CVarGetInteger("gArcadeKart.DebugSpringSupportsConstant", 0);
+        const s32 hapticPeriodic = CVarGetInteger("gArcadeKart.DebugSpringSupportsPeriodic", 0);
+        const s32 hapticRumble = CVarGetInteger("gArcadeKart.DebugSpringSupportsRumble", 0);
+        const s32 hapticActive = CVarGetInteger("gArcadeKart.DebugSpringHapticEffectActive", 0);
+        const s32 hapticWriteOk = CVarGetInteger("gArcadeKart.DebugSpringHapticWriteOk", 0);
+        const s32 hapticEffectId = CVarGetInteger("gArcadeKart.DebugSpringHapticEffectId", -1);
+        const s32 hapticCoefficient = CVarGetInteger("gArcadeKart.DebugSpringHapticCoefficient", 0);
+        const s32 hapticSaturation = CVarGetInteger("gArcadeKart.DebugSpringHapticSaturation", 0);
+        const s32 hapticDeadband = CVarGetInteger("gArcadeKart.DebugSpringHapticDeadband", 0);
+        const f32 forceConstant = CVarGetFloat("gArcadeKart.DebugForceConstantSigned", 0.0f);
+        const f32 terrainKick = CVarGetFloat("gArcadeKart.DebugForceTerrainKick", 0.0f);
+        const f32 coarseKick = CVarGetFloat("gArcadeKart.DebugForceCoarseKick", 0.0f);
+        const f32 surfaceRumble = CVarGetFloat("gArcadeKart.DebugForceSurfaceRumble", 0.0f);
+        const s32 shifterMask = CVarGetInteger("gArcadeKart.DebugShifterButtonMask", -1);
+        const s32 shifterRequest = CVarGetInteger("gArcadeKart.DebugShifterRequestedGear", -2);
+        const s32 shifterRaw = CVarGetInteger("gArcadeKart.DebugShifterRawGear", -2);
+        const s32 shifterSmooth = CVarGetInteger("gArcadeKart.DebugShifterSmoothedGear", -2);
+        const s32 shifterSmoothingFrames = CVarGetInteger("gArcadeKart.DebugShifterSmoothingFrames", 4);
+        const s32 shifterNeutralSamples = CVarGetInteger("gArcadeKart.DebugShifterNeutralSamples", 0);
+        const s32 shifterPressedCount = CVarGetInteger("gArcadeKart.DebugShifterPressedGearCount", 0);
 
         ImGui::SetNextWindowPos(pos, ImGuiCond_Always, pivot);
         ImGui::SetNextWindowBgAlpha(0.35f);
@@ -161,10 +204,27 @@ namespace Ship {
             ImGui::Text("Gear %s", GetGearLabel(kart_transmission_get_gear(playerIndex)));
             ImGui::Text("RPM  %.0f", rpm);
             ImGui::Text("Speed %.1f", speed);
-            ImGui::Text("T %.2f  B %.2f  C %.2f", throttle, brake, clutch);
-            ImGui::Text("H %.2f", handbrake);
-            ImGui::Text("F/B %.2f", forwardBack);
-            ImGui::Text("Slope %.2f", slopeSteeringForce);
+            ImGui::Text("Slope %.2f Ground %d Surf %d", slopeSteeringForce, springGrounded, springSurface);
+            ImGui::Text("Spring %.0f%% Raw %.0f Clamp %.0f x%.1f", springPercent, springRawBase, springBase,
+                        springBaselineMultiplier);
+            ImGui::Text("Mult C%.2f S%.2f Ratio %.2f Tune %04X", springCharacterMultiplier,
+                        springSurfaceMultiplier, springCenteringRatio, springTunePressed);
+            ImGui::Text("Profiler En%d Req%d Last%d Skip%d", profilerEnabled, profilerRequested, profilerLast,
+                        profilerSkipped);
+            ImGui::Text("Reg OK%d D%d G%d Val%d", profilerWriteOk, profilerDriverWrite, profilerGlobalWrite,
+                        profilerDriverValue);
+            ImGui::Text("SDL Center %d Auto OK%d Pct%d", sdlCenteringEnabled, sdlAutocenterWriteOk,
+                        sdlAutocenterPercent);
+            ImGui::Text("Haptic O%d Sp%d C%d Per%d R%d", hapticOpen, hapticSpring, hapticConstant, hapticPeriodic,
+                        hapticRumble);
+            ImGui::Text("Haptic A%d W%d Id%d", hapticActive, hapticWriteOk, hapticEffectId);
+            ImGui::Text("Coeff %d Sat %d Dead %d", hapticCoefficient, hapticSaturation, hapticDeadband);
+            ImGui::Text("Forces Const %.2f TK %.2f CK %.2f R %.2f", forceConstant, terrainKick, coarseKick,
+                        surfaceRumble);
+            ImGui::Text("Shifter %02X Raw %s Sm %s Req %s", shifterMask, GetGearLabel(shifterRaw),
+                        GetGearLabel(shifterSmooth), GetGearLabel(shifterRequest));
+            ImGui::Text("Shifter Count %d Smooth %d N%d", shifterPressedCount, shifterSmoothingFrames,
+                        shifterNeutralSamples);
         }
         ImGui::End();
     }

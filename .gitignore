@@ -116,6 +116,7 @@ torch.hash.yml
 
 # the game
 default.sav
+controllerPak_header.sav
 imgui.ini
 spaghettify.cfg.json
 

@@ -161,29 +161,9 @@ void camera_init(Vec3f pos, s16 rot, u32 mode, s32 cameraId) {
 
             func_80014DE4(cameraId);
 
-            if (D_80164678[cameraId] == 0) {
-                if (D_80164A28 == 1) {
-                    camera->fieldOfView = 80.0f;
-                } else {
-                    camera->fieldOfView = 40.0f;
-                }
-                camera->unk_B4 = camera->fieldOfView;
-            }
-            if (D_80164678[cameraId] == 1) {
-                if (D_80164A28 == 1) {
-                    camera->fieldOfView = 100.0f;
-                } else {
-                    camera->fieldOfView = 60.0f;
-                }
-                camera->unk_B4 = camera->fieldOfView;
-            }
+            camera->fieldOfView = 40.0f;
+            camera->unk_B4 = camera->fieldOfView;
             if (D_80164678[cameraId] == 2) {
-                if (D_80164A28 == 1) {
-                    camera->fieldOfView = 100.0f;
-                } else {
-                    camera->fieldOfView = 60.0f;
-                }
-                camera->unk_B4 = camera->fieldOfView;
                 D_80164A38[cameraId] = 20.0f;
                 D_80164A48[cameraId] = 1.5f;
                 D_80164A78[cameraId] = 1.0f;
@@ -1130,6 +1110,73 @@ void func_8001EE98(Player* player, Camera* camera, s8 index) {
     }
 }
 
+static f32 camera_get_speed_zoom_fov(Camera* camera, Player* player, s32 playerIndex) {
+    f32 speedRatio = 0.0f;
+    f32 boostAmount;
+    f32 shakeAmount = 0.0f;
+    f32 targetFov;
+    f32 currentFov = camera->fieldOfView;
+    const f32 nearFov = 40.0f;
+    const f32 farFov = 60.0f;
+    const f32 zoomStep = 1.0f;
+    char cvarName[96];
+
+    if ((player != NULL) && (player->topSpeed > 0.0f)) {
+        speedRatio = fabsf(player->speed) / player->topSpeed;
+    }
+    if (speedRatio < 0.0f) {
+        speedRatio = 0.0f;
+    }
+    if (speedRatio > 1.0f) {
+        speedRatio = 1.0f;
+    }
+    boostAmount = D_80164498[playerIndex] / 25.0f;
+    if (boostAmount < 0.0f) {
+        boostAmount = 0.0f;
+    }
+    if (boostAmount > 1.0f) {
+        boostAmount = 1.0f;
+    }
+
+    if (player != NULL) {
+        if ((player->effects & (HIT_BY_ITEM_EFFECT | HIT_EFFECT | LIGHTNING_EFFECT)) != 0) {
+            shakeAmount = 1.0f;
+        } else if ((player->surfaceType != AIRBORNE) && (player->surfaceType != ASPHALT)) {
+            shakeAmount = 0.20f + (speedRatio * 0.35f);
+            if ((player->surfaceType == DIRT) || (player->surfaceType == DIRT_OFFROAD)) {
+                shakeAmount += 0.20f;
+            }
+            if (player->surfaceType == ICE) {
+                shakeAmount *= 0.30f;
+            }
+            if (shakeAmount > 1.0f) {
+                shakeAmount = 1.0f;
+            }
+        }
+    }
+    CVarSetInteger("gArcadeKart.PostFx.ScreenMode", gActiveScreenMode);
+    snprintf(cvarName, sizeof(cvarName), "gArcadeKart.PostFx.Player%d.SpeedRatio", playerIndex + 1);
+    CVarSetFloat(cvarName, speedRatio);
+    snprintf(cvarName, sizeof(cvarName), "gArcadeKart.PostFx.Player%d.BoostAmount", playerIndex + 1);
+    CVarSetFloat(cvarName, boostAmount);
+    snprintf(cvarName, sizeof(cvarName), "gArcadeKart.PostFx.Player%d.ShakeAmount", playerIndex + 1);
+    CVarSetFloat(cvarName, shakeAmount);
+
+    targetFov = nearFov + ((farFov - nearFov) * speedRatio) + D_80164498[playerIndex];
+    if (currentFov < targetFov) {
+        currentFov += zoomStep;
+        if (currentFov > targetFov) {
+            currentFov = targetFov;
+        }
+    } else if (currentFov > targetFov) {
+        currentFov -= zoomStep;
+        if (currentFov < targetFov) {
+            currentFov = targetFov;
+        }
+    }
+    return currentFov;
+}
+
 void func_8001F394(Player* player) {
     f32 var_f0;
     UNUSED s32 pad;
@@ -1142,6 +1189,7 @@ void func_8001F394(Player* player) {
         printf("[camera.c][func_8001F394] Could not find a camera using GetPlayerCamera()\n");
         return;
     }
+    var_f0 = camera->fieldOfView;
 
     if (player == gPlayerOne) {
         playerIndex = 0;
@@ -1253,12 +1301,12 @@ void func_8001F394(Player* player) {
                     D_80164498[playerIndex] = 0.0f;
                 }
             }
-            var_f0 = func_80014EE4(camera->fieldOfView, playerIndex);
+            var_f0 = camera_get_speed_zoom_fov(camera, player, playerIndex);
             break;
         case SCREEN_MODE_2P_SPLITSCREEN_HORIZONTAL:
         case SCREEN_MODE_2P_SPLITSCREEN_VERTICAL:
         case SCREEN_MODE_3P_4P_SPLITSCREEN:
-            var_f0 = func_80014EE4(camera->fieldOfView, playerIndex);
+            var_f0 = camera_get_speed_zoom_fov(camera, player, playerIndex);
             break;
     }
     camera->fieldOfView = var_f0;

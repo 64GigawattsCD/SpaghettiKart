@@ -207,8 +207,8 @@ void func_8006F008(void) {
 
     switch (gPlayerCount) {
         case 1:
-            CM_GetProps()->Minimap.Pos[PLAYER_ONE].X = 260;
-            CM_GetProps()->Minimap.Pos[PLAYER_ONE].Y = 104;
+            CM_GetProps()->Minimap.Pos[PLAYER_ONE].X = 300;
+            CM_GetProps()->Minimap.Pos[PLAYER_ONE].Y = 112;
             break;
         case 2:
             // Set X coord
@@ -664,10 +664,10 @@ void init_hud_one_player(void) {
     func_8007055C(gScreenOneCtx);
     func_8007055C(gScreenTwoCtx);
     init_course_object();
-    playerHUD[PLAYER_ONE].speedometerX = 0x0106;
-    playerHUD[PLAYER_ONE].speedometerY = 0x00B6;
-    D_8018CFEC = playerHUD[PLAYER_ONE].speedometerX + 0x18;
-    D_8018CFF4 = playerHUD[PLAYER_ONE].speedometerY + 6;
+    playerHUD[PLAYER_ONE].speedometerX = 0x0122;
+    playerHUD[PLAYER_ONE].speedometerY = 0x00CC;
+    D_8018CFEC = playerHUD[PLAYER_ONE].speedometerX + 0x12;
+    D_8018CFF4 = playerHUD[PLAYER_ONE].speedometerY + 5;
     D_8016579E = 0xDD00;
     playerHUD[PLAYER_ONE].rankX = 38;
     playerHUD[PLAYER_ONE].rankY = 0x001C;
@@ -675,21 +675,21 @@ void init_hud_one_player(void) {
     playerHUD[PLAYER_ONE].slideRankY = 0;
     playerHUD[PLAYER_ONE].stagingPosition = gGPCurrentRaceRankByPlayerId[0];
     playerHUD[PLAYER_ONE].timerX = 0x0090;
-    playerHUD[PLAYER_ONE].lapCompletionTimeXs[0] = 0x0090;
-    playerHUD[PLAYER_ONE].lapCompletionTimeXs[1] = 0x0090;
+    playerHUD[PLAYER_ONE].lapCompletionTimeXs[0] = 0x00E4;
+    playerHUD[PLAYER_ONE].lapCompletionTimeXs[1] = 0x00E4;
     playerHUD[PLAYER_ONE].timerY = 0x000A;
     playerHUD[PLAYER_ONE].lapX = -40;
     playerHUD[PLAYER_ONE].lapAfterImage1X = -40;
     playerHUD[PLAYER_ONE].lapAfterImage2X = -40;
     playerHUD[PLAYER_ONE].lapY = 0x0019;
-    playerHUD[PLAYER_ONE].itemBoxX = 0x008C;
+    playerHUD[PLAYER_ONE].itemBoxX = 0x00A0;
     playerHUD[PLAYER_ONE].itemBoxY = -0x0016;
     playerHUD[PLAYER_ONE].slideItemBoxX = 0;
     playerHUD[PLAYER_ONE].slideItemBoxY = 0;
     // permuter magic
     why = 0x000000A0;
     init_item_window(gItemWindowObjectByPlayerId[0]);
-    for (someIndex = 0, something = 35.0f; someIndex < 8; someIndex++, something += 32.0) {
+    for (someIndex = 0, something = 72.0f; someIndex < 8; someIndex++, something += 32.0) {
         D_8018D0C8[someIndex] = 40.0f;
         D_8018D028[someIndex] = -24.0f;
         D_8018D050[someIndex] = something;

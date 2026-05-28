@@ -2323,6 +2323,7 @@ void func_8002E594(Player* player, UNUSED Camera* camera, s8 screenId, s8 player
                 (((player->speed / 18.0f) * 216.0f) >= 20.0f)) {
                 player->unk_DB4.unkC = 2.0f;
                 player->unk_DB4.unk18 = 0;
+                player->kartGraphics |= BOING;
                 if (((player->type & PLAYER_HUMAN) == PLAYER_HUMAN) &&
                     ((player->type & PLAYER_INVISIBLE_OR_BOMB) != PLAYER_INVISIBLE_OR_BOMB)) {
                     func_800CADD0((u8) playerId, ((f32) player->unk_0C2) / 50.0f);
@@ -4086,7 +4087,6 @@ void func_80036C5C(Player* player) {
     if (((player->speed / 18.0f) * 216.0f) > 20.0f) {
         player->driftDuration = 0;
         player->effects |= DRIFTING_EFFECT;
-        player->kartGraphics |= BOING;
     }
 }
 

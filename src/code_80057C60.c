@@ -45,6 +45,10 @@
 
 //! @warning this macro is undef'd at the end of this file
 #define MAKE_RGB(r, g, b) (((r) << 0x10) | ((g) << 0x08) | (b << 0x00))
+#define ARCADEKART_SPRING_BASELINE_CVAR "gArcadeKart.LogitechProfilerSpringBaselineMultiplier"
+#define ARCADEKART_SPRING_BASELINE_STEP 1.0f
+#define ARCADEKART_SPRING_BASELINE_MIN 0.25f
+#define ARCADEKART_SPRING_BASELINE_MAX 16.0f
 
 s32 D_80165590;
 s32 D_80165594;
@@ -178,6 +182,37 @@ s32 D_80165860;
 UNUSED s32 D_80165864;
 UNUSED s32 D_80165868;
 s32 D_8016586C;
+
+static void update_arcadekart_race_spring_tuning(void) {
+    f32 baseline;
+    u16 menuPressed;
+
+    if ((gControllerOne == NULL) || (gIsGamePaused != 0)) {
+        return;
+    }
+
+    baseline = CVarGetFloat(ARCADEKART_SPRING_BASELINE_CVAR, 8.0f);
+    menuPressed = kart_input_get_menu_pressed(gControllerOne);
+    if (menuPressed & U_JPAD) {
+        baseline += ARCADEKART_SPRING_BASELINE_STEP;
+        gControllerOne->buttonPressed &= ~U_JPAD;
+        gControllerOne->stickPressed &= ~U_JPAD;
+    }
+    if (menuPressed & D_JPAD) {
+        baseline -= ARCADEKART_SPRING_BASELINE_STEP;
+        gControllerOne->buttonPressed &= ~D_JPAD;
+        gControllerOne->stickPressed &= ~D_JPAD;
+    }
+
+    if (baseline < ARCADEKART_SPRING_BASELINE_MIN) {
+        baseline = ARCADEKART_SPRING_BASELINE_MIN;
+    } else if (baseline > ARCADEKART_SPRING_BASELINE_MAX) {
+        baseline = ARCADEKART_SPRING_BASELINE_MAX;
+    }
+
+    CVarSetFloat(ARCADEKART_SPRING_BASELINE_CVAR, baseline);
+    CVarSetInteger("gArcadeKart.DebugSpringTunePressed", menuPressed & (U_JPAD | D_JPAD));
+}
 UNUSED s32 D_80165870[2];
 s32 D_80165878;
 s32 D_8016587C;
@@ -731,9 +766,9 @@ void func_80058F78(void) {
 
         set_matrix_hud_screen();
         if ((!gDemoMode) && (gIsHUDVisible != 0) && (D_801657D8 == 0)) {
+            update_arcadekart_race_spring_tuning();
             draw_item_window(PLAYER_ONE);
             render_hud_timer(PLAYER_ONE);
-            draw_simplified_lap_count(PLAYER_ONE);
             func_8004EB38(0);
             render_shift_feedback_hud(PLAYER_ONE);
             if (D_801657E6 != false) {
@@ -880,7 +915,10 @@ void render_hud_2p_horizontal_player_two(void) {
 void draw_simplified_hud(s32 playerId) {
     if ((gModeSelection != BATTLE) && (D_80165800[playerId] == 0) && (gIsHUDVisible != 0)) {
         render_hud_timer(playerId);
-        draw_simplified_lap_count(playerId);
+        if (!(((gPlayerCountSelection1 == 1) || (gPlayerCount == 1) || (gScreenModeSelection == SCREEN_MODE_1P)) &&
+              (playerId == PLAYER_ONE))) {
+            draw_simplified_lap_count(playerId);
+        }
     }
     draw_item_window(playerId);
 }
@@ -934,7 +972,9 @@ void render_hud_1p_multi(void) {
         FrameInterpolation_RecordOpenChild("HudMatrix", 0);
 
         set_matrix_hud_screen();
-        render_hud_lap_3p_4p(PLAYER_ONE);
+        if (!((gPlayerCountSelection1 == 1) || (gPlayerCount == 1) || (gScreenModeSelection == SCREEN_MODE_1P))) {
+            render_hud_lap_3p_4p(PLAYER_ONE);
+        }
 
         FrameInterpolation_RecordCloseChild();
     }
@@ -1458,45 +1498,45 @@ void func_8005AB60(void) {
         case 0:
             break;
         case 1:
-            s16_step_towards(&playerHUD[PLAYER_ONE].speedometerX, 0x106, 0x10);
-            if (s16_step_towards(&playerHUD[PLAYER_ONE].speedometerY, 0xB6, 0x10) != 0) {
+            s16_step_towards(&playerHUD[PLAYER_ONE].speedometerX, 0x122, 0x10);
+            if (s16_step_towards(&playerHUD[PLAYER_ONE].speedometerY, 0xCC, 0x10) != 0) {
                 playerHUD[PLAYER_ONE].unk_78++;
                 playerHUD[PLAYER_ONE].unk_79 = 1;
             }
             break;
         case 2:
-            s16_step_towards(&playerHUD[PLAYER_ONE].speedometerX, 0x116, 4);
-            if (s16_step_towards(&playerHUD[PLAYER_ONE].speedometerY, 0xC6, 4) != 0) {
+            s16_step_towards(&playerHUD[PLAYER_ONE].speedometerX, 0x132, 4);
+            if (s16_step_towards(&playerHUD[PLAYER_ONE].speedometerY, 0xDC, 4) != 0) {
                 playerHUD[PLAYER_ONE].unk_78++;
             }
             break;
         case 3:
-            s16_step_towards(&playerHUD[PLAYER_ONE].speedometerX, 0x106, 4);
-            if (s16_step_towards(&playerHUD[PLAYER_ONE].speedometerY, 0xB6, 4) != 0) {
+            s16_step_towards(&playerHUD[PLAYER_ONE].speedometerX, 0x122, 4);
+            if (s16_step_towards(&playerHUD[PLAYER_ONE].speedometerY, 0xCC, 4) != 0) {
                 playerHUD[PLAYER_ONE].unk_78++;
             }
             break;
         case 4:
-            s16_step_towards(&playerHUD[PLAYER_ONE].speedometerX, 0x10E, 4);
-            if (s16_step_towards(&playerHUD[PLAYER_ONE].speedometerY, 0xBE, 4) != 0) {
+            s16_step_towards(&playerHUD[PLAYER_ONE].speedometerX, 0x12A, 4);
+            if (s16_step_towards(&playerHUD[PLAYER_ONE].speedometerY, 0xD4, 4) != 0) {
                 playerHUD[PLAYER_ONE].unk_78++;
             }
             break;
         case 5:
-            s16_step_towards(&playerHUD[PLAYER_ONE].speedometerX, 0x106, 4);
-            if (s16_step_towards(&playerHUD[PLAYER_ONE].speedometerY, 0xB6, 4) != 0) {
+            s16_step_towards(&playerHUD[PLAYER_ONE].speedometerX, 0x122, 4);
+            if (s16_step_towards(&playerHUD[PLAYER_ONE].speedometerY, 0xCC, 4) != 0) {
                 playerHUD[PLAYER_ONE].unk_78++;
             }
             break;
         case 6:
-            s16_step_towards(&playerHUD[PLAYER_ONE].speedometerX, 0x10A, 2);
-            if (s16_step_towards(&playerHUD[PLAYER_ONE].speedometerY, 0xBA, 2) != 0) {
+            s16_step_towards(&playerHUD[PLAYER_ONE].speedometerX, 0x126, 2);
+            if (s16_step_towards(&playerHUD[PLAYER_ONE].speedometerY, 0xD0, 2) != 0) {
                 playerHUD[PLAYER_ONE].unk_78++;
             }
             break;
         case 7:
-            s16_step_towards(&playerHUD[PLAYER_ONE].speedometerX, 0x106, 2);
-            if (s16_step_towards(&playerHUD[PLAYER_ONE].speedometerY, 0xB6, 2) != 0) {
+            s16_step_towards(&playerHUD[PLAYER_ONE].speedometerX, 0x122, 2);
+            if (s16_step_towards(&playerHUD[PLAYER_ONE].speedometerY, 0xCC, 2) != 0) {
                 playerHUD[PLAYER_ONE].unk_78++;
             }
             break;
@@ -1639,8 +1679,8 @@ void func_8005AB60(void) {
             playerHUD[PLAYER_ONE].unk_7D = 0;
             break;
     }
-    D_8018CFEC = (f32) (playerHUD[PLAYER_ONE].speedometerX + 0x18);
-    D_8018CFF4 = (f32) (playerHUD[PLAYER_ONE].speedometerY + 6);
+    D_8018CFEC = (f32) (playerHUD[PLAYER_ONE].speedometerX + 0x12);
+    D_8018CFF4 = (f32) (playerHUD[PLAYER_ONE].speedometerY + 5);
     switch (playerHUD[PLAYER_ONE].unk_7B) {
         case 0:
             break;
@@ -2346,9 +2386,9 @@ void func_8005CB60(s32 playerId, s32 lapCount) {
                         gHUDModes = 0;
                         D_801657E6 = 0;
                         D_801657F0 = 0;
-                        D_801657E8 = 1;
-                        D_80165800[0] = 1;
-                        D_80165800[1] = 1;
+                        D_801657E8 = 0;
+                        D_80165800[0] = 0;
+                        D_80165800[1] = 0;
                         D_8018D204 = (s32) 1;
                     }
                     playerHUD[playerId].raceCompleteBool = 1;
@@ -2575,6 +2615,7 @@ s32 set_particle_colour_randomly_varried(UnkPlayerStruct258* arg0, s32 arg1, s16
 
 void set_drift_particles(Player* player, s16 arg1, UNUSED s32 arg2, UNUSED s8 arg3, UNUSED s8 arg4) {
     s32 temp_lo;
+    s32 shouldForceDirectDriftParticle;
 
     if (player->unk_0C0 >= 0) {
         set_particle_position_and_rotation(player, &player->particlePool1[arg1], player->tyres[BACK_LEFT].pos[0],
@@ -2587,7 +2628,10 @@ void set_drift_particles(Player* player, s16 arg1, UNUSED s32 arg2, UNUSED s8 ar
     }
 
     temp_lo = player->unk_0C0 / 182;
-    if ((temp_lo >= 7) || (temp_lo < -6)) {
+    shouldForceDirectDriftParticle = (((player->effects & DRIFTING_EFFECT) == DRIFTING_EFFECT) &&
+                                      (player->driftDuration >= 8) &&
+                                      (((player->speed / 18.0f) * 216.0f) > 20.0f));
+    if ((temp_lo >= 7) || (temp_lo < -6) || shouldForceDirectDriftParticle) {
         init_particle_player(&player->particlePool1[arg1], DRIFT_PARTICLE, 0.35f);
         if (player->driftState == 0) {
             set_particle_colour(&player->particlePool1[arg1], 0xFFFFFF, 0x70);
@@ -6044,6 +6088,7 @@ void func_8006C4D4(Vec3f arg0, f32 arg1, s32 rgb, s16 alpha, s16 arg4) {
     sp44[2] = 0;
     func_800652D4(sp4C, sp44, arg1);
     gSPDisplayList(gDisplayListHead++, D_0D008DB8);
+    gDPSetTextureLUT(gDisplayListHead++, G_TT_NONE);
     gDPLoadTextureBlock(gDisplayListHead++, common_texture_particle_spark[arg4], G_IM_FMT_I, G_IM_SIZ_8b, 32, 32, 0,
                         G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOMASK, G_TX_NOLOD,
                         G_TX_NOLOD);

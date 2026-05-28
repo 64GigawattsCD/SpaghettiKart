@@ -148,6 +148,8 @@ const s16 gCupCourseOrder[5][4] = {
     { TRACK_BIG_DONUT, TRACK_BLOCK_FORT, TRACK_DOUBLE_DECK, TRACK_SKYSCRAPER },
 };
 
+#define ARCADEKART_DEBUG_QUICK_BOOT_HUD_RACE_CVAR "gArcadeKart.DebugQuickBootHudRace"
+
 const s8 unref_800F2BDC[4] = { 1, 0, 0, 0 };
 
 // Uses player count to set gScreenModeListIndex, the latter variable then selects a mode
@@ -158,11 +160,71 @@ const union GameModePack sSoundMenuPack = { { SOUND_STEREO, SOUND_HEADPHONES, SO
 
 /**************************/
 
+static bool sArcadeKartDebugQuickBootConsumed = false;
+
+static bool arcade_kart_should_debug_quick_boot_hud_race(void) {
+    return !sArcadeKartDebugQuickBootConsumed &&
+           (CVarGetInteger(ARCADEKART_DEBUG_QUICK_BOOT_HUD_RACE_CVAR, true) != 0);
+}
+
+static void arcade_kart_debug_quick_boot_hud_race(void) {
+    s32 i;
+
+    sArcadeKartDebugQuickBootConsumed = true;
+
+    gDemoMode = DEMO_MODE_INACTIVE;
+    gDemoUseController = 0;
+    gModeSelection = GRAND_PRIX;
+    gCCSelection = CC_50;
+    gPlaceItemBoxes = 1;
+    set_mirror_mode(0);
+
+    gPlayerCount = 1;
+    gPlayerCountSelection1 = 1;
+    gScreenModeListIndex = 0;
+    gScreenModeSelection = SCREEN_MODE_1P;
+
+    gCharacterSelections[PLAYER_ONE] = MARIO;
+    gCharacterGridSelections[PLAYER_ONE] = 1;
+    gCharacterGridIsSelected[PLAYER_ONE] = true;
+    for (i = PLAYER_TWO; i < ARRAY_COUNT(gCharacterSelections); i++) {
+        gCharacterSelections[i] = i;
+        gCharacterGridSelections[i] = 0;
+        gCharacterGridIsSelected[i] = false;
+    }
+
+    CM_SetCup(GetMushroomCup());
+    CM_SetCupIndex(MUSHROOM_CUP);
+    gCupSelection = MUSHROOM_CUP;
+    SetCupCursorPosition(TRACK_ONE);
+    gCourseIndexInCup = TRACK_ONE;
+    D_800DC540 = GetCupIndex();
+    gCurrentCourseId = gCupCourseOrder[gCupSelection][gCourseIndexInCup];
+    TrackBrowser_SetTrackFromCup();
+
+    for (i = 0; i < ARRAY_COUNT(gGPPointsByCharacterId); i++) {
+        gGPPointsByCharacterId[i] = 0;
+    }
+    func_8000F124();
+
+    gGhostPlayerInit = 0;
+    gTrackMapInit = 0;
+    gDebugGotoScene = DEBUG_GOTO_RACING;
+    gMenuSelection = RACING_DUPLICATE;
+    gGotoMode = RACING;
+    gGamestateNext = RACING;
+}
+
 /**
  * Includes opening logo and splash screens
  */
 void update_menus(void) {
     u16 controllerIdx;
+
+    if (arcade_kart_should_debug_quick_boot_hud_race()) {
+        arcade_kart_debug_quick_boot_hud_race();
+        return;
+    }
 
     if (gFadeModeSelection == FADE_MODE_NONE) {
         for (controllerIdx = 0; controllerIdx < 4; controllerIdx++) {

@@ -3,13 +3,19 @@
 #include <libultraship.h>
 #include <limits.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <defines.h>
 #include "kart_input.h"
+#include "kart_character_stats.h"
 #include "code_80057C60.h"
+#include "math_util.h"
+#include "port/audio/HMAS.h"
 #include "audio/external.h"
 #include "sounds.h"
 
 #define KART_TRANSMISSION_PLAYER_COUNT 8
+#define KART_SHIFT_GRIND_SOUND_COUNT 3
+#define KART_SHIFT_GRIND_SOUND_ID_BASE 7000
 #define KART_SHIFT_BAD_SOUND SOUND_ACTION_TYRE_SQUEAL
 #define KART_SHIFT_GOOD_SOUND SOUND_ACTION_PING
 #define KART_SHIFT_GRIND_GRAPHIC_FRAMES 40
@@ -30,7 +36,10 @@ static f32 sKartShiftRpmAtRequest[KART_TRANSMISSION_PLAYER_COUNT];
 static s8 sKartShiftPendingFromGear[KART_TRANSMISSION_PLAYER_COUNT];
 static s8 sKartShiftPendingToGear[KART_TRANSMISSION_PLAYER_COUNT];
 static bool sKartShiftPending[KART_TRANSMISSION_PLAYER_COUNT];
+static bool sKartShiftSessionHadClutch[KART_TRANSMISSION_PLAYER_COUNT];
 static KartShiftFeedback sKartShiftFeedback[KART_TRANSMISSION_PLAYER_COUNT];
+static bool sKartShiftGrindSoundsLoaded;
+static s8 sKartLastShiftGrindSoundIndex = -1;
 
 static const f32 sGearMinSpeed[KART_GEAR_TOP + 1] = { 0.0f, 0.0f, 0.06f, 0.16f, 0.30f, 0.46f, 0.62f };
 static const f32 sGearMaxSpeed[KART_GEAR_TOP + 1] = { 0.0f, 0.30f, 0.48f, 0.66f, 0.84f, 1.00f, 1.14f };
@@ -38,7 +47,10 @@ static const f32 sAutomaticUpshiftSpeed[KART_GEAR_TOP + 1] = { 0.0f, 0.25f, 0.43
 static const f32 sAutomaticDownshiftSpeed[KART_GEAR_TOP + 1] = { 0.0f, 0.00f, 0.10f, 0.25f, 0.43f, 0.61f, 0.80f };
 static const f32 sGearTorqueMultiplier[KART_GEAR_TOP + 1] = { 0.0f, 1.36f, 1.20f, 1.04f, 0.88f, 0.72f, 0.56f };
 static const f32 sGearLaunchMultiplier[KART_GEAR_TOP + 1] = { 0.0f, 1.00f, 0.58f, 0.28f, 0.15f, 0.08f, 0.04f };
-static const f32 sKartWeightTorqueMultiplier[8] = { 1.00f, 1.00f, 0.94f, 0.94f, 1.10f, 1.08f, 0.94f, 1.12f };
+
+static bool kart_transmission_is_drive_gear(s32 gear) {
+    return (gear >= KART_GEAR_FIRST) || (gear == KART_GEAR_REVERSE);
+}
 
 static s32 kart_transmission_clamp_player_index(s32 playerIndex) {
     if (playerIndex < 0) {
@@ -58,6 +70,17 @@ static void kart_transmission_init_player(s32 playerIndex) {
 
     sKartGear[playerIndex] = KART_GEAR_FIRST;
     sKartTransmissionInitialized[playerIndex] = true;
+}
+
+static void kart_transmission_clear_shift_session(s32 playerIndex) {
+    sKartShiftPending[playerIndex] = false;
+    sKartShiftSessionHadClutch[playerIndex] = false;
+    sKartShiftPendingFrames[playerIndex] = 0;
+    sKartShiftFeedback[playerIndex] = KART_SHIFT_FEEDBACK_NONE;
+    sKartShiftFeedbackTimer[playerIndex] = 0;
+    sKartShiftPenaltyTimer[playerIndex] = 0;
+    sKartShiftLurchTimer[playerIndex] = 0;
+    sKartRpmFlareTimer[playerIndex] = 0;
 }
 
 bool kart_transmission_is_automatic(const Player* player) {
@@ -88,6 +111,59 @@ static f32 kart_transmission_clampf(f32 value, f32 min, f32 max) {
 
 static f32 kart_transmission_get_cvarf(const char* key, f32 defaultValue) {
     return CVarGetFloat(key, defaultValue);
+}
+
+static void kart_transmission_register_grind_sound(s32 index, const char* fileName) {
+    char appDirectoryPath[128];
+    char sourceDirectoryPath[160];
+    s32 soundId = KART_SHIFT_GRIND_SOUND_ID_BASE + index;
+
+    snprintf(appDirectoryPath, sizeof(appDirectoryPath), "arcadekart_audio/%s", fileName);
+    HMAS_RegisterSoundFromFile(soundId, appDirectoryPath);
+    if (HMAS_IsIDRegistered(soundId)) {
+        return;
+    }
+
+    snprintf(sourceDirectoryPath, sizeof(sourceDirectoryPath), "assets/arcadekart_audio/%s", fileName);
+    HMAS_RegisterSoundFromFile(soundId, sourceDirectoryPath);
+}
+
+static void kart_transmission_load_grind_sounds(void) {
+    if (sKartShiftGrindSoundsLoaded) {
+        return;
+    }
+
+    kart_transmission_register_grind_sound(0, "bad_shift_grind_a.ogg");
+    kart_transmission_register_grind_sound(1, "bad_shift_grind_b.ogg");
+    kart_transmission_register_grind_sound(2, "bad_shift_grind_c.ogg");
+    sKartShiftGrindSoundsLoaded = true;
+}
+
+static s32 kart_transmission_pick_grind_sound_index(void) {
+    s32 offset;
+
+    if (sKartLastShiftGrindSoundIndex < 0) {
+        return random_int(KART_SHIFT_GRIND_SOUND_COUNT);
+    }
+
+    offset = 1 + random_int(2);
+    return (sKartLastShiftGrindSoundIndex + offset) % KART_SHIFT_GRIND_SOUND_COUNT;
+}
+
+static void kart_transmission_play_grind_sound(void) {
+    s32 soundIndex;
+    s32 soundId;
+
+    kart_transmission_load_grind_sounds();
+    soundIndex = kart_transmission_pick_grind_sound_index();
+    soundId = KART_SHIFT_GRIND_SOUND_ID_BASE + soundIndex;
+    sKartLastShiftGrindSoundIndex = soundIndex;
+
+    if (HMAS_IsIDRegistered(soundId)) {
+        HMAS_Play(HMAS_SFX, soundId, false);
+    } else {
+        play_sound2(KART_SHIFT_BAD_SOUND);
+    }
 }
 
 static f32 kart_transmission_get_clutch_drive_ratio(const Player* player, s32 playerIndex) {
@@ -166,10 +242,51 @@ static void kart_transmission_apply_shift_feedback(Player* player, s32 playerInd
         if (player != NULL) {
             badSpeedPenalty = kart_transmission_get_cvarf("gArcadeKart.ShiftBadSpeedPenalty", 0.88f);
             player->currentSpeed *= badSpeedPenalty;
-            player->kartGraphics |= BOING;
         }
-        play_sound2(KART_SHIFT_BAD_SOUND);
+        kart_transmission_play_grind_sound();
     }
+}
+
+static const char* kart_transmission_get_gear_label(s32 gear) {
+    switch (gear) {
+        case KART_GEAR_REVERSE:
+            return "R";
+        case KART_GEAR_NEUTRAL:
+            return "N";
+        case KART_GEAR_FIRST:
+            return "1";
+        case 2:
+            return "2";
+        case 3:
+            return "3";
+        case 4:
+            return "4";
+        case 5:
+            return "5";
+        case KART_GEAR_TOP:
+            return "6";
+        default:
+            return "?";
+    }
+}
+
+static void kart_transmission_log_shift_event(const char* eventName, s32 playerIndex, s32 fromGear, s32 toGear,
+                                              f32 clutchAmount, f32 rpmAtRequest, f32 rpmNow, s32 frames,
+                                              bool hadClutch) {
+    FILE* logFile = fopen("logs/ArcadeKartShift.log", "a");
+
+    if (logFile == NULL) {
+        logFile = fopen("ArcadeKartShift.log", "a");
+        if (logFile == NULL) {
+            return;
+        }
+    }
+
+    fprintf(logFile,
+            "[ArcadeKart Shift] %s P%d %s->%s clutch %.3f rpmStart %.0f rpmNow %.0f frames %d hadClutch %d\n",
+            eventName, playerIndex, kart_transmission_get_gear_label(fromGear),
+            kart_transmission_get_gear_label(toGear), clutchAmount, rpmAtRequest, rpmNow, frames, hadClutch ? 1 : 0);
+    fclose(logFile);
 }
 
 static void kart_transmission_score_pending_shift(Player* player, s32 playerIndex, bool clutchReleased) {
@@ -188,7 +305,8 @@ static void kart_transmission_score_pending_shift(Player* player, s32 playerInde
     }
 
     holdLimitFrames = (s32) kart_transmission_get_cvarf("gArcadeKart.ShiftGoodReleaseFrames", 45.0f);
-    if (!clutchReleased && (sKartShiftPendingFrames[playerIndex] <= holdLimitFrames)) {
+    if (!clutchReleased && sKartShiftSessionHadClutch[playerIndex] &&
+        (sKartShiftPendingFrames[playerIndex] <= holdLimitFrames)) {
         return;
     }
 
@@ -198,16 +316,39 @@ static void kart_transmission_score_pending_shift(Player* player, s32 playerInde
                   (sKartShiftPendingToGear[playerIndex] >= KART_GEAR_FIRST) &&
                   (sKartShiftPendingToGear[playerIndex] < sKartShiftPendingFromGear[playerIndex]);
     clutchWasGood = sKartShiftClutchAtRequest[playerIndex] >=
-                    kart_transmission_get_cvarf("gArcadeKart.ShiftGoodClutchThreshold", 0.90f);
+                    kart_transmission_get_cvarf("gArcadeKart.ShiftGoodClutchThreshold", 0.84f);
     clutchWasAdequate = sKartShiftClutchAtRequest[playerIndex] >=
-                        kart_transmission_get_cvarf("gArcadeKart.ShiftAdequateClutchThreshold", 0.55f);
+                        kart_transmission_get_cvarf("gArcadeKart.ShiftAdequateClutchThreshold", 0.45f);
     releasedQuickly = sKartShiftPendingFrames[playerIndex] <= holdLimitFrames;
-    idealRpmMin = kart_transmission_get_cvarf("gArcadeKart.ShiftIdealRpmMin", 4200.0f);
-    idealRpmMax = kart_transmission_get_cvarf("gArcadeKart.ShiftIdealRpmMax", 6800.0f);
+    idealRpmMin = kart_transmission_get_cvarf("gArcadeKart.ShiftIdealRpmMin", 3800.0f);
+    idealRpmMax = kart_transmission_get_cvarf("gArcadeKart.ShiftIdealRpmMax", 7200.0f);
     rpmWasIdeal = (sKartShiftRpmAtRequest[playerIndex] >= idealRpmMin) &&
                   (sKartShiftRpmAtRequest[playerIndex] <= idealRpmMax);
 
-    if (isUpshift && clutchWasGood && releasedQuickly && rpmWasIdeal) {
+    CVarSetInteger("gArcadeKart.DebugShiftFromGear", sKartShiftPendingFromGear[playerIndex]);
+    CVarSetInteger("gArcadeKart.DebugShiftToGear", sKartShiftPendingToGear[playerIndex]);
+    CVarSetFloat("gArcadeKart.DebugShiftClutchAtRequest", sKartShiftClutchAtRequest[playerIndex]);
+    CVarSetFloat("gArcadeKart.DebugShiftRpmAtRequest", sKartShiftRpmAtRequest[playerIndex]);
+    CVarSetInteger("gArcadeKart.DebugShiftPendingFrames", sKartShiftPendingFrames[playerIndex]);
+    CVarSetInteger("gArcadeKart.DebugShiftHadClutch", sKartShiftSessionHadClutch[playerIndex] ? 1 : 0);
+
+    kart_transmission_log_shift_event("SCORE", playerIndex, sKartShiftPendingFromGear[playerIndex],
+                                      sKartShiftPendingToGear[playerIndex], sKartShiftClutchAtRequest[playerIndex],
+                                      sKartShiftRpmAtRequest[playerIndex],
+                                      kart_transmission_get_engine_rpm(player, playerIndex),
+                                      sKartShiftPendingFrames[playerIndex], sKartShiftSessionHadClutch[playerIndex]);
+    printf("[ArcadeKart Shift] P%d %s->%s clutch %.2f rpm %.0f frames %d up %d down %d goodClutch %d adequateClutch %d quick %d idealRpm %d\n",
+           playerIndex, kart_transmission_get_gear_label(sKartShiftPendingFromGear[playerIndex]),
+           kart_transmission_get_gear_label(sKartShiftPendingToGear[playerIndex]),
+           sKartShiftClutchAtRequest[playerIndex], sKartShiftRpmAtRequest[playerIndex],
+           sKartShiftPendingFrames[playerIndex], isUpshift, isDownshift, clutchWasGood, clutchWasAdequate,
+           releasedQuickly, rpmWasIdeal);
+
+    if (!kart_transmission_is_drive_gear(sKartShiftPendingToGear[playerIndex]) ||
+        (sKartShiftPendingFromGear[playerIndex] == sKartShiftPendingToGear[playerIndex])) {
+        sKartShiftFeedback[playerIndex] = KART_SHIFT_FEEDBACK_NONE;
+        sKartShiftFeedbackTimer[playerIndex] = 0;
+    } else if (isUpshift && clutchWasGood && releasedQuickly && rpmWasIdeal) {
         kart_transmission_apply_shift_feedback(player, playerIndex, KART_SHIFT_FEEDBACK_GOOD);
     } else if (clutchWasAdequate && (isDownshift || (isUpshift && !releasedQuickly))) {
         sKartShiftFeedback[playerIndex] = KART_SHIFT_FEEDBACK_NONE;
@@ -217,24 +358,55 @@ static void kart_transmission_score_pending_shift(Player* player, s32 playerInde
     }
 
     sKartShiftPending[playerIndex] = false;
+    sKartShiftSessionHadClutch[playerIndex] = false;
     sKartShiftPendingFrames[playerIndex] = 0;
 }
 
-static void kart_transmission_note_requested_shift(Player* player, s32 playerIndex, s32 requestedGear, f32 clutchAmount) {
-    if (requestedGear == KART_GEAR_NEUTRAL) {
+static void kart_transmission_begin_shift_session(Player* player, s32 playerIndex, s32 fromGear, f32 clutchAmount,
+                                                  bool hadClutch) {
+    if (!kart_transmission_is_drive_gear(fromGear)) {
         return;
     }
 
     sKartShiftPending[playerIndex] = true;
     sKartShiftPendingFrames[playerIndex] = 0;
-    sKartShiftPendingFromGear[playerIndex] = sKartGear[playerIndex];
-    sKartShiftPendingToGear[playerIndex] = requestedGear;
+    sKartShiftPendingFromGear[playerIndex] = fromGear;
+    sKartShiftPendingToGear[playerIndex] = fromGear;
     sKartShiftClutchAtRequest[playerIndex] = clutchAmount;
     sKartShiftRpmAtRequest[playerIndex] = kart_transmission_get_engine_rpm(player, playerIndex);
+    sKartShiftSessionHadClutch[playerIndex] = hadClutch;
+    kart_transmission_log_shift_event("BEGIN", playerIndex, fromGear, fromGear, clutchAmount,
+                                      sKartShiftRpmAtRequest[playerIndex], sKartShiftRpmAtRequest[playerIndex], 0,
+                                      hadClutch);
+}
 
-    if (clutchAmount < kart_transmission_get_cvarf("gArcadeKart.ShiftAdequateClutchThreshold", 0.55f)) {
-        kart_transmission_apply_shift_feedback(player, playerIndex, KART_SHIFT_FEEDBACK_BAD);
-        sKartShiftPending[playerIndex] = false;
+static void kart_transmission_update_shift_session(Player* player, s32 playerIndex, s32 requestedGear,
+                                                   f32 clutchAmount) {
+    if (!sKartShiftPending[playerIndex]) {
+        return;
+    }
+
+    if (clutchAmount > sKartShiftClutchAtRequest[playerIndex]) {
+        sKartShiftClutchAtRequest[playerIndex] = clutchAmount;
+    }
+    if (kart_transmission_is_drive_gear(requestedGear)) {
+        if (requestedGear != sKartShiftPendingToGear[playerIndex]) {
+            sKartShiftPendingToGear[playerIndex] = requestedGear;
+            kart_transmission_log_shift_event("TARGET", playerIndex, sKartShiftPendingFromGear[playerIndex],
+                                              requestedGear, sKartShiftClutchAtRequest[playerIndex],
+                                              sKartShiftRpmAtRequest[playerIndex],
+                                              kart_transmission_get_engine_rpm(player, playerIndex),
+                                              sKartShiftPendingFrames[playerIndex],
+                                              sKartShiftSessionHadClutch[playerIndex]);
+        } else {
+            sKartShiftPendingToGear[playerIndex] = requestedGear;
+        }
+    }
+    if (!sKartShiftSessionHadClutch[playerIndex] &&
+        (sKartShiftClutchAtRequest[playerIndex] <
+         kart_transmission_get_cvarf("gArcadeKart.ShiftAdequateClutchThreshold", 0.45f)) &&
+        (sKartShiftPendingToGear[playerIndex] != sKartShiftPendingFromGear[playerIndex])) {
+        kart_transmission_score_pending_shift(player, playerIndex, false);
     }
 }
 
@@ -260,7 +432,7 @@ static f32 kart_transmission_get_weight_torque_multiplier(const Player* player) 
         return 1.0f;
     }
 
-    return sKartWeightTorqueMultiplier[player->characterId];
+    return kart_character_stats_get_torque_multiplier(player->characterId);
 }
 
 static f32 kart_transmission_get_launch_torque_multiplier(f32 speedRatio, s32 gear) {
@@ -351,6 +523,7 @@ void kart_transmission_update(Player* player, const struct Controller* controlle
     s32 requestedGear;
     f32 clutchAmount;
     bool clutchReleased;
+    bool clutchPressed;
 
     playerIndex = kart_transmission_clamp_player_index(playerIndex);
     kart_transmission_init_player(playerIndex);
@@ -363,14 +536,38 @@ void kart_transmission_update(Player* player, const struct Controller* controlle
     clutchReleased = (sKartPreviousClutchAmount[playerIndex] >
                       kart_transmission_get_cvarf("gArcadeKart.ShiftClutchReleaseThreshold", 0.25f)) &&
                      (clutchAmount <= kart_transmission_get_cvarf("gArcadeKart.ShiftClutchReleaseThreshold", 0.25f));
+    clutchPressed = (sKartPreviousClutchAmount[playerIndex] <=
+                     kart_transmission_get_cvarf("gArcadeKart.ShiftClutchPressThreshold", 0.35f)) &&
+                    (clutchAmount > kart_transmission_get_cvarf("gArcadeKart.ShiftClutchPressThreshold", 0.35f));
     sKartClutchAmount[playerIndex] = clutchAmount;
-    if (sKartShiftPending[playerIndex]) {
-        sKartShiftPendingFrames[playerIndex]++;
-    }
 
     requestedGear = kart_transmission_get_requested_gear(controller);
+    if ((player != NULL) && ((player->type & PLAYER_START_SEQUENCE) == PLAYER_START_SEQUENCE)) {
+        if ((requestedGear != INT_MAX) && (requestedGear != KART_GEAR_NEUTRAL)) {
+            sKartGear[playerIndex] = requestedGear;
+        }
+        kart_transmission_clear_shift_session(playerIndex);
+        sKartPreviousClutchAmount[playerIndex] = clutchAmount;
+        return;
+    }
+
+    if (clutchPressed && !sKartShiftPending[playerIndex]) {
+        kart_transmission_begin_shift_session(player, playerIndex, sKartGear[playerIndex], clutchAmount, true);
+    }
+    if (sKartShiftPending[playerIndex]) {
+        sKartShiftPendingFrames[playerIndex]++;
+        if (clutchAmount > sKartShiftClutchAtRequest[playerIndex]) {
+            sKartShiftClutchAtRequest[playerIndex] = clutchAmount;
+        }
+    }
+
     if ((requestedGear != INT_MAX) && (requestedGear != sKartGear[playerIndex])) {
-        kart_transmission_note_requested_shift(player, playerIndex, requestedGear, clutchAmount);
+        if (!sKartShiftPending[playerIndex]) {
+            kart_transmission_begin_shift_session(player, playerIndex, sKartGear[playerIndex], clutchAmount,
+                                                 clutchAmount > kart_transmission_get_cvarf(
+                                                                    "gArcadeKart.ShiftClutchPressThreshold", 0.35f));
+        }
+        kart_transmission_update_shift_session(player, playerIndex, requestedGear, clutchAmount);
         if ((clutchAmount >= 0.35f) || (sKartGear[playerIndex] == KART_GEAR_NEUTRAL) ||
             (requestedGear == KART_GEAR_NEUTRAL)) {
             if (requestedGear == KART_GEAR_NEUTRAL) {
@@ -384,6 +581,9 @@ void kart_transmission_update(Player* player, const struct Controller* controlle
             sKartRpmFlareTimer[playerIndex] = 18;
         }
         sKartGear[playerIndex] = requestedGear;
+    }
+    if (sKartShiftPending[playerIndex]) {
+        kart_transmission_update_shift_session(player, playerIndex, sKartGear[playerIndex], clutchAmount);
     }
     kart_transmission_score_pending_shift(player, playerIndex, clutchReleased);
 
@@ -431,7 +631,7 @@ f32 kart_transmission_get_drive_amount(const Player* player, s32 playerIndex, f3
 
     driveAmount = throttleAmount * kart_transmission_get_clutch_drive_ratio(player, playerIndex);
     if (gear == KART_GEAR_REVERSE) {
-        return driveAmount * 0.45f;
+        return driveAmount * 0.55f;
     }
 
     speedRatio = kart_transmission_get_speed_ratio(player);

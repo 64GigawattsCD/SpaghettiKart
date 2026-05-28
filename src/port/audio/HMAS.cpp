@@ -30,6 +30,7 @@ void HMAS::RegisterSound(HMAS_AudioId id, const std::string& filePath, HMAS_Info
     ma_result result = ma_sound_init_from_file(&gAudioEngine, filePath.c_str(), 0, NULL, NULL, &gRegistry[id].sound);
     if (result != MA_SUCCESS) {
         SPDLOG_ERROR("Failed to load sound from file {}: {}", filePath, ma_result_description(result));
+        gRegistry.erase(id);
         return;
     }
 
@@ -52,6 +53,7 @@ void HMAS::RegisterSound(HMAS_AudioId id, uint8_t* data, uint32_t size, HMAS_Inf
     ma_result result = ma_decoder_init_memory(data, size, &config, &gRegistry[id].decoder);
     if (result != MA_SUCCESS) {
         SPDLOG_ERROR("Failed to initialize decoder from memory: {}", ma_result_description(result));
+        gRegistry.erase(id);
         return;
     }
 
@@ -63,6 +65,8 @@ void HMAS::RegisterSound(HMAS_AudioId id, uint8_t* data, uint32_t size, HMAS_Inf
 
     if (result != MA_SUCCESS) {
         SPDLOG_ERROR("Failed to load sound from memory: {}", ma_result_description(result));
+        ma_decoder_uninit(&gRegistry[id].decoder);
+        gRegistry.erase(id);
         return;
     }
 
@@ -265,4 +269,16 @@ extern "C" void HMAS_AddEffect(HMAS_ChannelId channelId, HMAS_EffectType type, H
 
 extern "C" bool HMAS_IsIDRegistered(HMAS_AudioId id) {
     return GameEngine::Instance->gHMAS->IsIDRegistered(id);
+}
+
+extern "C" void HMAS_RegisterSoundFromFile(HMAS_AudioId id, const char* filePath) {
+    if (GameEngine::Instance == nullptr || GameEngine::Instance->gHMAS == nullptr || filePath == nullptr) {
+        return;
+    }
+
+    if (GameEngine::Instance->gHMAS->IsIDRegistered(id)) {
+        return;
+    }
+
+    GameEngine::Instance->gHMAS->RegisterSound(id, std::string(filePath));
 }

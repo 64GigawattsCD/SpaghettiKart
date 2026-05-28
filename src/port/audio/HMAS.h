@@ -108,6 +108,7 @@ void HMAS_SetVolume(enum HMAS_ChannelId channel, float volume);
 void HMAS_SetPause(enum HMAS_ChannelId channel, bool pause);
 void HMAS_AddEffect(enum HMAS_ChannelId channel, enum HMAS_EffectType type, enum HMAS_EffectTransition transition, uint32_t frames, float target);
 bool HMAS_IsIDRegistered(HMAS_AudioId id);
+void HMAS_RegisterSoundFromFile(HMAS_AudioId id, const char* filePath);
 
 #ifdef __cplusplus
 }

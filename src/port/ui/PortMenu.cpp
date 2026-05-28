@@ -389,6 +389,12 @@ void PortMenu::AddEnhancements() {
         .PreFunc([](WidgetInfo& info) { info.isHidden = !CVarGetInteger("gEnableCustomCC", 0); })
         .Options(FloatSliderOptions().Min(0.0f).Max(1000.0f).DefaultValue(150.0f).Step(10.0f));
 
+    AddWidget(path, "Debug quick HUD race boot", WIDGET_CVAR_CHECKBOX)
+        .CVar("gArcadeKart.DebugQuickBootHudRace")
+        .Options(CheckboxOptions()
+                     .DefaultValue(true)
+                     .Tooltip("Boots directly into 1P 50cc Grand Prix as Mario for HUD iteration."));
+
     AddWidget(path, "Wheel Steering Tuning: %.2f", WIDGET_CVAR_SLIDER_FLOAT)
         .CVar("gArcadeKart.WheelSteeringTuning")
         .Options(FloatSliderOptions()
@@ -425,6 +431,67 @@ void PortMenu::AddEnhancements() {
                      .Step(0.05f)
                      .Format("%.2f")
                      .Tooltip("Adjusts the wheel clutch pedal curve."));
+    AddWidget(path, "Wheel spring baseline: %.1fx", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar("gArcadeKart.LogitechProfilerSpringBaselineMultiplier")
+        .Options(FloatSliderOptions()
+                     .Min(0.25f)
+                     .Max(16.0f)
+                     .DefaultValue(8.0f)
+                     .Step(0.25f)
+                     .Format("%.2f")
+                     .Tooltip("Scales the low-speed wheel centering spring baseline."));
+    AddWidget(path, "Use Logitech profiler spring", WIDGET_CVAR_CHECKBOX)
+        .CVar("gArcadeKart.UseLogitechProfilerSpring")
+        .Options(CheckboxOptions().DefaultValue(true).Tooltip("Lets the Logitech profiler own the centering spring."));
+    AddWidget(path, "Use SDL wheel centering", WIDGET_CVAR_CHECKBOX)
+        .CVar("gArcadeKart.UseSdlWheelCentering")
+        .Options(CheckboxOptions().DefaultValue(false).Tooltip("Uses SDL spring/autocenter instead of profiler centering."));
+    AddWidget(path, "RPM display multiplier: %.1fx", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar("gArcadeKart.RpmDisplayMultiplier")
+        .Options(FloatSliderOptions()
+                     .Min(1.0f)
+                     .Max(6.0f)
+                     .DefaultValue(4.5f)
+                     .Step(0.25f)
+                     .Format("%.2f")
+                     .Tooltip("Scales displayed RPM without changing transmission physics."));
+    AddWidget(path, "Wheel shifter smoothing: %.0f frames", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar("gArcadeKart.WheelShifterSmoothingFrames")
+        .Options(FloatSliderOptions()
+                     .Min(1.0f)
+                     .Max(8.0f)
+                     .DefaultValue(4.0f)
+                     .Step(1.0f)
+                     .Format("%.0f")
+                     .Tooltip("Number of wheel-only shifter samples used for gear smoothing."));
+
+    AddWidget(path, "Arcade post effects", WIDGET_CVAR_CHECKBOX)
+        .CVar("gArcadeKart.PostFx.Enabled")
+        .Options(CheckboxOptions().DefaultValue(true).Tooltip("Applies speed warp, blur, and screen shake."));
+    AddWidget(path, "Post FX overscan: %.0f%%", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar("gArcadeKart.PostFx.OverscanPercent")
+        .Options(FloatSliderOptions()
+                     .Min(0.0f)
+                     .Max(0.35f)
+                     .DefaultValue(0.15f)
+                     .Step(0.01f)
+                     .Format("%.2f")
+                     .Tooltip("Extra framebuffer overdraw used by the warp effect."));
+    AddWidget(path, "Post FX barrel: %.2f", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar("gArcadeKart.PostFx.BarrelStrength")
+        .Options(FloatSliderOptions().Min(0.0f).Max(0.35f).DefaultValue(0.035f).Step(0.005f).Format("%.3f"));
+    AddWidget(path, "Post FX speed warp: %.2f", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar("gArcadeKart.PostFx.SpeedBarrelStrength")
+        .Options(FloatSliderOptions().Min(0.0f).Max(0.5f).DefaultValue(0.085f).Step(0.005f).Format("%.3f"));
+    AddWidget(path, "Post FX boost warp: %.2f", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar("gArcadeKart.PostFx.BoostBarrelStrength")
+        .Options(FloatSliderOptions().Min(0.0f).Max(0.65f).DefaultValue(0.12f).Step(0.005f).Format("%.3f"));
+    AddWidget(path, "Post FX motion blur: %.2f", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar("gArcadeKart.PostFx.MotionBlur")
+        .Options(FloatSliderOptions().Min(0.0f).Max(1.0f).DefaultValue(0.28f).Step(0.02f).Format("%.2f"));
+    AddWidget(path, "Post FX shake: %.2f", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar("gArcadeKart.PostFx.ShakeStrength")
+        .Options(FloatSliderOptions().Min(0.0f).Max(0.1f).DefaultValue(0.018f).Step(0.002f).Format("%.3f"));
 
     AddWidget(path, "Enable Digital Speedometer", WIDGET_CVAR_CHECKBOX)
         .CVar("gEnableDigitalSpeedometer")
