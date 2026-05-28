@@ -135,6 +135,10 @@ namespace Ship {
     }
 
     static void DrawKartDebugTelemetry() {
+        if (CVarGetInteger("gArcadeKart.DebugTelemetry.Enabled", 0) == 0) {
+            return;
+        }
+
         if (gPlayerOne == nullptr || gControllerOne == nullptr) {
             return;
         }
@@ -182,6 +186,18 @@ namespace Ship {
         const s32 hapticCoefficient = CVarGetInteger("gArcadeKart.DebugSpringHapticCoefficient", 0);
         const s32 hapticSaturation = CVarGetInteger("gArcadeKart.DebugSpringHapticSaturation", 0);
         const s32 hapticDeadband = CVarGetInteger("gArcadeKart.DebugSpringHapticDeadband", 0);
+        const s32 logitechSdkLoaded = CVarGetInteger("gArcadeKart.DebugLogitechSdkLoaded", 0);
+        const s32 logitechSdkInitialized = CVarGetInteger("gArcadeKart.DebugLogitechSdkInitialized", 0);
+        const s32 logitechSdkWorkerRunning = CVarGetInteger("gArcadeKart.DebugLogitechSdkWorkerRunning", 0);
+        const s32 logitechSdkCurrentOk = CVarGetInteger("gArcadeKart.DebugLogitechSdkCurrentOk", 0);
+        const s32 logitechSdkSetPreferredOk = CVarGetInteger("gArcadeKart.DebugLogitechSdkSetPreferredOk", 0);
+        const s32 logitechSdkPlaySpringOk = CVarGetInteger("gArcadeKart.DebugLogitechSdkPlaySpringOk", 0);
+        const s32 logitechSdkSpringGain = CVarGetInteger("gArcadeKart.DebugLogitechSdkSpringGain", 0);
+        const s32 logitechSdkDefaultSpringGain = CVarGetInteger("gArcadeKart.DebugLogitechSdkDefaultSpringGain", 0);
+        const s32 logitechSdkSpringRequested = CVarGetInteger("gArcadeKart.DebugLogitechSdkSpringRequested", 0);
+        const s32 logitechSdkSpringApplied = CVarGetInteger("gArcadeKart.DebugLogitechSdkSpringApplied", 0);
+        const s32 logitechSdkSpringObserved = CVarGetInteger("gArcadeKart.DebugLogitechSdkSpringObserved", 0);
+        const f32 logitechSdkSpringPercent = CVarGetFloat("gArcadeKart.LogitechSdkSpringPercent", 0.0f);
         const f32 forceConstant = CVarGetFloat("gArcadeKart.DebugForceConstantSigned", 0.0f);
         const f32 terrainKick = CVarGetFloat("gArcadeKart.DebugForceTerrainKick", 0.0f);
         const f32 coarseKick = CVarGetFloat("gArcadeKart.DebugForceCoarseKick", 0.0f);
@@ -193,6 +209,11 @@ namespace Ship {
         const s32 shifterSmoothingFrames = CVarGetInteger("gArcadeKart.DebugShifterSmoothingFrames", 4);
         const s32 shifterNeutralSamples = CVarGetInteger("gArcadeKart.DebugShifterNeutralSamples", 0);
         const s32 shifterPressedCount = CVarGetInteger("gArcadeKart.DebugShifterPressedGearCount", 0);
+        const s32 postFxEnabled = CVarGetInteger("gArcadeKart.PostFx.Enabled", 1);
+        const s32 postFxManualOverride = CVarGetInteger("gArcadeKart.PostFx.ManualOverride", 0);
+        const s32 postFxTunePressed = CVarGetInteger("gArcadeKart.PostFx.DebugRaceTunePressed", 0);
+        const f32 postFxManualIntensity = CVarGetFloat("gArcadeKart.PostFx.DebugManualIntensity",
+                                                       CVarGetFloat("gArcadeKart.PostFx.ManualIntensity", 0.0f));
 
         ImGui::SetNextWindowPos(pos, ImGuiCond_Always, pivot);
         ImGui::SetNextWindowBgAlpha(0.35f);
@@ -219,8 +240,16 @@ namespace Ship {
                         hapticRumble);
             ImGui::Text("Haptic A%d W%d Id%d", hapticActive, hapticWriteOk, hapticEffectId);
             ImGui::Text("Coeff %d Sat %d Dead %d", hapticCoefficient, hapticSaturation, hapticDeadband);
+            ImGui::Text("Logi SDK L%d I%d W%d Cur%d Pref%d Play%d", logitechSdkLoaded, logitechSdkInitialized,
+                        logitechSdkWorkerRunning, logitechSdkCurrentOk, logitechSdkSetPreferredOk,
+                        logitechSdkPlaySpringOk);
+            ImGui::Text("Logi Spring %.0f%% Req%d App%d Obs%d SG%d DSG%d", logitechSdkSpringPercent,
+                        logitechSdkSpringRequested, logitechSdkSpringApplied, logitechSdkSpringObserved,
+                        logitechSdkSpringGain, logitechSdkDefaultSpringGain);
             ImGui::Text("Forces Const %.2f TK %.2f CK %.2f R %.2f", forceConstant, terrainKick, coarseKick,
                         surfaceRumble);
+            ImGui::Text("PostFX En%d Man%d %.0f%% Tune %04X", postFxEnabled, postFxManualOverride,
+                        postFxManualIntensity * 100.0f, postFxTunePressed);
             ImGui::Text("Shifter %02X Raw %s Sm %s Req %s", shifterMask, GetGearLabel(shifterRaw),
                         GetGearLabel(shifterSmooth), GetGearLabel(shifterRequest));
             ImGui::Text("Shifter Count %d Smooth %d N%d", shifterPressedCount, shifterSmoothingFrames,

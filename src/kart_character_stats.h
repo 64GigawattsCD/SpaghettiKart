@@ -13,6 +13,9 @@ typedef struct {
     const char* weightClass;
     f32 steeringSpringMultiplier;
     f32 torqueMultiplier;
+    f32 shiftIdealRpmMin;
+    f32 shiftIdealRpmMax;
+    f32 shiftOverRpm;
     f32 topSpeedByMode[KART_CC_MODE_COUNT];
     f32 kartTopSpeed;
     f32 boundingBoxSize;
@@ -28,5 +31,8 @@ extern const KartCharacterStats gKartCharacterStats[KART_CHARACTER_STATS_COUNT];
 const KartCharacterStats* kart_character_stats_get(s32 characterId);
 f32 kart_character_stats_get_steering_spring_multiplier(s32 characterId);
 f32 kart_character_stats_get_torque_multiplier(s32 characterId);
+f32 kart_character_stats_get_shift_ideal_rpm_min(s32 characterId);
+f32 kart_character_stats_get_shift_ideal_rpm_max(s32 characterId);
+f32 kart_character_stats_get_shift_over_rpm(s32 characterId);
 
 #endif

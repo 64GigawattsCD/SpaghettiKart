@@ -84,6 +84,8 @@ typedef struct HudCanvasSlot {
     HudAnchor anchors;
     HudPadding offsets;
     HudVec2 alignment;
+    HudRect alignmentBounds;
+    bool useAlignmentBounds;
     bool autoSize;
     s32 zOrder;
 } HudCanvasSlot;
@@ -227,6 +229,8 @@ HudVec2 hud_layout_get_desired_size(const HudLayoutContext* ctx, HudWidgetId wid
 
 HudCanvasSlot hud_layout_canvas_slot(HudAnchor anchors, HudPadding offsets, HudVec2 alignment, bool autoSize,
                                      s32 zOrder);
+HudCanvasSlot hud_layout_canvas_bounds_slot(HudAnchor anchors, HudPadding offsets, HudRect alignmentBounds,
+                                            HudVec2 alignment, bool autoSize, s32 zOrder);
 HudBoxSlot hud_layout_auto_slot(HudPadding padding, HudVec2 alignment, bool fillCrossAxis);
 HudBoxSlot hud_layout_fill_slot(f32 fillWeight, HudPadding padding, HudVec2 alignment, bool fillCrossAxis);
 HudSingleChildSlot hud_layout_single_child_slot(HudPadding padding, HudVec2 alignment, bool fillWidth,

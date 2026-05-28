@@ -22,6 +22,9 @@ bool kart_transmission_is_reverse_gear(s32 playerIndex);
 s32 kart_transmission_get_gear(s32 playerIndex);
 f32 kart_transmission_get_clutch_amount(s32 playerIndex);
 f32 kart_transmission_get_engine_rpm(const Player* player, s32 playerIndex);
+f32 kart_transmission_get_shift_ideal_rpm_min(const Player* player);
+f32 kart_transmission_get_shift_ideal_rpm_max(const Player* player);
+f32 kart_transmission_get_shift_over_rpm(const Player* player);
 KartShiftFeedback kart_transmission_get_shift_feedback(s32 playerIndex);
 s16 kart_transmission_get_shift_feedback_timer(s32 playerIndex);
 

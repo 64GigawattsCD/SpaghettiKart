@@ -348,6 +348,24 @@ static void hud_layout_arrange_canvas(HudLayoutContext* ctx, HudLayoutWidget* wi
             childRect.y -= childRect.h * canvasSlot->alignment.y;
         }
 
+        if (canvasSlot->useAlignmentBounds) {
+            f32 scaleX = (childDesired.x > 0.0f) ? (childRect.w / childDesired.x) : 1.0f;
+            f32 scaleY = (childDesired.y > 0.0f) ? (childRect.h / childDesired.y) : 1.0f;
+            f32 boundsX = canvasSlot->alignmentBounds.x * scaleX;
+            f32 boundsY = canvasSlot->alignmentBounds.y * scaleY;
+            f32 boundsW = canvasSlot->alignmentBounds.w * scaleX;
+            f32 boundsH = canvasSlot->alignmentBounds.h * scaleY;
+
+            if (!stretchX) {
+                childRect.x = anchorLeft + canvasSlot->offsets.left -
+                              (boundsX + (boundsW * canvasSlot->alignment.x));
+            }
+            if (!stretchY) {
+                childRect.y = anchorTop + canvasSlot->offsets.top -
+                              (boundsY + (boundsH * canvasSlot->alignment.y));
+            }
+        }
+
         if (childRect.w < 0.0f) {
             childRect.w = 0.0f;
         }
@@ -903,8 +921,19 @@ HudCanvasSlot hud_layout_canvas_slot(HudAnchor anchors, HudPadding offsets, HudV
     slot.anchors = anchors;
     slot.offsets = offsets;
     slot.alignment = alignment;
+    slot.alignmentBounds = hud_layout_rect(0.0f, 0.0f, 0.0f, 0.0f);
+    slot.useAlignmentBounds = false;
     slot.autoSize = autoSize;
     slot.zOrder = zOrder;
+    return slot;
+}
+
+HudCanvasSlot hud_layout_canvas_bounds_slot(HudAnchor anchors, HudPadding offsets, HudRect alignmentBounds,
+                                            HudVec2 alignment, bool autoSize, s32 zOrder) {
+    HudCanvasSlot slot = hud_layout_canvas_slot(anchors, offsets, alignment, autoSize, zOrder);
+
+    slot.alignmentBounds = alignmentBounds;
+    slot.useAlignmentBounds = true;
     return slot;
 }
 

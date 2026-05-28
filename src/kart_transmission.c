@@ -19,6 +19,9 @@
 #define KART_SHIFT_BAD_SOUND SOUND_ACTION_TYRE_SQUEAL
 #define KART_SHIFT_GOOD_SOUND SOUND_ACTION_PING
 #define KART_SHIFT_GRIND_GRAPHIC_FRAMES 40
+#define KART_SHIFT_IDEAL_RPM_MIN_DEFAULT 3800.0f
+#define KART_SHIFT_IDEAL_RPM_MAX_DEFAULT 7200.0f
+#define KART_SHIFT_OVER_RPM_DEFAULT 8000.0f
 
 static s8 sKartGear[KART_TRANSMISSION_PLAYER_COUNT];
 static bool sKartTransmissionInitialized[KART_TRANSMISSION_PLAYER_COUNT];
@@ -111,6 +114,33 @@ static f32 kart_transmission_clampf(f32 value, f32 min, f32 max) {
 
 static f32 kart_transmission_get_cvarf(const char* key, f32 defaultValue) {
     return CVarGetFloat(key, defaultValue);
+}
+
+f32 kart_transmission_get_shift_ideal_rpm_min(const Player* player) {
+    f32 defaultValue = KART_SHIFT_IDEAL_RPM_MIN_DEFAULT;
+
+    if ((player != NULL) && (player->characterId >= 0) && (player->characterId < KART_CHARACTER_STATS_COUNT)) {
+        defaultValue = kart_character_stats_get_shift_ideal_rpm_min(player->characterId);
+    }
+    return kart_transmission_get_cvarf("gArcadeKart.ShiftIdealRpmMin", defaultValue);
+}
+
+f32 kart_transmission_get_shift_ideal_rpm_max(const Player* player) {
+    f32 defaultValue = KART_SHIFT_IDEAL_RPM_MAX_DEFAULT;
+
+    if ((player != NULL) && (player->characterId >= 0) && (player->characterId < KART_CHARACTER_STATS_COUNT)) {
+        defaultValue = kart_character_stats_get_shift_ideal_rpm_max(player->characterId);
+    }
+    return kart_transmission_get_cvarf("gArcadeKart.ShiftIdealRpmMax", defaultValue);
+}
+
+f32 kart_transmission_get_shift_over_rpm(const Player* player) {
+    f32 defaultValue = KART_SHIFT_OVER_RPM_DEFAULT;
+
+    if ((player != NULL) && (player->characterId >= 0) && (player->characterId < KART_CHARACTER_STATS_COUNT)) {
+        defaultValue = kart_character_stats_get_shift_over_rpm(player->characterId);
+    }
+    return kart_transmission_get_cvarf("gArcadeKart.ShiftOverRpm", defaultValue);
 }
 
 static void kart_transmission_register_grind_sound(s32 index, const char* fileName) {
@@ -320,8 +350,8 @@ static void kart_transmission_score_pending_shift(Player* player, s32 playerInde
     clutchWasAdequate = sKartShiftClutchAtRequest[playerIndex] >=
                         kart_transmission_get_cvarf("gArcadeKart.ShiftAdequateClutchThreshold", 0.45f);
     releasedQuickly = sKartShiftPendingFrames[playerIndex] <= holdLimitFrames;
-    idealRpmMin = kart_transmission_get_cvarf("gArcadeKart.ShiftIdealRpmMin", 3800.0f);
-    idealRpmMax = kart_transmission_get_cvarf("gArcadeKart.ShiftIdealRpmMax", 7200.0f);
+    idealRpmMin = kart_transmission_get_shift_ideal_rpm_min(player);
+    idealRpmMax = kart_transmission_get_shift_ideal_rpm_max(player);
     rpmWasIdeal = (sKartShiftRpmAtRequest[playerIndex] >= idealRpmMin) &&
                   (sKartShiftRpmAtRequest[playerIndex] <= idealRpmMax);
 

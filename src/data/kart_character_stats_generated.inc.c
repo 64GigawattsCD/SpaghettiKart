@@ -4,6 +4,7 @@ const KartCharacterStats gKartCharacterStats[KART_CHARACTER_STATS_COUNT] = {
     {
         0, "Mario", "medium",
         1.0f, 1.0f,
+        3800.0f, 7200.0f, 8000.0f,
         { 290.0f, 310.0f, 320.0f, 310.0f, 245.0f },
         9.0f, 5.5f, 1.25f,
         0.0f, 0.0f, 2.0f,
@@ -13,6 +14,7 @@ const KartCharacterStats gKartCharacterStats[KART_CHARACTER_STATS_COUNT] = {
     {
         1, "Luigi", "medium",
         1.0f, 1.0f,
+        3800.0f, 7200.0f, 8000.0f,
         { 290.0f, 310.0f, 320.0f, 310.0f, 245.0f },
         9.0f, 5.5f, 1.25f,
         0.0f, 0.0f, 2.0f,
@@ -22,6 +24,7 @@ const KartCharacterStats gKartCharacterStats[KART_CHARACTER_STATS_COUNT] = {
     {
         2, "Yoshi", "light",
         0.84f, 0.94f,
+        4000.0f, 7450.0f, 8250.0f,
         { 294.0f, 314.0f, 324.0f, 314.0f, 245.0f },
         9.0f, 5.5f, 1.28f,
         0.002f, 0.002f, 3.0f,
@@ -31,6 +34,7 @@ const KartCharacterStats gKartCharacterStats[KART_CHARACTER_STATS_COUNT] = {
     {
         3, "Toad", "light",
         0.82f, 0.94f,
+        4050.0f, 7500.0f, 8300.0f,
         { 294.0f, 314.0f, 324.0f, 314.0f, 245.0f },
         9.0f, 5.5f, 1.28f,
         0.002f, 0.002f, 3.0f,
@@ -40,6 +44,7 @@ const KartCharacterStats gKartCharacterStats[KART_CHARACTER_STATS_COUNT] = {
     {
         4, "D.K.", "heavy",
         1.14f, 1.1f,
+        3600.0f, 7000.0f, 7800.0f,
         { 290.0f, 310.0f, 320.0f, 310.0f, 245.0f },
         9.0f, 5.5f, 1.15f,
         -0.002f, -0.002f, 1.5f,
@@ -49,6 +54,7 @@ const KartCharacterStats gKartCharacterStats[KART_CHARACTER_STATS_COUNT] = {
     {
         5, "Wario", "heavy",
         1.12f, 1.08f,
+        3650.0f, 7050.0f, 7850.0f,
         { 290.0f, 310.0f, 320.0f, 310.0f, 245.0f },
         9.0f, 6.0f, 1.15f,
         -0.002f, -0.002f, 1.5f,
@@ -58,6 +64,7 @@ const KartCharacterStats gKartCharacterStats[KART_CHARACTER_STATS_COUNT] = {
     {
         6, "Peach", "light",
         0.86f, 0.94f,
+        3980.0f, 7420.0f, 8220.0f,
         { 294.0f, 314.0f, 324.0f, 314.0f, 245.0f },
         9.0f, 5.5f, 1.28f,
         0.002f, 0.002f, 3.0f,
@@ -67,6 +74,7 @@ const KartCharacterStats gKartCharacterStats[KART_CHARACTER_STATS_COUNT] = {
     {
         7, "Bowser", "heavy",
         1.24f, 1.12f,
+        3500.0f, 6900.0f, 7700.0f,
         { 290.0f, 310.0f, 320.0f, 310.0f, 245.0f },
         9.0f, 6.0f, 1.15f,
         -0.002f, -0.002f, 3.0f,

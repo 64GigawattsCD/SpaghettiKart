@@ -49,11 +49,16 @@
 #define ARCADEKART_SPRING_BASELINE_STEP 1.0f
 #define ARCADEKART_SPRING_BASELINE_MIN 0.25f
 #define ARCADEKART_SPRING_BASELINE_MAX 16.0f
+#define ARCADEKART_LOGITECH_SDK_SPRING_CVAR "gArcadeKart.LogitechSdkSpringPercent"
+#define ARCADEKART_LOGITECH_SDK_SPRING_STEP 5.0f
+#define ARCADEKART_LOGITECH_SDK_SPRING_MIN 0.0f
+#define ARCADEKART_LOGITECH_SDK_SPRING_MAX 100.0f
 #define ARCADEKART_POSTFX_MANUAL_OVERRIDE_CVAR "gArcadeKart.PostFx.ManualOverride"
 #define ARCADEKART_POSTFX_MANUAL_INTENSITY_CVAR "gArcadeKart.PostFx.ManualIntensity"
-#define ARCADEKART_POSTFX_MANUAL_STEP 0.05f
+#define ARCADEKART_POSTFX_MANUAL_STEP 0.10f
 #define ARCADEKART_POSTFX_MANUAL_MIN 0.0f
 #define ARCADEKART_POSTFX_MANUAL_MAX 1.0f
+#define ARCADEKART_TUNING_REPEAT_FRAMES 6
 
 s32 D_80165590;
 s32 D_80165594;
@@ -210,6 +215,32 @@ static f32 get_arcadekart_current_postfx_intensity(void) {
     return clamp_arcadekart_postfx_intensity(intensity);
 }
 
+static u16 get_arcadekart_menu_held(const struct Controller* controller) {
+    if (controller == NULL) {
+        return 0;
+    }
+
+    return (controller->button & ~(A_BUTTON | B_BUTTON)) | controller->stickDirection;
+}
+
+static u16 get_arcadekart_repeat_tuning_input(u16 menuPressed, u16 menuHeld, u16 tuningMask) {
+    static u16 sLastHeldTuningInput = 0;
+    static s32 sNextRepeatFrame = 0;
+    u16 heldTuningInput = menuHeld & tuningMask;
+    u16 pressedTuningInput = menuPressed & tuningMask;
+    u16 repeatTuningInput = 0;
+
+    if (heldTuningInput != sLastHeldTuningInput) {
+        sLastHeldTuningInput = heldTuningInput;
+        sNextRepeatFrame = gGlobalTimer + ARCADEKART_TUNING_REPEAT_FRAMES;
+    } else if ((heldTuningInput != 0) && (gGlobalTimer >= sNextRepeatFrame)) {
+        repeatTuningInput = heldTuningInput;
+        sNextRepeatFrame = gGlobalTimer + ARCADEKART_TUNING_REPEAT_FRAMES;
+    }
+
+    return pressedTuningInput | repeatTuningInput;
+}
+
 static void update_arcadekart_race_postfx_tuning(u16 menuPressed) {
     f32 intensity;
 
@@ -236,6 +267,7 @@ static void update_arcadekart_race_postfx_tuning(u16 menuPressed) {
     }
 
     intensity = clamp_arcadekart_postfx_intensity(intensity);
+    CVarSetInteger("gArcadeKart.PostFx.Enabled", 1);
     CVarSetInteger(ARCADEKART_POSTFX_MANUAL_OVERRIDE_CVAR, 1);
     CVarSetFloat(ARCADEKART_POSTFX_MANUAL_INTENSITY_CVAR, intensity);
     CVarSetFloat("gArcadeKart.PostFx.DebugManualIntensity", intensity);
@@ -243,35 +275,41 @@ static void update_arcadekart_race_postfx_tuning(u16 menuPressed) {
 }
 
 static void update_arcadekart_race_spring_tuning(void) {
-    f32 baseline;
+    f32 springPercent;
     u16 menuPressed;
+    u16 menuHeld;
+    u16 repeatedTuningInput;
 
     if ((gControllerOne == NULL) || (gIsGamePaused != 0)) {
         return;
     }
 
-    baseline = CVarGetFloat(ARCADEKART_SPRING_BASELINE_CVAR, 8.0f);
+    springPercent = CVarGetFloat(ARCADEKART_LOGITECH_SDK_SPRING_CVAR, 96.0f);
     menuPressed = kart_input_get_menu_pressed(gControllerOne);
-    update_arcadekart_race_postfx_tuning(menuPressed);
-    if (menuPressed & U_JPAD) {
-        baseline += ARCADEKART_SPRING_BASELINE_STEP;
+    menuHeld = get_arcadekart_menu_held(gControllerOne);
+    repeatedTuningInput =
+        get_arcadekart_repeat_tuning_input(menuPressed, menuHeld, U_JPAD | D_JPAD | L_JPAD | R_JPAD);
+    update_arcadekart_race_postfx_tuning(repeatedTuningInput);
+    if (repeatedTuningInput & U_JPAD) {
+        springPercent += ARCADEKART_LOGITECH_SDK_SPRING_STEP;
         gControllerOne->buttonPressed &= ~U_JPAD;
         gControllerOne->stickPressed &= ~U_JPAD;
     }
-    if (menuPressed & D_JPAD) {
-        baseline -= ARCADEKART_SPRING_BASELINE_STEP;
+    if (repeatedTuningInput & D_JPAD) {
+        springPercent -= ARCADEKART_LOGITECH_SDK_SPRING_STEP;
         gControllerOne->buttonPressed &= ~D_JPAD;
         gControllerOne->stickPressed &= ~D_JPAD;
     }
 
-    if (baseline < ARCADEKART_SPRING_BASELINE_MIN) {
-        baseline = ARCADEKART_SPRING_BASELINE_MIN;
-    } else if (baseline > ARCADEKART_SPRING_BASELINE_MAX) {
-        baseline = ARCADEKART_SPRING_BASELINE_MAX;
+    if (springPercent < ARCADEKART_LOGITECH_SDK_SPRING_MIN) {
+        springPercent = ARCADEKART_LOGITECH_SDK_SPRING_MIN;
+    } else if (springPercent > ARCADEKART_LOGITECH_SDK_SPRING_MAX) {
+        springPercent = ARCADEKART_LOGITECH_SDK_SPRING_MAX;
     }
 
-    CVarSetFloat(ARCADEKART_SPRING_BASELINE_CVAR, baseline);
-    CVarSetInteger("gArcadeKart.DebugSpringTunePressed", menuPressed & (U_JPAD | D_JPAD));
+    CVarSetFloat(ARCADEKART_LOGITECH_SDK_SPRING_CVAR, springPercent);
+    CVarSetFloat(ARCADEKART_SPRING_BASELINE_CVAR, springPercent / 12.0f);
+    CVarSetInteger("gArcadeKart.DebugSpringTunePressed", repeatedTuningInput & (U_JPAD | D_JPAD));
 }
 UNUSED s32 D_80165870[2];
 s32 D_80165878;

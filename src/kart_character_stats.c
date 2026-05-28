@@ -19,3 +19,15 @@ f32 kart_character_stats_get_steering_spring_multiplier(s32 characterId) {
 f32 kart_character_stats_get_torque_multiplier(s32 characterId) {
     return kart_character_stats_get(characterId)->torqueMultiplier;
 }
+
+f32 kart_character_stats_get_shift_ideal_rpm_min(s32 characterId) {
+    return kart_character_stats_get(characterId)->shiftIdealRpmMin;
+}
+
+f32 kart_character_stats_get_shift_ideal_rpm_max(s32 characterId) {
+    return kart_character_stats_get(characterId)->shiftIdealRpmMax;
+}
+
+f32 kart_character_stats_get_shift_over_rpm(s32 characterId) {
+    return kart_character_stats_get(characterId)->shiftOverRpm;
+}

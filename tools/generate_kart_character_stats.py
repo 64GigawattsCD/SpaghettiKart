@@ -40,6 +40,7 @@ def main():
                 "    {",
                 f"        {int(row['character_id'])}, \"{row['character']}\", \"{row['weight_class']}\",",
                 f"        {f(row['steering_spring_multiplier'])}, {f(row['torque_multiplier'])},",
+                f"        {f(row['shift_ideal_rpm_min'])}, {f(row['shift_ideal_rpm_max'])}, {f(row['shift_over_rpm'])},",
                 f"        {{ {f(row['top_speed_50cc'])}, {f(row['top_speed_100cc'])}, {f(row['top_speed_150cc'])}, {f(row['top_speed_extra'])}, {f(row['top_speed_battle'])} }},",
                 f"        {f(row['kart_top_speed'])}, {f(row['bounding_box_size'])}, {f(row['handling'])},",
                 f"        {f(row['turn_speed_reduction_0'])}, {f(row['turn_speed_reduction_1'])}, {f(row['triple_a_boost'])},",
