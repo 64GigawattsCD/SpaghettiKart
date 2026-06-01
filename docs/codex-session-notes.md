@@ -6,8 +6,8 @@
 
 ## RPM Meter
 
-- Do not build the red-zone mask by sampling `common_texture_speedometer` as I4. Texture packs can replace that asset with PNG/RGBA data, which makes CPU-side I4 nibble reads produce dirty edge pixels.
-- The current red-zone path generates a small annular-sector I4 mask from meter geometry and uses character shift stats to place the red start at the good upshift threshold.
+- The RPM faceplate is supplied by `mods/zz-arcadekart-rpm-faceplate.o2r` as `textures/common_data/common_texture_speedometer.png`.
+- The faceplate art owns the orange warning region now; do not add runtime color masks over the gauge face.
 
 ## HUD Timer/Lap
 
