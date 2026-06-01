@@ -1,0 +1,204 @@
+Opened log file 'E:\SpaghettiKart\artifacts\cdb-spaghettify-crash.txt'
+
+************* Preparing the environment for Debugger Extensions Gallery repositories **************
+   ExtensionRepository : Implicit
+   UseExperimentalFeatureForNugetShare : true
+   AllowNugetExeUpdate : true
+   NonInteractiveNuget : true
+   AllowNugetMSCredentialProviderInstall : true
+   AllowParallelInitializationOfLocalRepositories : true
+
+   EnableRedirectToV8JsProvider : false
+
+   -- Configuring repositories
+      ----> Repository : LocalInstalled, Enabled: true
+      ----> Repository : UserExtensions, Enabled: true
+
+>>>>>>>>>>>>> Preparing the environment for Debugger Extensions Gallery repositories completed, duration 0.015 seconds
+
+************* Waiting for Debugger Extensions Gallery to Initialize **************
+
+>>>>>>>>>>>>> Waiting for Debugger Extensions Gallery to Initialize completed, duration 0.032 seconds
+   ----> Repository : UserExtensions, Enabled: true, Packages count: 0
+   ----> Repository : LocalInstalled, Enabled: true, Packages count: 29
+
+Microsoft (R) Windows Debugger Version 10.0.26100.4948 AMD64
+Copyright (c) Microsoft Corporation. All rights reserved.
+
+CommandLine: E:\SpaghettiKart\build\x64\Debug\Spaghettify.exe
+NatVis script successfully loaded from 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\Visualizers\atlmfc.natvis'
+NatVis script successfully loaded from 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\Visualizers\ObjectiveC.natvis'
+NatVis script successfully loaded from 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\Visualizers\concurrency.natvis'
+NatVis script successfully loaded from 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\Visualizers\cpp_rest.natvis'
+NatVis script successfully loaded from 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\Visualizers\stl.natvis'
+NatVis script successfully loaded from 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\Visualizers\Windows.Data.Json.natvis'
+NatVis script successfully loaded from 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\Visualizers\Windows.Devices.Geolocation.natvis'
+NatVis script successfully loaded from 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\Visualizers\Windows.Devices.Sensors.natvis'
+NatVis script successfully loaded from 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\Visualizers\Windows.Media.natvis'
+NatVis script successfully loaded from 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\Visualizers\windows.natvis'
+NatVis script successfully loaded from 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\Visualizers\winrt.natvis'
+
+************* Path validation summary **************
+Response                         Time (ms)     Location
+OK                                             E:\SpaghettiKart\build\x64\Debug
+OK                                             E:\SpaghettiKart\x64\Debug
+OK                                             E:\SpaghettiKart\libultraship\Debug
+Deferred                                       srv*https://msdl.microsoft.com/download/symbols
+Symbol search path is: E:\SpaghettiKart\build\x64\Debug;E:\SpaghettiKart\x64\Debug;E:\SpaghettiKart\libultraship\Debug;srv*https://msdl.microsoft.com/download/symbols
+Executable search path is: 
+
++------------------------------------------------------------------------+
+| This target supports Hardware-enforced Stack Protection. A HW based    |
+| "Shadow Stack" may be available to assist in debugging and analysis.   |
+| See aka.ms/userhsp for more info.                                      |
+|                                                                        |
+| dps @ssp                                                               |
+|                                                                        |
++------------------------------------------------------------------------+
+
+ModLoad: 00007ff7`0eb50000 00007ff7`22de9000   Spaghettify.exe
+ModLoad: 00007ffe`484a0000 00007ffe`48707000   ntdll.dll
+ModLoad: 00007ffe`46dc0000 00007ffe`46e89000   C:\WINDOWS\System32\KERNEL32.DLL
+ModLoad: 00007ffe`45970000 00007ffe`45d67000   C:\WINDOWS\System32\KERNELBASE.dll
+ModLoad: 00007ffe`44900000 00007ffe`44ce7000   C:\Program Files\SentinelOne\Sentinel Agent 24.2.3.471\InProcessClient64.dll
+ModLoad: 00007ffe`46aa0000 00007ffe`46b56000   C:\WINDOWS\System32\ADVAPI32.dll
+ModLoad: 00007ffe`448f0000 00007ffe`448fb000   C:\WINDOWS\SYSTEM32\VERSION.dll
+ModLoad: 00007ffe`473e0000 00007ffe`47489000   C:\WINDOWS\System32\msvcrt.dll
+ModLoad: 00007ffe`46e90000 00007ffe`46f37000   C:\WINDOWS\System32\sechost.dll
+ModLoad: 00007ffe`47ca0000 00007ffe`47db8000   C:\WINDOWS\System32\RPCRT4.dll
+ModLoad: 00007ffe`46bf0000 00007ffe`46db6000   C:\WINDOWS\System32\USER32.dll
+ModLoad: 00007ffe`46000000 00007ffe`46027000   C:\WINDOWS\System32\win32u.dll
+ModLoad: 00007ffe`48430000 00007ffe`4845b000   C:\WINDOWS\System32\GDI32.dll
+ModLoad: 00007ffe`46030000 00007ffe`4615c000   C:\WINDOWS\System32\gdi32full.dll
+ModLoad: 00007ffe`458c0000 00007ffe`45963000   C:\WINDOWS\System32\msvcp_win.dll
+ModLoad: 00007ffe`45e20000 00007ffe`45f6b000   C:\WINDOWS\System32\ucrtbase.dll
+ModLoad: 00007ffe`46710000 00007ffe`46742000   C:\WINDOWS\System32\IMM32.dll
+ModLoad: 00007ffe`37760000 00007ffe`37796000   C:\WINDOWS\SYSTEM32\WINMM.dll
+ModLoad: 00007ffe`47dc0000 00007ffe`47f57000   C:\WINDOWS\System32\ole32.dll
+ModLoad: 00007ffe`47fd0000 00007ffe`48353000   C:\WINDOWS\System32\combase.dll
+ModLoad: 00007ffe`46940000 00007ffe`46a19000   C:\WINDOWS\System32\OLEAUT32.dll
+ModLoad: 00007ffe`46f50000 00007ffe`473d7000   C:\WINDOWS\System32\SETUPAPI.dll
+ModLoad: 00007ffe`47520000 00007ffe`47c8e000   C:\WINDOWS\System32\SHELL32.dll
+ModLoad: 00007ffe`47f60000 00007ffe`47fc6000   C:\WINDOWS\System32\SHLWAPI.dll
+ModLoad: 00007ffe`44dc0000 00007ffe`44dea000   C:\WINDOWS\SYSTEM32\bcrypt.dll
+ModLoad: 00007ffe`45050000 00007ffe`458bc000   C:\WINDOWS\System32\Windows.Storage.dll
+ModLoad: 00007ffd`ff110000 00007ffd`ff21f000   C:\WINDOWS\SYSTEM32\OPENGL32.dll
+ModLoad: 00007ffd`ff0e0000 00007ffd`ff10d000   C:\WINDOWS\SYSTEM32\GLU32.dll
+ModLoad: 00007ffe`42230000 00007ffe`42472000   C:\WINDOWS\SYSTEM32\dbghelp.dll
+ModLoad: 00007ffe`417e0000 00007ffe`4180f000   C:\WINDOWS\SYSTEM32\dwmapi.dll
+ModLoad: 00007ffe`40790000 00007ffe`40c0f000   C:\WINDOWS\SYSTEM32\D3DCOMPILER_47.dll
+ModLoad: 00007ffe`41790000 00007ffe`417d5000   C:\WINDOWS\SYSTEM32\dxcore.dll
+ModLoad: 00007ffe`44160000 00007ffe`4417b000   C:\WINDOWS\SYSTEM32\cryptsp.dll
+ModLoad: 00007ffe`446e0000 00007ffe`44731000   C:\WINDOWS\SYSTEM32\cfgmgr32.DLL
+(113c4.d5fc): Break instruction exception - code 80000003 (first chance)
+ntdll!LdrpDoDebuggerBreak+0x35:
+00007ffe`485bf58d cc              int     3
+0:000> sxe av; sxe 0xc0000409; g; .ecxr; kv; q
+ModLoad: 00007ffe`44770000 00007ffe`4477c000   C:\WINDOWS\SYSTEM32\FLTLIB.DLL
+ModLoad: 00007ffe`46610000 00007ffe`46706000   C:\WINDOWS\System32\shcore.dll
+ModLoad: 00007ffe`43810000 00007ffe`4382b000   C:\WINDOWS\SYSTEM32\kernel.appcore.dll
+ModLoad: 00007ffe`13ee0000 00007ffe`13eeb000   C:\WINDOWS\system32\IconCodecService.dll
+ModLoad: 00007ffe`40560000 00007ffe`4078d000   C:\WINDOWS\SYSTEM32\WindowsCodecs.dll
+ModLoad: 00007ffe`41690000 00007ffe`4173a000   C:\WINDOWS\system32\uxtheme.dll
+ModLoad: 00007ffe`46760000 00007ffe`468bc000   C:\WINDOWS\System32\MSCTF.dll
+ModLoad: 00007ffe`42a70000 00007ffe`42bae000   C:\WINDOWS\SYSTEM32\dxgi.dll
+ModLoad: 00007ffe`44880000 00007ffe`448de000   C:\WINDOWS\SYSTEM32\powrprof.dll
+ModLoad: 00007ffe`44390000 00007ffe`443a4000   C:\WINDOWS\SYSTEM32\UMPDC.dll
+ModLoad: 00007ffe`45d70000 00007ffe`45e18000   C:\WINDOWS\System32\bcryptPrimitives.dll
+ModLoad: 00007ffe`1e140000 00007ffe`1e286000   C:\WINDOWS\SYSTEM32\textinputframework.dll
+ModLoad: 00007ffe`2a470000 00007ffe`2a4e6000   C:\WINDOWS\system32\Oleacc.dll
+ModLoad: 00007ffe`427e0000 00007ffe`42a42000   C:\WINDOWS\SYSTEM32\d3d11.dll
+ModLoad: 00007ffe`42a50000 00007ffe`42a64000   C:\WINDOWS\SYSTEM32\resourcepolicyclient.dll
+ModLoad: 00007ffe`3f680000 00007ffe`3f6e1000   C:\WINDOWS\SYSTEM32\directxdatabasehelper.dll
+ModLoad: 00007ffe`3d450000 00007ffe`3d514000   C:\WINDOWS\System32\DriverStore\FileRepository\nvmdi.inf_amd64_7c3f03c5df8f409e\nvldumdx.dll
+ModLoad: 00007ffe`441c0000 00007ffe`441d3000   C:\WINDOWS\SYSTEM32\msasn1.dll
+ModLoad: 00007ffe`3d410000 00007ffe`3d44b000   C:\WINDOWS\SYSTEM32\cryptnet.dll
+ModLoad: 00007ffe`44ed0000 00007ffe`45048000   C:\WINDOWS\System32\CRYPT32.dll
+ModLoad: 00007ffe`43fc0000 00007ffe`43fcc000   C:\WINDOWS\SYSTEM32\cryptbase.dll
+ModLoad: 00007ffe`44060000 00007ffe`440ca000   C:\WINDOWS\SYSTEM32\wldp.dll
+ModLoad: 00007ffe`3d1f0000 00007ffe`3d368000   C:\WINDOWS\SYSTEM32\drvstore.dll
+ModLoad: 00007ffe`446b0000 00007ffe`446dd000   C:\WINDOWS\SYSTEM32\devobj.dll
+ModLoad: 00007ffe`45f70000 00007ffe`45ff2000   C:\WINDOWS\System32\wintrust.dll
+ModLoad: 00007ffe`465e0000 00007ffe`46600000   C:\WINDOWS\System32\imagehlp.dll
+ModLoad: 00007ffe`43770000 00007ffe`437a9000   C:\WINDOWS\system32\rsaenh.dll
+ModLoad: 00007ffe`38b60000 00007ffe`3c8f3000   C:\WINDOWS\System32\DriverStore\FileRepository\nvmdi.inf_amd64_7c3f03c5df8f409e\nvgpucomp64.dll
+ModLoad: 00007ffe`377a0000 00007ffe`3787e000   C:\WINDOWS\System32\DriverStore\FileRepository\nvmdi.inf_amd64_7c3f03c5df8f409e\NvMemMapStoragex.dll
+ModLoad: 00007ffe`30d70000 00007ffe`365a4000   C:\WINDOWS\System32\DriverStore\FileRepository\nvmdi.inf_amd64_7c3f03c5df8f409e\nvwgf2umx.dll
+ModLoad: 00007ffd`99960000 00007ffd`99aa7000   C:\WINDOWS\system32\nvspcap64.dll
+ModLoad: 00007ffe`44df0000 00007ffe`44e19000   C:\WINDOWS\SYSTEM32\profapi.dll
+ModLoad: 00007ffe`43930000 00007ffe`43966000   C:\WINDOWS\SYSTEM32\ntmarta.dll
+ModLoad: 00007ffd`c89e0000 00007ffd`c8b97000   C:\WINDOWS\System32\DriverStore\FileRepository\nvmdi.inf_amd64_7c3f03c5df8f409e\nvppex.dll
+ModLoad: 00007ffe`40c40000 00007ffe`40e62000   C:\WINDOWS\SYSTEM32\dcomp.dll
+ModLoad: 00007ffe`40c20000 00007ffe`40c39000   C:\WINDOWS\SYSTEM32\Microsoft.Internal.WarpPal.dll
+ModLoad: 00007ffd`ef670000 00007ffd`ef68c000   C:\WINDOWS\SYSTEM32\xinput1_4.dll
+ModLoad: 00007ffe`16570000 00007ffe`16753000   C:\WINDOWS\SYSTEM32\inputhost.dll
+ModLoad: 00007ffe`412b0000 00007ffe`413d7000   C:\WINDOWS\SYSTEM32\CoreMessaging.dll
+ModLoad: 00007ffe`48370000 00007ffe`4841e000   C:\WINDOWS\System32\clbcatq.dll
+ModLoad: 00007ffe`3cb30000 00007ffe`3cbc9000   C:\WINDOWS\System32\MMDevApi.dll
+ModLoad: 00007ffe`42ef0000 00007ffe`42eff000   C:\WINDOWS\SYSTEM32\hid.dll
+ModLoad: 00007ffd`d3850000 00007ffd`d389b000   C:\Windows\System32\dinput8.dll
+ModLoad: 00007ffe`37450000 00007ffe`37528000   C:\Windows\System32\Windows.Gaming.Input.dll
+ModLoad: 00007ffe`371c0000 00007ffe`3740e000   C:\Windows\System32\twinapi.appcore.dll
+ModLoad: 00007ffe`3ed50000 00007ffe`3eeba000   C:\Windows\System32\WinTypes.dll
+onecoreuap\xbox\devices\api\winrt\pnpapiwrapper.cpp(385)\Windows.Gaming.Input.dll!00007FFE374A8775: (caller: 00007FFE374AD255) ReturnHr(1) tid(10db4) 8685C003 onecoreuap\xbox\devices\api\winrt\pnpapiwrapper.cpp(385)\Windows.Gaming.Input.dll!00007FFE374A8775: (caller: 00007FFE374AD255) ReturnHr(2) tid(10db4) 8685C003 ModLoad: 00007ffe`2f4e0000 00007ffe`2f4fc000   C:\Windows\System32\Windows.System.UserDeviceAssociation.dll
+ModLoad: 00007ffe`37660000 00007ffe`376c0000   C:\Windows\System32\usermgrproxy.dll
+onecoreuap\xbox\devices\api\winrt\pnpapiwrapper.cpp(385)\Windows.Gaming.Input.dll!00007FFE374A8775: (caller: 00007FFE374AD255) ReturnHr(3) tid(10db4) 8685C003 onecoreuap\xbox\devices\api\winrt\pnpapiwrapper.cpp(385)\Windows.Gaming.Input.dll!00007FFE374A8775: (caller: 00007FFE374AD255) ReturnHr(4) tid(10db4) 8685C003 onecoreuap\xbox\devices\api\winrt\pnpapiwrapper.cpp(385)\Windows.Gaming.Input.dll!00007FFE374A8775: (caller: 00007FFE374AD255) ReturnHr(5) tid(10db4) 8685C003 onecoreuap\xbox\devices\api\winrt\pnpapiwrapper.cpp(385)\Windows.Gaming.Input.dll!00007FFE374A8775: (caller: 00007FFE374AD255) ReturnHr(6) tid(10db4) 8685C003 onecoreuap\xbox\devices\api\winrt\pnpapiwrapper.cpp(385)\Windows.Gaming.Input.dll!00007FFE374A8775: (caller: 00007FFE374AD255) ReturnHr(7) tid(10db4) 8685C003 onecoreuap\xbox\devices\api\winrt\pnpapiwrapper.cpp(385)\Windows.Gaming.Input.dll!00007FFE374A8775: (caller: 00007FFE374AD255) ReturnHr(8) tid(10db4) 8685C003 onecoreuap\xbox\devices\api\winrt\pnpapiwrapper.cpp(385)\Windows.Gaming.Input.dll!00007FFE374A8775: (caller: 00007FFE374AD255) ReturnHr(9) tid(10db4) 8685C003 onecoreuap\xbox\devices\api\winrt\pnpapiwrapper.cpp(385)\Windows.Gaming.Input.dll!00007FFE374A8775: (caller: 00007FFE374AD255) ReturnHr(10) tid(10db4) 8685C003 onecoreuap\xbox\devices\api\winrt\pnpapiwrapper.cpp(385)\Windows.Gaming.Input.dll!00007FFE374A8775: (caller: 00007FFE374AD255) ReturnHr(11) tid(10db4) 8685C003 onecoreuap\xbox\devices\api\winrt\pnpapiwrapper.cpp(385)\Windows.Gaming.Input.dll!00007FFE374A8775: (caller: 00007FFE374AD255) ReturnHr(12) tid(10db4) 8685C003 onecoreuap\xbox\devices\api\winrt\pnpapiwrapper.cpp(385)\Windows.Gaming.Input.dll!00007FFE374A8775: (caller: 00007FFE374AD255) ReturnHr(13) tid(10db4) 8685C003 onecoreuap\xbox\devices\api\winrt\pnpapiwrapper.cpp(385)\Windows.Gaming.Input.dll!00007FFE374A8775: (caller: 00007FFE374AD255) ReturnHr(14) tid(10db4) 8685C003 onecoreuap\xbox\devices\api\winrt\pnpapiwrapper.cpp(385)\Windows.Gaming.Input.dll!00007FFE374A8775: (caller: 00007FFE374AD255) ReturnHr(15) tid(10db4) 8685C003 onecoreuap\xbox\devices\api\winrt\pnpapiwrapper.cpp(385)\Windows.Gaming.Input.dll!00007FFE374A8775: (caller: 00007FFE374AD255) ReturnHr(16) tid(10db4) 8685C003 onecoreuap\xbox\devices\api\winrt\pnpapiwrapper.cpp(385)\Windows.Gaming.Input.dll!00007FFE374A8775: (caller: 00007FFE374AD255) ReturnHr(17) tid(10db4) 8685C003 onecoreuap\xbox\devices\api\winrt\pnpapiwrapper.cpp(385)\Windows.Gaming.Input.dll!00007FFE374A8775: (caller: 00007FFE374AD255) ReturnHr(18) tid(10db4) 8685C003 onecoreuap\xbox\devices\api\winrt\pnpapiwrapper.cpp(385)\Windows.Gaming.Input.dll!00007FFE374A8775: (caller: 00007FFE374AD255) ReturnHr(19) tid(10db4) 8685C003 onecoreuap\xbox\devices\api\winrt\pnpapiwrapper.cpp(385)\Windows.Gaming.Input.dll!00007FFE374A8775: (caller: 00007FFE374AD255) ReturnHr(20) tid(10db4) 8685C003 onecoreuap\xbox\devices\api\winrt\pnpapiwrapper.cpp(385)\Windows.Gaming.Input.dll!00007FFE374A8775: (caller: 00007FFE374AD255) ReturnHr(21) tid(10db4) 8685C003 ModLoad: 00000001`80000000 00000001`80055000   C:\WINDOWS\System32\WmJoyFrc.dll
+ModLoad: 00007ffc`b42b0000 00007ffc`b42e3000   C:\WINDOWS\SYSTEM32\DINPUT.dll
+ModLoad: 00007ffd`c6580000 00007ffd`c65b5000   C:\Program Files\Logitech\Gaming Software\SDKs\LogitechSteeringWheel.dll
+ModLoad: 00007ffe`0a5e0000 00007ffe`0a610000   C:\WINDOWS\SYSTEM32\XINPUT1_3.dll
+Debug Assertion Failed!
+
+Program: E:\SpaghettiKart\build\x64\Debug\Spaghettify.exe
+File: C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\vector
+Line: 1931
+
+Expression: vector subscript out of range
+
+For information on how your program can cause an assertion
+failure, see the Visual C++ documentation on asserts.
+
+(Press Retry to debug the application)
+ModLoad: 00007ffe`16b60000 00007ffe`16c13000   C:\WINDOWS\SYSTEM32\TextShaping.dll
+ModLoad: 00007ffe`29f20000 00007ffe`2a1b2000   C:\WINDOWS\WinSxS\amd64_microsoft.windows.common-controls_6595b64144ccf1df_6.0.26100.8457_none_3e0b2faee331e92d\comctl32.dll
+ModLoad: 00007ffe`3e1e0000 00007ffe`3e4c2000   C:\WINDOWS\SYSTEM32\CoreUIComponents.dll
+(113c4.d5fc): Security check failure or stack buffer overrun - code c0000409 (!!! second chance !!!)
+Subcode: 0x5 FAST_FAIL_INVALID_ARG 
+Unable to get exception context, HRESULT 0x8000FFFF
+*** WARNING: Unable to verify checksum for Spaghettify.exe
+Child-SP          RetAddr               : Args to Child                                                           : Call Site
+000000a0`d812f070 00007ff7`0fd7d740     : 00000000`00000000 00000000`00000000 00000000`00000000 00000000`00000000 : Spaghettify!_invoke_watson+0x2c [minkernel\crts\ucrt\src\appcrt\misc\invalid_parameter.cpp @ 237]
+000000a0`d812f0a0 00007ff7`0fd72d8f     : 000001fd`2902cd48 00000000`00000005 000000a0`d812f170 00007ff7`0fc96438 : Spaghettify!std::vector<Fast::FramebufferDX11,std::allocator<Fast::FramebufferDX11> >::operator[]+0x90 [C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\vector @ 1930]
+000000a0`d812f0f0 00007ff7`0fc28044     : 000001fd`2902cb40 00000000`00000005 000000a0`d812fd50 00007ff7`0fc921dc : Spaghettify!Fast::GfxRenderingAPIDX11::GetFramebufferTextureId+0x3f [E:\SpaghettiKart\libultraship\src\fast\backends\gfx_direct3d11.cpp @ 931]
+000000a0`d812f130 00007ff7`0fbd4e41     : 000001fd`00000005 00007ff7`11276b28 000001fd`ffffffff 00007ff7`0fc96438 : Spaghettify!gfx_get_framebuffer_texture_id+0xa4 [E:\SpaghettiKart\libultraship\src\fast\interpreter.cpp @ 4764]
+000000a0`d812f1a0 00007ff7`0fbcf877     : 000000a0`d812f668 000000a0`d812f658 00000000`00000001 000001fd`00000000 : Spaghettify!`anonymous namespace'::ArcadeKartDrawLayeredPostFxGame+0x151 [E:\SpaghettiKart\libultraship\src\ship\window\gui\Gui.cpp @ 525]
+000000a0`d812f250 00007ff7`0fbcb823     : 000001fd`291cf3e0 0000fb07`29ceaea9 00000000`00000001 000000a0`d812fd50 : Spaghettify!Ship::Gui::DrawGame+0xbe7 [E:\SpaghettiKart\libultraship\src\ship\window\gui\Gui.cpp @ 1208]
+000000a0`d812f690 00007ff7`0fc56b26     : 000001fd`291cf3e0 00007ff7`224609a0 000001fd`463118a0 00007ff7`0fd42862 : Spaghettify!Ship::Gui::EndDraw+0x13 [E:\SpaghettiKart\libultraship\src\ship\window\gui\Gui.cpp @ 1271]
+000000a0`d812f6c0 00007ff7`0f7f7b2b     : 000001fd`291d5e20 00007ff7`224609a0 000001fd`463118a0 000000a0`d812f854 : Spaghettify!Fast::Fast3dWindow::DrawAndRunGraphicsCommands+0x1d6 [E:\SpaghettiKart\libultraship\src\fast\Fast3dWindow.cpp @ 210]
+000000a0`d812f790 00007ff7`0f7f7895     : 00007ff7`224609a0 000000a0`d812f8f0 000001fd`291d5e10 000001fd`291d6050 : Spaghettify!GameEngine::RunCommands+0x1cb [E:\SpaghettiKart\src\port\Engine.cpp @ 445]
+000000a0`d812f8d0 00007ff7`0f824638     : 00007ff7`224609a0 00007ff7`0fcde232 000000a0`d812fa60 000000a0`d812fa50 : Spaghettify!GameEngine::ProcessGfxCommands+0x225 [E:\SpaghettiKart\src\port\Engine.cpp @ 503]
+000000a0`d812fa10 00007ff7`0faae5da     : 00007ff7`224609a0 00007ff7`22460c00 00007ff7`22460c10 00007ff7`22460c20 : Spaghettify!Graphics_PushFrame+0x18 [E:\SpaghettiKart\src\port\Game.cpp @ 56]
+000000a0`d812fa80 00007ff7`0faaece6     : 00007ff7`22460c70 00007ff7`22460c80 00007ff7`22460c90 00007ff7`22460ca0 : Spaghettify!create_gfx_task_structure+0x5a [E:\SpaghettiKart\src\main.c @ 306]
+000000a0`d812faf0 00007ff7`0fab0053     : 00000000`00000000 0000fb07`29cea0f9 000000a0`00000010 00007ff7`0fc921dc : Spaghettify!end_master_display_list+0x86 [E:\SpaghettiKart\src\main.c @ 461]
+000000a0`d812fb70 00007ff7`0fab08cf     : 00007ff7`22434040 00007ff7`22433ee8 ffffffff`00000001 000001fd`26ee0000 : Spaghettify!rendering_init+0x63 [E:\SpaghettiKart\src\main.c @ 486]
+000000a0`d812fbe0 00007ff7`0f825105     : 00007ff7`10a994b0 00007ff7`00000000 00000000`00000000 00000000`00000000 : Spaghettify!thread5_game_loop+0x10f [E:\SpaghettiKart\src\main.c @ 1151]
+000000a0`d812fc50 00007ff7`1079de4c     : 00000000`00000001 000001fd`28fb0e80 00000000`00000000 00000000`00000062 : Spaghettify!SDL_main+0xb5 [E:\SpaghettiKart\src\port\Game.cpp @ 986]
+000000a0`d812fcd0 00007ff7`1079dc4e     : 00000000`00000000 00000000`00000000 00000000`00000000 00000000`028b7aa8 : Spaghettify!main_getcmdline+0x1bc [E:\SpaghettiKart\build\x64\vcpkg\buildtrees\sdl2\src\ase-2.32.8-cdefe94ced.clean\src\main\windows\SDL_windows_main.c @ 80]
+000000a0`d812fd60 00007ff7`105a9b12     : 00007ff7`0eb50000 00000000`00000000 000001fd`26eea710 00007ff7`0000000a : Spaghettify!WinMain+0x1e [E:\SpaghettiKart\build\x64\vcpkg\buildtrees\sdl2\src\ase-2.32.8-cdefe94ced.clean\src\main\windows\SDL_windows_main.c @ 110]
+000000a0`d812fd90 00007ff7`105a9a02     : 00007ff7`0f52c519 00007ff7`00000002 00000000`00000000 00000000`00000000 : Spaghettify!invoke_main+0x32 [D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl @ 107]
+000000a0`d812fdd0 00007ff7`105a98be     : 00000000`00000000 00000000`00000000 00000000`00000000 00000000`00000000 : Spaghettify!__scrt_common_main_seh+0x132 [D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl @ 288]
+000000a0`d812fe40 00007ff7`105a9bae     : 00000000`00000000 00000000`00000000 00000000`00000000 00000000`00000000 : Spaghettify!__scrt_common_main+0xe [D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl @ 331]
+000000a0`d812fe70 00007ffe`46dee957     : 000000a0`d825f000 00000000`00000000 00000000`00000000 00000000`00000000 : Spaghettify!WinMainCRTStartup+0xe [D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_winmain.cpp @ 17]
+000000a0`d812fea0 00007ffe`484a427c     : 00000000`00000000 00000000`00000000 000004f0`fffffb30 000004d0`fffffb30 : KERNEL32!BaseThreadInitThunk+0x17
+000000a0`d812fed0 00000000`00000000     : 00000000`00000000 00000000`00000000 00000000`00000000 00000000`00000000 : ntdll!RtlUserThreadStart+0x2c
+quit:
+NatVis script unloaded from 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\Visualizers\atlmfc.natvis'
+NatVis script unloaded from 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\Visualizers\ObjectiveC.natvis'
+NatVis script unloaded from 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\Visualizers\concurrency.natvis'
+NatVis script unloaded from 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\Visualizers\cpp_rest.natvis'
+NatVis script unloaded from 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\Visualizers\stl.natvis'
+NatVis script unloaded from 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\Visualizers\Windows.Data.Json.natvis'
+NatVis script unloaded from 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\Visualizers\Windows.Devices.Geolocation.natvis'
+NatVis script unloaded from 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\Visualizers\Windows.Devices.Sensors.natvis'
+NatVis script unloaded from 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\Visualizers\Windows.Media.natvis'
+NatVis script unloaded from 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\Visualizers\windows.natvis'
+NatVis script unloaded from 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\Visualizers\winrt.natvis'

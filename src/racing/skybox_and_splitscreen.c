@@ -12,6 +12,7 @@
 #include <assets/models/common_data.h>
 #include "render_player.h"
 #include "code_80057C60.h"
+#include "framebuffer_effects.h"
 #include "menu_items.h"
 #include "actors.h"
 #include "render_courses.h"
@@ -616,19 +617,38 @@ void render_screens(ScreenContext* screen, s32 mode, s32 someId, s32 playerId) {
     Mat4 matrix;
     Camera* camera = screen->camera;
     s32 screenId = screen - gScreenContexts;
+    s32 arcadeKartSceneLayerActive = 0;
 
     if (NULL == camera) {
         printf("[skybox_and_splitscreen.c] Skipping rendering for screen %d. This viewport has no camera\n", screen - gScreenContexts);
         return;
     }
 
+    if (FB_ArcadeKartPostFxShouldLayerHud()) {
+        FB_ArcadeKartPostFxBeginScene(&gDisplayListHead);
+        arcadeKartSceneLayerActive = 1;
+    }
+
     switch(mode) {
         case RENDER_SCREEN_MODE_3P_4P_PLAYER_FOUR: // Blank screen
             if (gPlayerCountSelection1 == 3) {
+                s32 arcadeKartHudLayerActive = 0;
                 race_blank_viewport(screen);
-                func_80093A5C(RENDER_SCREEN_MODE_3P_4P_PLAYER_FOUR);
                 if (D_800DC5B8 != 0) {
+                    if (FB_ArcadeKartPostFxShouldLayerHud()) {
+                        FB_ArcadeKartPostFxBeginHud(&gDisplayListHead);
+                        arcadeKartHudLayerActive = 1;
+                    }
+                    func_80093A5C(RENDER_SCREEN_MODE_3P_4P_PLAYER_FOUR);
                     render_hud(RENDER_SCREEN_MODE_3P_4P_PLAYER_FOUR);
+                    if (arcadeKartHudLayerActive != 0) {
+                        FB_ArcadeKartPostFxEndHud(&gDisplayListHead);
+                    }
+                } else {
+                    func_80093A5C(RENDER_SCREEN_MODE_3P_4P_PLAYER_FOUR);
+                    if (arcadeKartSceneLayerActive != 0) {
+                        FB_ArcadeKartPostFxEndScene(&gDisplayListHead);
+                    }
                 }
                 gNumScreens += 1;
                 return;
@@ -722,6 +742,11 @@ void render_screens(ScreenContext* screen, s32 mode, s32 someId, s32 playerId) {
         render_item_boxes(screen);
     }
     render_player_snow_effect(camera);
+    s32 arcadeKartHudLayerActive = 0;
+    if ((CVarGetInteger("gDrawHUD", true) == true) && (D_800DC5B8 != 0) && FB_ArcadeKartPostFxShouldLayerHud()) {
+        FB_ArcadeKartPostFxBeginHud(&gDisplayListHead);
+        arcadeKartHudLayerActive = 1;
+    }
     func_80058BF4(); // Setup texture modes
     if (D_800DC5B8 != 0) {
         func_80058C20(mode); // Setup hud matrix
@@ -732,6 +757,11 @@ void render_screens(ScreenContext* screen, s32 mode, s32 someId, s32 playerId) {
         if (D_800DC5B8 != 0) {
             render_hud(mode);
         }
+    }
+    if (arcadeKartHudLayerActive != 0) {
+        FB_ArcadeKartPostFxEndHud(&gDisplayListHead);
+    } else if (arcadeKartSceneLayerActive != 0) {
+        FB_ArcadeKartPostFxEndScene(&gDisplayListHead);
     }
 
     // Do not increment in single player mode

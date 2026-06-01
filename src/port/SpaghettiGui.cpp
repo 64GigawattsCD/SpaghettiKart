@@ -212,6 +212,10 @@ namespace Ship {
         const s32 postFxEnabled = CVarGetInteger("gArcadeKart.PostFx.Enabled", 1);
         const s32 postFxManualOverride = CVarGetInteger("gArcadeKart.PostFx.ManualOverride", 0);
         const s32 postFxTunePressed = CVarGetInteger("gArcadeKart.PostFx.DebugRaceTunePressed", 0);
+        const s32 postFxLayerHud = CVarGetInteger("gArcadeKart.PostFx.LayerHud", 1);
+        const s32 postFxLayerActive = CVarGetInteger("gArcadeKart.PostFx.LayeredHudActive", 0);
+        const s32 postFxSceneFb = CVarGetInteger("gArcadeKart.PostFx.SceneFramebufferId", -1);
+        const s32 postFxHudFb = CVarGetInteger("gArcadeKart.PostFx.HudFramebufferId", -1);
         const f32 postFxManualIntensity = CVarGetFloat("gArcadeKart.PostFx.DebugManualIntensity",
                                                        CVarGetFloat("gArcadeKart.PostFx.ManualIntensity", 0.0f));
 
@@ -250,6 +254,8 @@ namespace Ship {
                         surfaceRumble);
             ImGui::Text("PostFX En%d Man%d %.0f%% Tune %04X", postFxEnabled, postFxManualOverride,
                         postFxManualIntensity * 100.0f, postFxTunePressed);
+            ImGui::Text("Layer HUD %d Active %d Scene %d HUD %d", postFxLayerHud, postFxLayerActive, postFxSceneFb,
+                        postFxHudFb);
             ImGui::Text("Shifter %02X Raw %s Sm %s Req %s", shifterMask, GetGearLabel(shifterRaw),
                         GetGearLabel(shifterSmooth), GetGearLabel(shifterRequest));
             ImGui::Text("Shifter Count %d Smooth %d N%d", shifterPressedCount, shifterSmoothingFrames,

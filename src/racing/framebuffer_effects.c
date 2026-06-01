@@ -5,6 +5,7 @@
 #include "port/Engine.h"
 #include "port/interpolation/matrix.h"
 #include "math_util.h"
+#include "main.h"
 #include <stdio.h>
 
 int gfx_create_framebuffer(uint32_t width, uint32_t height, uint32_t native_width, uint32_t native_height,
@@ -16,6 +17,31 @@ s32 gReusableFrameBuffer = -1;
 
 // N64 resolution sized buffer (320x240), used by picto box and deku bubble
 s32 gN64ResFrameBuffer = -1;
+s32 gArcadeKartPostFxSceneFrameBuffer = -1;
+s32 gArcadeKartPostFxHudFrameBuffer = -1;
+
+static s32 sArcadeKartPostFxHudPreparedFrame = -1;
+static s32 sArcadeKartPostFxScenePreparedFrame = -1;
+
+static void FB_ClearFramebuffer(Gfx** gfxP, s32 fb, u32 fillColor) {
+    Gfx* gfx = *gfxP;
+
+    if (fb == -1) {
+        return;
+    }
+
+    gsSPSetFB(gfx++, fb);
+    gDPSetScissor(gfx++, G_SC_NON_INTERLACE, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+    gDPSetCycleType(gfx++, G_CYC_FILL);
+    gDPSetFillColor(gfx++, fillColor);
+    gDPFillRectangle(gfx++, 0, 0, OTRGetDimensionFromRightEdge(SCREEN_WIDTH) - 1, SCREEN_HEIGHT - 1);
+    gDPPipeSync(gfx++);
+    gDPSetCycleType(gfx++, G_CYC_1CYCLE);
+    gsSPResetFB(gfx++);
+    gDPSetScissor(gfx++, G_SC_NON_INTERLACE, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+
+    *gfxP = gfx;
+}
 
 void FB_CreateFramebuffers(void) {
     if (gReusableFrameBuffer == -1) {
@@ -24,6 +50,101 @@ void FB_CreateFramebuffers(void) {
 
     if (gN64ResFrameBuffer == -1) {
         gN64ResFrameBuffer = gfx_create_framebuffer(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_WIDTH, SCREEN_HEIGHT, false);
+    }
+
+    if (gArcadeKartPostFxSceneFrameBuffer == -1) {
+        gArcadeKartPostFxSceneFrameBuffer =
+            gfx_create_framebuffer(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_WIDTH, SCREEN_HEIGHT, true);
+    }
+
+    if (gArcadeKartPostFxHudFrameBuffer == -1) {
+        gArcadeKartPostFxHudFrameBuffer =
+            gfx_create_framebuffer(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_WIDTH, SCREEN_HEIGHT, true);
+    }
+}
+
+s32 FB_ArcadeKartPostFxShouldLayerHud(void) {
+    if (CVarGetInteger("gArcadeKart.PostFx.Enabled", 1) == 0) {
+        return 0;
+    }
+    if (CVarGetInteger("gArcadeKart.PostFx.LayerHud", 1) == 0) {
+        return 0;
+    }
+    return (gArcadeKartPostFxSceneFrameBuffer != -1) && (gArcadeKartPostFxHudFrameBuffer != -1);
+}
+
+void FB_ArcadeKartPostFxMarkSceneReady(void) {
+    if (!FB_ArcadeKartPostFxShouldLayerHud()) {
+        CVarSetInteger("gArcadeKart.PostFx.LayeredHudActive", 0);
+        return;
+    }
+
+    CVarSetInteger("gArcadeKart.PostFx.SceneFramebufferId", gArcadeKartPostFxSceneFrameBuffer);
+    CVarSetInteger("gArcadeKart.PostFx.HudFramebufferId", gArcadeKartPostFxHudFrameBuffer);
+    CVarSetInteger("gArcadeKart.PostFx.LayeredHudActive", 1);
+}
+
+void FB_ArcadeKartPostFxBeginScene(Gfx** gfxP) {
+    Gfx* gfx = *gfxP;
+
+    if (!FB_ArcadeKartPostFxShouldLayerHud()) {
+        CVarSetInteger("gArcadeKart.PostFx.LayeredHudActive", 0);
+        return;
+    }
+
+    if (sArcadeKartPostFxScenePreparedFrame != gGlobalTimer) {
+        FB_ClearFramebuffer(&gfx, gArcadeKartPostFxSceneFrameBuffer, 0x00000000);
+        sArcadeKartPostFxScenePreparedFrame = gGlobalTimer;
+    }
+
+    FB_ArcadeKartPostFxMarkSceneReady();
+    gsSPSetFB(gfx++, gArcadeKartPostFxSceneFrameBuffer);
+    gDPSetScissor(gfx++, G_SC_NON_INTERLACE, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+    *gfxP = gfx;
+}
+
+void FB_ArcadeKartPostFxEndScene(Gfx** gfxP) {
+    Gfx* gfx = *gfxP;
+
+    if (!FB_ArcadeKartPostFxShouldLayerHud()) {
+        return;
+    }
+
+    gsSPResetFB(gfx++);
+    gDPSetScissor(gfx++, G_SC_NON_INTERLACE, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+    *gfxP = gfx;
+}
+
+void FB_ArcadeKartPostFxBeginHud(Gfx** gfxP) {
+    Gfx* gfx = *gfxP;
+
+    if (!FB_ArcadeKartPostFxShouldLayerHud()) {
+        return;
+    }
+
+    if (sArcadeKartPostFxHudPreparedFrame != gGlobalTimer) {
+        FB_ClearFramebuffer(&gfx, gArcadeKartPostFxHudFrameBuffer, 0x00000000);
+        sArcadeKartPostFxHudPreparedFrame = gGlobalTimer;
+    }
+
+    gsSPSetFB(gfx++, gArcadeKartPostFxHudFrameBuffer);
+    gDPSetScissor(gfx++, G_SC_NON_INTERLACE, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+    *gfxP = gfx;
+}
+
+void FB_ArcadeKartPostFxEndHud(Gfx** gfxP) {
+    Gfx* gfx = *gfxP;
+
+    if (!FB_ArcadeKartPostFxShouldLayerHud()) {
+        return;
+    }
+
+    gsSPResetFB(gfx++);
+    gDPSetScissor(gfx++, G_SC_NON_INTERLACE, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+    *gfxP = gfx;
+
+    if (CVarGetInteger("gArcadeKart.PostFx.DebugDrawHudFramebuffer", 0) != 0) {
+        FB_DrawFromFramebuffer(gfxP, gArcadeKartPostFxHudFrameBuffer, 255);
     }
 }
 

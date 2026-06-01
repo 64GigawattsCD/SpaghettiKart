@@ -122,7 +122,7 @@ GameEngine::GameEngine() {
             { BTN_CUP, { Ship::KbScancode::LUS_KB_T} },
             { BTN_CDOWN, { Ship::KbScancode::LUS_KB_G} },
             { BTN_CLEFT, { Ship::KbScancode::LUS_KB_F} },
-            { BTN_CRIGHT, { Ship::KbScancode::LUS_KB_H} },
+            { KART_TOGGLE_HUD_BUTTON, { Ship::KbScancode::LUS_KB_H} },
             { BTN_DUP, { Ship::KbScancode::LUS_KB_NUMPAD8} },
             { BTN_DDOWN, { Ship::KbScancode::LUS_KB_NUMPAD2} },
             { BTN_DLEFT, { Ship::KbScancode::LUS_KB_NUMPAD4} },
@@ -145,6 +145,7 @@ GameEngine::GameEngine() {
             { BTN_START, { SDL_CONTROLLER_BUTTON_START } },
             { BTN_CLEFT, { SDL_CONTROLLER_BUTTON_Y } },
             { BTN_CDOWN, { SDL_CONTROLLER_BUTTON_B } },
+            { KART_CLUTCH_BUTTON, { SDL_CONTROLLER_BUTTON_RIGHTSTICK } },
             { BTN_DUP, { SDL_CONTROLLER_BUTTON_DPAD_UP } },
             { BTN_DDOWN, { SDL_CONTROLLER_BUTTON_DPAD_DOWN } },
             { BTN_DLEFT, { SDL_CONTROLLER_BUTTON_DPAD_LEFT } },
@@ -159,7 +160,8 @@ GameEngine::GameEngine() {
             { BTN_A, { { SDL_CONTROLLER_AXIS_TRIGGERRIGHT, 1 } } },
             { BTN_B, { { SDL_CONTROLLER_AXIS_TRIGGERLEFT, 1 } } },
             { BTN_CUP, { { SDL_CONTROLLER_AXIS_RIGHTY, -1 } } },
-            { BTN_CRIGHT, { { SDL_CONTROLLER_AXIS_RIGHTX, 1 } } }
+            { KART_SHIFT_GEAR_UP_BUTTON, { { SDL_CONTROLLER_AXIS_RIGHTY, -1 } } },
+            { KART_SHIFT_GEAR_DOWN_BUTTON, { { SDL_CONTROLLER_AXIS_RIGHTY, 1 } } }
         },
         // SDLAxisDirectionToAxisDirectionMappings - use built-in LUS defaults
         std::unordered_map<Ship::StickIndex, std::vector<std::pair<Ship::Direction, std::pair<SDL_GameControllerAxis, int32_t>>>>()
@@ -184,10 +186,13 @@ GameEngine::GameEngine() {
                       { KART_SHIFT_GEAR_6_BUTTON, "Shift Gear 6" },
                       { KART_SHIFT_REVERSE_BUTTON, "Shift Reverse" },
                       { KART_SHIFT_NEUTRAL_BUTTON, "Shift Neutral" },
+                      { KART_SHIFT_GEAR_UP_BUTTON, "Shift Gear Up" },
+                      { KART_SHIFT_GEAR_DOWN_BUTTON, "Shift Gear Down" },
+                      { KART_TOGGLE_HUD_BUTTON, "Toggle HUD" },
                       { KART_TOGGLE_MUSIC_BUTTON, "Toggle Music" },
                       { BTN_START, "Open Menu" },
                       { BTN_CLEFT, "Look Behind" },
-                      { BTN_CRIGHT, "Toggle HUD" },
+                      { BTN_CRIGHT, "Legacy C-Right" },
                       { BTN_CUP, "Ceremony Debug Select Luigi" },
                       { BTN_CDOWN, "Ceremony Debug Select DK" },
                       { BTN_DLEFT, "Menu Left" },

@@ -86,6 +86,7 @@ typedef struct HudCanvasSlot {
     HudVec2 alignment;
     HudRect alignmentBounds;
     bool useAlignmentBounds;
+    bool useSafeZone;
     bool autoSize;
     s32 zOrder;
 } HudCanvasSlot;
@@ -172,6 +173,7 @@ typedef struct HudLayoutWidget {
 
 typedef struct HudLayoutContext {
     HudRect rootRect;
+    HudRect safeRect;
     HudWidgetId rootId;
     s32 widgetCount;
     s32 slotCount;
@@ -201,6 +203,7 @@ static inline HudAnchor hud_layout_anchor(f32 minX, f32 minY, f32 maxX, f32 maxY
 }
 
 void hud_layout_begin(HudLayoutContext* ctx, HudRect rootRect);
+void hud_layout_begin_safe_zone(HudLayoutContext* ctx, HudRect rootRect, HudPadding safeZonePadding);
 HudWidgetId hud_layout_root(const HudLayoutContext* ctx);
 
 HudWidgetId hud_layout_canvas(HudLayoutContext* ctx);
@@ -231,6 +234,10 @@ HudCanvasSlot hud_layout_canvas_slot(HudAnchor anchors, HudPadding offsets, HudV
                                      s32 zOrder);
 HudCanvasSlot hud_layout_canvas_bounds_slot(HudAnchor anchors, HudPadding offsets, HudRect alignmentBounds,
                                             HudVec2 alignment, bool autoSize, s32 zOrder);
+HudCanvasSlot hud_layout_canvas_safe_slot(HudAnchor anchors, HudPadding offsets, HudVec2 alignment, bool autoSize,
+                                          s32 zOrder);
+HudCanvasSlot hud_layout_canvas_safe_bounds_slot(HudAnchor anchors, HudPadding offsets, HudRect alignmentBounds,
+                                                 HudVec2 alignment, bool autoSize, s32 zOrder);
 HudBoxSlot hud_layout_auto_slot(HudPadding padding, HudVec2 alignment, bool fillCrossAxis);
 HudBoxSlot hud_layout_fill_slot(f32 fillWeight, HudPadding padding, HudVec2 alignment, bool fillCrossAxis);
 HudSingleChildSlot hud_layout_single_child_slot(HudPadding padding, HudVec2 alignment, bool fillWidth,

@@ -42,6 +42,7 @@
 #include "engine/Matrix.h"
 #include "engine/editor/Editor.h"
 #include "port/interpolation/FrameInterpolation.h"
+#include "racing/framebuffer_effects.h"
 
 //! @warning this macro is undef'd at the end of this file
 #define MAKE_RGB(r, g, b) (((r) << 0x10) | ((g) << 0x08) | (b << 0x00))
@@ -941,6 +942,9 @@ void func_800590D4(void) {
 void func_800591B4(void) {
 
     if ((gHUDDisable == 0) && (D_800DC5B8 != 0)) {
+        if (FB_ArcadeKartPostFxShouldLayerHud()) {
+            FB_ArcadeKartPostFxBeginHud(&gDisplayListHead);
+        }
         func_80057C60();
         gSPDisplayList(gDisplayListHead++, D_0D0076F8);
         gSPClearGeometryMode(gDisplayListHead++, G_ZBUFFER);
@@ -975,6 +979,7 @@ void func_800591B4(void) {
         func_8005902C();
         func_80057DD0();
         func_80057CE4();
+        FB_ArcadeKartPostFxEndHud(&gDisplayListHead);
     }
 }
 
@@ -1445,7 +1450,7 @@ void func_8005A3C0(void) {
     if ((gGamestate != ENDING) && (gGamestate != CREDITS_SEQUENCE) && !D_8018D204) {
         switch (gPlayerCountSelection1) {
             case 1:
-                if (gControllerOne->buttonPressed & R_CBUTTONS) {
+                if (kart_input_was_command_pressed(gControllerOne, KART_INPUT_TOGGLE_HUD)) {
                     if (gHUDModes == 2) {
                         gHUDModes = 0;
                         D_801657E6 = true;
@@ -1462,11 +1467,11 @@ void func_8005A3C0(void) {
                 break;
             case 2:
                 if (gModeSelection != BATTLE) {
-                    if (gControllerOne->buttonPressed & R_CBUTTONS) {
+                    if (kart_input_was_command_pressed(gControllerOne, KART_INPUT_TOGGLE_HUD)) {
                         D_80165800[0] = (D_80165800[0] + 1) & 1;
                         b = true;
                     }
-                    if (gControllerTwo->buttonPressed & R_CBUTTONS) {
+                    if (kart_input_was_command_pressed(gControllerTwo, KART_INPUT_TOGGLE_HUD)) {
                         D_80165800[1] = (D_80165800[1] + 1) & 1;
                         b = true;
                     }
@@ -1481,8 +1486,9 @@ void func_8005A3C0(void) {
                 }
                 break;
             case 3:
-                if ((gControllerOne->buttonPressed & R_CBUTTONS) || (gControllerTwo->buttonPressed & R_CBUTTONS) ||
-                    (gControllerThree->buttonPressed & R_CBUTTONS)) {
+                if (kart_input_was_command_pressed(gControllerOne, KART_INPUT_TOGGLE_HUD) ||
+                    kart_input_was_command_pressed(gControllerTwo, KART_INPUT_TOGGLE_HUD) ||
+                    kart_input_was_command_pressed(gControllerThree, KART_INPUT_TOGGLE_HUD)) {
                     if (gModeSelection != BATTLE) {
                         D_801657F0 = (D_801657F0 + 1) & 1;
                     }
@@ -1491,8 +1497,10 @@ void func_8005A3C0(void) {
                 }
                 break;
             case 4:
-                if ((gControllerOne->buttonPressed & R_CBUTTONS) || (gControllerTwo->buttonPressed & R_CBUTTONS) ||
-                    (gControllerThree->buttonPressed & R_CBUTTONS) || (gControllerFour->buttonPressed & R_CBUTTONS)) {
+                if (kart_input_was_command_pressed(gControllerOne, KART_INPUT_TOGGLE_HUD) ||
+                    kart_input_was_command_pressed(gControllerTwo, KART_INPUT_TOGGLE_HUD) ||
+                    kart_input_was_command_pressed(gControllerThree, KART_INPUT_TOGGLE_HUD) ||
+                    kart_input_was_command_pressed(gControllerFour, KART_INPUT_TOGGLE_HUD)) {
                     gHUDModes = (gHUDModes + 1) & 1;
                     D_801657F8 = (D_801657F8 + 1) & 1;
                     D_80165800[0] = (D_80165800[0] + 1) & 1;

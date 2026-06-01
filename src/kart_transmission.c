@@ -22,6 +22,7 @@
 #define KART_SHIFT_IDEAL_RPM_MIN_DEFAULT 3800.0f
 #define KART_SHIFT_IDEAL_RPM_MAX_DEFAULT 7200.0f
 #define KART_SHIFT_OVER_RPM_DEFAULT 8000.0f
+#define KART_SHIFT_SEQUENTIAL_STICK_DEADZONE 0.25f
 
 static s8 sKartGear[KART_TRANSMISSION_PLAYER_COUNT];
 static bool sKartTransmissionInitialized[KART_TRANSMISSION_PLAYER_COUNT];
@@ -40,6 +41,7 @@ static s8 sKartShiftPendingFromGear[KART_TRANSMISSION_PLAYER_COUNT];
 static s8 sKartShiftPendingToGear[KART_TRANSMISSION_PLAYER_COUNT];
 static bool sKartShiftPending[KART_TRANSMISSION_PLAYER_COUNT];
 static bool sKartShiftSessionHadClutch[KART_TRANSMISSION_PLAYER_COUNT];
+static s8 sKartSequentialShiftDirection[KART_TRANSMISSION_PLAYER_COUNT];
 static KartShiftFeedback sKartShiftFeedback[KART_TRANSMISSION_PLAYER_COUNT];
 static bool sKartShiftGrindSoundsLoaded;
 static s8 sKartLastShiftGrindSoundIndex = -1;
@@ -53,6 +55,47 @@ static const f32 sGearLaunchMultiplier[KART_GEAR_TOP + 1] = { 0.0f, 1.00f, 0.58f
 
 static bool kart_transmission_is_drive_gear(s32 gear) {
     return (gear >= KART_GEAR_FIRST) || (gear == KART_GEAR_REVERSE);
+}
+
+static s8 kart_transmission_get_requested_sequential_direction(const struct Controller* controller, s32 playerIndex) {
+    s32 direction = 0;
+    f32 rightStickAxis;
+    bool upPressed;
+    bool downPressed;
+
+    if (controller == NULL) {
+        return 0;
+    }
+
+    rightStickAxis = ((f32) controller->rightRawStickY) / 32767.0f;
+    if (rightStickAxis > KART_SHIFT_SEQUENTIAL_STICK_DEADZONE) {
+        direction = -1;
+    } else if (rightStickAxis < -KART_SHIFT_SEQUENTIAL_STICK_DEADZONE) {
+        direction = 1;
+    } else {
+        upPressed = kart_input_is_command_active(controller, KART_INPUT_SHIFT_GEAR_UP);
+        downPressed = kart_input_is_command_active(controller, KART_INPUT_SHIFT_GEAR_DOWN);
+
+        if (upPressed && !downPressed) {
+            direction = 1;
+        } else if (downPressed && !upPressed) {
+            direction = -1;
+        } else if (upPressed && downPressed) {
+            direction = 0;
+        }
+    }
+
+    if (direction == 0) {
+        sKartSequentialShiftDirection[playerIndex] = 0;
+        return 0;
+    }
+
+    if (sKartSequentialShiftDirection[playerIndex] == direction) {
+        return 0;
+    }
+
+    sKartSequentialShiftDirection[playerIndex] = (s8) direction;
+    return (s8) direction;
 }
 
 static s32 kart_transmission_clamp_player_index(s32 playerIndex) {
@@ -72,6 +115,7 @@ static void kart_transmission_init_player(s32 playerIndex) {
     }
 
     sKartGear[playerIndex] = KART_GEAR_FIRST;
+    sKartSequentialShiftDirection[playerIndex] = 0;
     sKartTransmissionInitialized[playerIndex] = true;
 }
 
@@ -84,6 +128,7 @@ static void kart_transmission_clear_shift_session(s32 playerIndex) {
     sKartShiftPenaltyTimer[playerIndex] = 0;
     sKartShiftLurchTimer[playerIndex] = 0;
     sKartRpmFlareTimer[playerIndex] = 0;
+    sKartSequentialShiftDirection[playerIndex] = 0;
 }
 
 bool kart_transmission_is_automatic(const Player* player) {
@@ -521,7 +566,34 @@ static void kart_transmission_update_automatic_gear(const Player* player, s32 pl
     sKartRpmFlareTimer[playerIndex] = 0;
 }
 
-static s32 kart_transmission_get_requested_gear(const struct Controller* controller) {
+static s32 kart_transmission_get_sequential_gear(s32 currentGear, s32 direction) {
+    if (direction > 0) {
+        if (currentGear == KART_GEAR_REVERSE) {
+            return KART_GEAR_NEUTRAL;
+        }
+        if (currentGear == KART_GEAR_NEUTRAL) {
+            return KART_GEAR_FIRST;
+        }
+        if (currentGear < KART_GEAR_TOP) {
+            return currentGear + 1;
+        }
+        return KART_GEAR_TOP;
+    }
+
+    if (currentGear > KART_GEAR_FIRST) {
+        return currentGear - 1;
+    }
+    if (currentGear == KART_GEAR_FIRST) {
+        return KART_GEAR_NEUTRAL;
+    }
+    return KART_GEAR_REVERSE;
+}
+
+static s32 kart_transmission_get_requested_gear(const struct Controller* controller, s32 playerIndex, s32 currentGear,
+                                                f32 clutchAmount) {
+    f32 sequentialClutchThreshold;
+    s32 sequentialDirection;
+
     if (kart_input_was_command_pressed(controller, KART_INPUT_SHIFT_NEUTRAL)) {
         return KART_GEAR_NEUTRAL;
     }
@@ -545,6 +617,19 @@ static s32 kart_transmission_get_requested_gear(const struct Controller* control
     }
     if (kart_input_was_command_pressed(controller, KART_INPUT_SHIFT_GEAR_6)) {
         return 6;
+    }
+    sequentialClutchThreshold = kart_transmission_get_cvarf("gArcadeKart.ShiftSequentialClutchThreshold",
+                                                            kart_transmission_get_cvarf(
+                                                                "gArcadeKart.ShiftClutchPressThreshold", 0.35f));
+    if (clutchAmount < sequentialClutchThreshold) {
+        return INT_MAX;
+    }
+    sequentialDirection = kart_transmission_get_requested_sequential_direction(controller, playerIndex);
+    if (sequentialDirection > 0) {
+        return kart_transmission_get_sequential_gear(currentGear, 1);
+    }
+    if (sequentialDirection < 0) {
+        return kart_transmission_get_sequential_gear(currentGear, -1);
     }
     return INT_MAX;
 }
@@ -571,7 +656,7 @@ void kart_transmission_update(Player* player, const struct Controller* controlle
                     (clutchAmount > kart_transmission_get_cvarf("gArcadeKart.ShiftClutchPressThreshold", 0.35f));
     sKartClutchAmount[playerIndex] = clutchAmount;
 
-    requestedGear = kart_transmission_get_requested_gear(controller);
+    requestedGear = kart_transmission_get_requested_gear(controller, playerIndex, sKartGear[playerIndex], clutchAmount);
     if ((player != NULL) && ((player->type & PLAYER_START_SEQUENCE) == PLAYER_START_SEQUENCE)) {
         if ((requestedGear != INT_MAX) && (requestedGear != KART_GEAR_NEUTRAL)) {
             sKartGear[playerIndex] = requestedGear;

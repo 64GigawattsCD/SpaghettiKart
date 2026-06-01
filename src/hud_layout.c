@@ -315,10 +315,11 @@ static void hud_layout_arrange_canvas(HudLayoutContext* ctx, HudLayoutWidget* wi
         HudLayoutSlot* slot = &ctx->slots[slotIndex];
         HudCanvasSlot* canvasSlot = &slot->data.canvas;
         HudVec2 childDesired = hud_layout_get_desired_size(ctx, slot->child);
-        f32 anchorLeft = rect.x + rect.w * canvasSlot->anchors.min.x;
-        f32 anchorTop = rect.y + rect.h * canvasSlot->anchors.min.y;
-        f32 anchorRight = rect.x + rect.w * canvasSlot->anchors.max.x;
-        f32 anchorBottom = rect.y + rect.h * canvasSlot->anchors.max.y;
+        HudRect anchorRect = canvasSlot->useSafeZone ? ctx->safeRect : rect;
+        f32 anchorLeft = anchorRect.x + anchorRect.w * canvasSlot->anchors.min.x;
+        f32 anchorTop = anchorRect.y + anchorRect.h * canvasSlot->anchors.min.y;
+        f32 anchorRight = anchorRect.x + anchorRect.w * canvasSlot->anchors.max.x;
+        f32 anchorBottom = anchorRect.y + anchorRect.h * canvasSlot->anchors.max.y;
         bool stretchX = fabsf(canvasSlot->anchors.max.x - canvasSlot->anchors.min.x) > 0.0001f;
         bool stretchY = fabsf(canvasSlot->anchors.max.y - canvasSlot->anchors.min.y) > 0.0001f;
         HudRect childRect;
@@ -754,8 +755,13 @@ static void hud_layout_draw_widget(const HudLayoutContext* ctx, HudWidgetId widg
 }
 
 void hud_layout_begin(HudLayoutContext* ctx, HudRect rootRect) {
+    hud_layout_begin_safe_zone(ctx, rootRect, hud_layout_padding(0.0f, 0.0f, 0.0f, 0.0f));
+}
+
+void hud_layout_begin_safe_zone(HudLayoutContext* ctx, HudRect rootRect, HudPadding safeZonePadding) {
     memset(ctx, 0, sizeof(*ctx));
     ctx->rootRect = rootRect;
+    ctx->safeRect = hud_layout_inset_rect(rootRect, safeZonePadding);
     ctx->rootId = hud_layout_canvas(ctx);
     if (ctx->rootId >= 0) {
         ctx->widgets[ctx->rootId].arrangedRect = rootRect;
@@ -923,6 +929,7 @@ HudCanvasSlot hud_layout_canvas_slot(HudAnchor anchors, HudPadding offsets, HudV
     slot.alignment = alignment;
     slot.alignmentBounds = hud_layout_rect(0.0f, 0.0f, 0.0f, 0.0f);
     slot.useAlignmentBounds = false;
+    slot.useSafeZone = false;
     slot.autoSize = autoSize;
     slot.zOrder = zOrder;
     return slot;
@@ -934,6 +941,22 @@ HudCanvasSlot hud_layout_canvas_bounds_slot(HudAnchor anchors, HudPadding offset
 
     slot.alignmentBounds = alignmentBounds;
     slot.useAlignmentBounds = true;
+    return slot;
+}
+
+HudCanvasSlot hud_layout_canvas_safe_slot(HudAnchor anchors, HudPadding offsets, HudVec2 alignment, bool autoSize,
+                                          s32 zOrder) {
+    HudCanvasSlot slot = hud_layout_canvas_slot(anchors, offsets, alignment, autoSize, zOrder);
+
+    slot.useSafeZone = true;
+    return slot;
+}
+
+HudCanvasSlot hud_layout_canvas_safe_bounds_slot(HudAnchor anchors, HudPadding offsets, HudRect alignmentBounds,
+                                                 HudVec2 alignment, bool autoSize, s32 zOrder) {
+    HudCanvasSlot slot = hud_layout_canvas_bounds_slot(anchors, offsets, alignmentBounds, alignment, autoSize, zOrder);
+
+    slot.useSafeZone = true;
     return slot;
 }
 
