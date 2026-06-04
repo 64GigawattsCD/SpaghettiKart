@@ -33,38 +33,6 @@
 #include "engine/tracks/Track.h"
 #include "engine/sky/Sky.h"
 
-#define ARCADEKART_HUD_SAFE_ZONE_X_DEFAULT 28.0f
-#define ARCADEKART_MINIMAP_Y_DEFAULT 110.0f
-#define ARCADEKART_MINIMAP_RIGHT_PAD_DEFAULT 48.0f
-
-static f32 get_arcadekart_hud_safe_zone_x_units(void) {
-    return CVarGetFloat("gArcadeKart.Hud.SafeZoneX",
-                        CVarGetFloat("gArcadeKart.Hud.RpmMeterRightMargin", ARCADEKART_HUD_SAFE_ZONE_X_DEFAULT));
-}
-
-static f32 get_arcadekart_minimap_scale(void) {
-    f32 scale = CVarGetFloat("gArcadeKart.Hud.MinimapScale", 1.0f);
-
-    if (scale < 0.25f) {
-        scale = 0.25f;
-    }
-    if (scale > 2.0f) {
-        scale = 2.0f;
-    }
-    return scale;
-}
-
-static void apply_arcadekart_1p_minimap_safe_zone(void) {
-    f32 safeX = get_arcadekart_hud_safe_zone_x_units();
-    f32 rightPad = CVarGetFloat("gArcadeKart.Hud.MinimapRightPad", ARCADEKART_MINIMAP_RIGHT_PAD_DEFAULT);
-    f32 rightEdge = (f32) SCREEN_WIDTH - safeX - rightPad;
-    f32 halfWidth = (f32) CM_GetProps()->Minimap.Width * get_arcadekart_minimap_scale() * 0.5f;
-
-    CM_GetProps()->Minimap.Pos[PLAYER_ONE].X = (s32) (rightEdge - halfWidth);
-    CM_GetProps()->Minimap.Pos[PLAYER_ONE].Y =
-        (s32) CVarGetFloat("gArcadeKart.Hud.MinimapY", ARCADEKART_MINIMAP_Y_DEFAULT);
-}
-
 void init_hud(void) {
 
     reset_object_variable();
@@ -239,9 +207,8 @@ void func_8006F008(void) {
 
     switch (gPlayerCount) {
         case 1:
-            CM_GetProps()->Minimap.Pos[PLAYER_ONE].X = 300;
-            CM_GetProps()->Minimap.Pos[PLAYER_ONE].Y = 112;
-            apply_arcadekart_1p_minimap_safe_zone();
+            CM_GetProps()->Minimap.Pos[PLAYER_ONE].X = CVarGetInteger("gArcadeKart.Hud.MinimapOnePlayerX", 238);
+            CM_GetProps()->Minimap.Pos[PLAYER_ONE].Y = CVarGetInteger("gArcadeKart.Hud.MinimapY", 112);
             break;
         case 2:
             // Set X coord

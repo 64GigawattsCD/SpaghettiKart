@@ -23,6 +23,8 @@ s32 gArcadeKartPostFxHudFrameBuffer = -1;
 static s32 sArcadeKartPostFxHudPreparedFrame = -1;
 static s32 sArcadeKartPostFxScenePreparedFrame = -1;
 
+#define ARCADEKART_POSTFX_HUD_CLEAR_KEY 0xF83FF83F
+
 static void FB_ClearFramebuffer(Gfx** gfxP, s32 fb, u32 fillColor) {
     Gfx* gfx = *gfxP;
 
@@ -123,7 +125,7 @@ void FB_ArcadeKartPostFxBeginHud(Gfx** gfxP) {
     }
 
     if (sArcadeKartPostFxHudPreparedFrame != gGlobalTimer) {
-        FB_ClearFramebuffer(&gfx, gArcadeKartPostFxHudFrameBuffer, 0x00000000);
+        FB_ClearFramebuffer(&gfx, gArcadeKartPostFxHudFrameBuffer, ARCADEKART_POSTFX_HUD_CLEAR_KEY);
         sArcadeKartPostFxHudPreparedFrame = gGlobalTimer;
     }
 
