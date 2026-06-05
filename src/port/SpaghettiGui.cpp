@@ -219,7 +219,12 @@ namespace Ship {
         const s32 postFxHudFb = CVarGetInteger("gArcadeKart.PostFx.HudFramebufferId", -1);
         const f32 postFxShakeStrength = CVarGetFloat("gArcadeKart.PostFx.ShakeStrength", 0.018f);
         const f32 postFxShakeOutputScale = CVarGetFloat("gArcadeKart.PostFx.ShakeOutputScale", 0.3f);
+        const f32 postFxShakeFrequencyFastHz = CVarGetFloat("gArcadeKart.PostFx.ShakeFrequencyFastHz", 60.0f);
+        const f32 postFxShakeFrequencySlowHz = CVarGetFloat("gArcadeKart.PostFx.ShakeFrequencySlowHz", 8.0f);
+        const f32 postFxShakeFrequencyRoughnessPower =
+            CVarGetFloat("gArcadeKart.PostFx.ShakeFrequencyRoughnessPower", 0.5f);
         const f32 postFxWarpIntensity = CVarGetFloat("gArcadeKart.PostFx.WarpIntensity", 1.0f);
+        const f32 postFxWarpOutputScale = CVarGetFloat("gArcadeKart.PostFx.WarpOutputScale", 4.0f);
         const f32 postFxTestShake = CVarGetFloat("gArcadeKart.PostFx.TestShakeSlider", 0.0f);
         const f32 postFxTestWarp = CVarGetFloat("gArcadeKart.PostFx.TestWarpSlider", 0.0f);
         const f32 postFxSpeedMin = CVarGetFloat("gArcadeKart.PostFx.SpeedMinRatio", 0.0f);
@@ -232,17 +237,29 @@ namespace Ship {
         const f32 postFxTuningWarpStrength = CVarGetFloat("gArcadeKart.PostFx.TuningWarpStrength", 0.16f);
         const f32 postFxPlayerSpeed = CVarGetFloat("gArcadeKart.PostFx.Player1.SpeedRatio", 0.0f);
         const f32 postFxPlayerRoughness = CVarGetFloat("gArcadeKart.PostFx.Player1.RoadRoughness", 0.0f);
+        const f32 postFxPlayerDrift = CVarGetFloat("gArcadeKart.PostFx.Player1.DriftAmount", 0.0f);
+        const f32 postFxPlayerBoostShake = CVarGetFloat("gArcadeKart.PostFx.Player1.BoostShakeAmount", 0.0f);
         const f32 postFxPlayerScale = CVarGetFloat("gArcadeKart.PostFx.Player1.FxScale", 1.0f);
         const f32 speedWideFov = CVarGetFloat("gArcadeKart.Camera.SpeedWideFov", 100.0f);
-        const f32 speedNarrowFov = CVarGetFloat("gArcadeKart.Camera.SpeedNarrowFov", 75.0f);
+        const f32 speedNarrowFov = CVarGetFloat("gArcadeKart.Camera.SpeedNarrowFov", 60.0f);
+        const f32 cameraSpeedForRatio = CVarGetFloat("gArcadeKart.Camera.DebugSpeedForRatio", 0.0f);
+        const f32 cameraSpeedReference = CVarGetFloat("gArcadeKart.Camera.DebugSpeedReference", 1.0f);
         const f32 cameraSpeedRatio = CVarGetFloat("gArcadeKart.Camera.DebugSpeedRatio", 0.0f);
         const f32 cameraSpeedCurve = CVarGetFloat("gArcadeKart.Camera.DebugSpeedCurve", 0.0f);
         const f32 cameraTargetFov = CVarGetFloat("gArcadeKart.Camera.DebugTargetFov", speedWideFov);
+        const f32 cameraPositionCurve = CVarGetFloat("gArcadeKart.Camera.DebugPositionCurve", 0.0f);
+        const f32 cameraPositionBack = CVarGetFloat("gArcadeKart.Camera.DebugPositionBack", 45.0f);
+        const f32 cameraPositionUp = CVarGetFloat("gArcadeKart.Camera.DebugPositionUp", 12.0f);
         const f32 postFxActiveBarrel = CVarGetFloat("gArcadeKart.PostFx.DebugActiveBarrel", 0.0f);
         const f32 postFxActiveIntensity = CVarGetFloat("gArcadeKart.PostFx.DebugActiveIntensity", 0.0f);
         const f32 postFxActiveShakePixels = CVarGetFloat("gArcadeKart.PostFx.DebugActiveShakePixels", 0.0f);
+        const f32 postFxActiveShakeFrequencyHz =
+            CVarGetFloat("gArcadeKart.PostFx.DebugShakeFrequencyHz", postFxShakeFrequencyFastHz);
+        const f32 postFxActiveShakeFrequencyCurve =
+            CVarGetFloat("gArcadeKart.PostFx.DebugShakeFrequencyCurve", 1.0f);
         const f32 postFxSpeedCurve = CVarGetFloat("gArcadeKart.PostFx.DebugSpeedCurve", 0.0f);
         const f32 postFxRoughnessCurve = CVarGetFloat("gArcadeKart.PostFx.DebugRoughnessCurve", 0.0f);
+        const f32 postFxRoughnessShakeInput = CVarGetFloat("gArcadeKart.PostFx.DebugRoughnessShakeInput", 0.0f);
         const f32 playerFov = (camera1 != nullptr) ? camera1->fieldOfView : 0.0f;
         const f32 rpmNeedleActual = CVarGetFloat("gArcadeKart.Hud.DebugRpmNeedleActualRpm", 0.0f);
         const f32 rpmNeedleScaled = CVarGetFloat("gArcadeKart.Hud.DebugRpmNeedleScaledRpm", 0.0f);
@@ -287,20 +304,27 @@ namespace Ship {
             ImGui::Text("PostFX En%d Man%d Sl%d", postFxEnabled, postFxManualOverride, postFxTuningSlidersOnly);
             ImGui::Text("PostFX Test Shake %.2f Warp %.2f", postFxTestShake, postFxTestWarp);
             ImGui::Text("PostFX RawMax Shake %.2f Warp %.2f", postFxTestShakeMax, postFxTestWarpMax);
-            ImGui::Text("PostFX Speed %.2f Rough %.2f Scale %.2f", postFxPlayerSpeed, postFxPlayerRoughness,
-                        postFxPlayerScale);
+            ImGui::Text("PostFX Speed %.2f Rough %.2f Drift %.0f Boost %.0f Scale %.2f", postFxPlayerSpeed,
+                        postFxPlayerRoughness, postFxPlayerDrift, postFxPlayerBoostShake, postFxPlayerScale);
             ImGui::Text("Camera FOV %.1f Target %.1f %.2f/%.2f W%.0f N%.0f", playerFov, cameraTargetFov,
                         cameraSpeedRatio, cameraSpeedCurve, speedWideFov, speedNarrowFov);
+            ImGui::Text("Camera Speed %.1f Ref %.1f", cameraSpeedForRatio, cameraSpeedReference);
+            ImGui::Text("Camera Pos B%.1f U%.1f C%.2f", cameraPositionBack, cameraPositionUp, cameraPositionCurve);
             ImGui::Text("RPM Needle %.2f Raw %.0f Sc %.0f Max %.0f x%.2f Sw%.0f", rpmNeedleNormalized,
                         rpmNeedleActual, rpmNeedleScaled, rpmNeedleMax, rpmNeedleInputScale,
                         rpmNeedleSweepDegrees);
             ImGui::Text("PostFX Range Min %.2f Max %.2f P%.2f ShP%.2f", postFxSpeedMin, postFxSpeedMax,
                         postFxResponsePower, postFxShakeResponsePower);
             ImGui::Text("PostFX Gain Shake %.3f Warp %.2f", postFxTuningShakeStrength, postFxTuningWarpStrength);
-            ImGui::Text("PostFX Raw Shake %.3f x%.2f Warp %.2f", postFxShakeStrength, postFxShakeOutputScale,
-                        postFxWarpIntensity);
-            ImGui::Text("PostFX Active I%.2f B%.3f Sh%.1f SC%.2f RC%.2f", postFxActiveIntensity, postFxActiveBarrel,
-                        postFxActiveShakePixels, postFxSpeedCurve, postFxRoughnessCurve);
+            ImGui::Text("PostFX Raw Shake %.3f x%.2f F%.0f-%.0fHz P%.2f", postFxShakeStrength,
+                        postFxShakeOutputScale, postFxShakeFrequencyFastHz, postFxShakeFrequencySlowHz,
+                        postFxShakeFrequencyRoughnessPower);
+            ImGui::Text("PostFX Warp Int %.2f Out %.2f", postFxWarpIntensity, postFxWarpOutputScale);
+            ImGui::Text("PostFX Active I%.2f B%.3f Sh%.1f SC%.2f RI%.2f RC%.2f", postFxActiveIntensity,
+                        postFxActiveBarrel, postFxActiveShakePixels, postFxSpeedCurve, postFxRoughnessShakeInput,
+                        postFxRoughnessCurve);
+            ImGui::Text("PostFX Active Shake %.1fHz FC%.2f", postFxActiveShakeFrequencyHz,
+                        postFxActiveShakeFrequencyCurve);
             ImGui::Text("Layer HUD %d Active %d Scene %d HUD %d", postFxLayerHud, postFxLayerActive, postFxSceneFb,
                         postFxHudFb);
             ImGui::Text("Shifter %02X Raw %s Sm %s Req %s", shifterMask, GetGearLabel(shifterRaw),

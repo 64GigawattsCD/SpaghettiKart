@@ -4818,19 +4818,6 @@ void func_800658A0(Player* player, s8 playerId, s16 idx, s8 screenId) {
 }
 
 #ifdef NON_MATCHING
-// Something about the handling of the prim/env colors is off,
-// its causing a huge diff. Can't figure out what's up.
-static void arcade_kart_prepare_drift_particle_texture_state(void) {
-    gDPPipeSync(gDisplayListHead++);
-    gDPSetTextureLUT(gDisplayListHead++, G_TT_NONE);
-    gDPSetTextureLOD(gDisplayListHead++, G_TL_TILE);
-    gDPSetTextureDetail(gDisplayListHead++, G_TD_CLAMP);
-    gDPSetTexturePersp(gDisplayListHead++, G_TP_PERSP);
-    gDPSetTextureFilter(gDisplayListHead++, G_TF_BILERP);
-    gDPSetTextureConvert(gDisplayListHead++, G_TC_FILT);
-    gDPSetAlphaCompare(gDisplayListHead++, G_AC_NONE);
-}
-
 void render_player_drift_particles(Player* player, UNUSED s8 arg1, s16 arg2, s8 arg3) {
     Vec3f spB4;
     Vec3s spAC;
@@ -4865,7 +4852,6 @@ void render_player_drift_particles(Player* player, UNUSED s8 arg1, s16 arg2, s8 
         func_800652D4(spB4, spAC, player->particlePool1[arg2].scale * player->size);
         if (var_s0 == 0) {
             gSPDisplayList(gDisplayListHead++, D_0D008DB8);
-            arcade_kart_prepare_drift_particle_texture_state();
             gDPLoadTextureBlock(gDisplayListHead++, *D_800E4770[var_s0], G_IM_FMT_I, G_IM_SIZ_8b, 16, 16, 0,
                                 G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOMASK,
                                 G_TX_NOLOD, G_TX_NOLOD);
@@ -4874,7 +4860,6 @@ void render_player_drift_particles(Player* player, UNUSED s8 arg1, s16 arg2, s8 
             gSPDisplayList(gDisplayListHead++, D_0D008DF8);
         } else {
             gSPDisplayList(gDisplayListHead++, D_0D008DB8);
-            arcade_kart_prepare_drift_particle_texture_state();
             gDPLoadTextureBlock(gDisplayListHead++, *D_800E4770[var_s0], G_IM_FMT_I, G_IM_SIZ_8b, 32, 32, 0,
                                 G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOMASK,
                                 G_TX_NOLOD, G_TX_NOLOD);

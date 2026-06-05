@@ -2068,6 +2068,7 @@ void func_8002D268(Player* player, UNUSED Camera* camera, s8 screenId, s8 player
         if (((player->unk_0C2 < 0x1C) && (player->unk_0C2 >= 4)) && (((player->speed / 18.0f) * 216.0f) >= 20.0f)) {
             player->unk_DB4.unk18 = 0;
             player->unk_DB4.unkC = 1.5f;
+            player->kartGraphics |= BOING;
             if (((player->type & PLAYER_HUMAN) == PLAYER_HUMAN) &&
                 ((player->type & PLAYER_INVISIBLE_OR_BOMB) != PLAYER_INVISIBLE_OR_BOMB)) {
                 if (((player->unk_0C2 < 0xB) && (player->unk_0C2 >= 4)) && (IsBowsersCastle())) {
