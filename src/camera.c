@@ -1114,6 +1114,7 @@ static f32 camera_get_speed_zoom_fov(Camera* camera, Player* player, s32 playerI
     f32 speedRatio = 0.0f;
     f32 boostAmount;
     f32 shakeAmount = 0.0f;
+    f32 roadRoughness = 0.0f;
     f32 targetFov;
     f32 currentFov = camera->fieldOfView;
     const f32 nearFov = 40.0f;
@@ -1142,15 +1143,15 @@ static f32 camera_get_speed_zoom_fov(Camera* camera, Player* player, s32 playerI
         if ((player->effects & (HIT_BY_ITEM_EFFECT | HIT_EFFECT | LIGHTNING_EFFECT)) != 0) {
             shakeAmount = 1.0f;
         } else if ((player->surfaceType != AIRBORNE) && (player->surfaceType != ASPHALT)) {
-            shakeAmount = 0.20f + (speedRatio * 0.35f);
+            roadRoughness = 0.20f;
             if ((player->surfaceType == DIRT) || (player->surfaceType == DIRT_OFFROAD)) {
-                shakeAmount += 0.20f;
+                roadRoughness += 0.20f;
             }
             if (player->surfaceType == ICE) {
-                shakeAmount *= 0.30f;
+                roadRoughness *= 0.30f;
             }
-            if (shakeAmount > 1.0f) {
-                shakeAmount = 1.0f;
+            if (roadRoughness > 1.0f) {
+                roadRoughness = 1.0f;
             }
         }
     }
@@ -1161,6 +1162,8 @@ static f32 camera_get_speed_zoom_fov(Camera* camera, Player* player, s32 playerI
     CVarSetFloat(cvarName, boostAmount);
     snprintf(cvarName, sizeof(cvarName), "gArcadeKart.PostFx.Player%d.ShakeAmount", playerIndex + 1);
     CVarSetFloat(cvarName, shakeAmount);
+    snprintf(cvarName, sizeof(cvarName), "gArcadeKart.PostFx.Player%d.RoadRoughness", playerIndex + 1);
+    CVarSetFloat(cvarName, roadRoughness);
 
     targetFov = nearFov + ((farFov - nearFov) * speedRatio) + D_80164498[playerIndex];
     if (currentFov < targetFov) {

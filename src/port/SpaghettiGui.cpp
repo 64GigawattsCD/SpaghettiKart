@@ -135,7 +135,7 @@ namespace Ship {
     }
 
     static void DrawKartDebugTelemetry() {
-        if (CVarGetInteger("gArcadeKart.DebugTelemetry.Enabled", 0) == 0) {
+        if (CVarGetInteger("gArcadeKart.DebugTelemetry.Enabled", 1) == 0) {
             return;
         }
 
@@ -211,13 +211,24 @@ namespace Ship {
         const s32 shifterPressedCount = CVarGetInteger("gArcadeKart.DebugShifterPressedGearCount", 0);
         const s32 postFxEnabled = CVarGetInteger("gArcadeKart.PostFx.Enabled", 1);
         const s32 postFxManualOverride = CVarGetInteger("gArcadeKart.PostFx.ManualOverride", 0);
-        const s32 postFxTunePressed = CVarGetInteger("gArcadeKart.PostFx.DebugRaceTunePressed", 0);
+        const s32 postFxTuningSlidersOnly = CVarGetInteger("gArcadeKart.PostFx.TuningSlidersOnly", 1);
         const s32 postFxLayerHud = CVarGetInteger("gArcadeKart.PostFx.LayerHud", 1);
         const s32 postFxLayerActive = CVarGetInteger("gArcadeKart.PostFx.LayeredHudActive", 0);
         const s32 postFxSceneFb = CVarGetInteger("gArcadeKart.PostFx.SceneFramebufferId", -1);
         const s32 postFxHudFb = CVarGetInteger("gArcadeKart.PostFx.HudFramebufferId", -1);
-        const f32 postFxManualIntensity = CVarGetFloat("gArcadeKart.PostFx.DebugManualIntensity",
-                                                       CVarGetFloat("gArcadeKart.PostFx.ManualIntensity", 0.0f));
+        const f32 postFxShakeStrength = CVarGetFloat("gArcadeKart.PostFx.ShakeStrength", 0.018f);
+        const f32 postFxWarpIntensity = CVarGetFloat("gArcadeKart.PostFx.WarpIntensity", 1.0f);
+        const f32 postFxTestShake = CVarGetFloat("gArcadeKart.PostFx.TestShakeSlider", 0.0f);
+        const f32 postFxTestWarp = CVarGetFloat("gArcadeKart.PostFx.TestWarpSlider", 0.0f);
+        const f32 postFxSpeedMin = CVarGetFloat("gArcadeKart.PostFx.SpeedMinRatio", 0.0f);
+        const f32 postFxSpeedMax = CVarGetFloat("gArcadeKart.PostFx.SpeedMaxRatio", 1.0f);
+        const f32 postFxResponsePower = CVarGetFloat("gArcadeKart.PostFx.ResponsePower", 2.0f);
+        const f32 postFxTestShakeMax = CVarGetFloat("gArcadeKart.PostFx.TuningShakeInputMax", 0.25f);
+        const f32 postFxTestWarpMax = CVarGetFloat("gArcadeKart.PostFx.TuningWarpInputMax", 2.0f);
+        const f32 postFxTuningShakeStrength = CVarGetFloat("gArcadeKart.PostFx.TuningShakeStrength", 0.04f);
+        const f32 postFxTuningWarpStrength = CVarGetFloat("gArcadeKart.PostFx.TuningWarpStrength", 0.16f);
+        const f32 postFxPlayerSpeed = CVarGetFloat("gArcadeKart.PostFx.Player1.SpeedRatio", 0.0f);
+        const f32 postFxPlayerRoughness = CVarGetFloat("gArcadeKart.PostFx.Player1.RoadRoughness", 0.0f);
 
         ImGui::SetNextWindowPos(pos, ImGuiCond_Always, pivot);
         ImGui::SetNextWindowBgAlpha(0.35f);
@@ -252,8 +263,13 @@ namespace Ship {
                         logitechSdkSpringGain, logitechSdkDefaultSpringGain);
             ImGui::Text("Forces Const %.2f TK %.2f CK %.2f R %.2f", forceConstant, terrainKick, coarseKick,
                         surfaceRumble);
-            ImGui::Text("PostFX En%d Man%d %.0f%% Tune %04X", postFxEnabled, postFxManualOverride,
-                        postFxManualIntensity * 100.0f, postFxTunePressed);
+            ImGui::Text("PostFX En%d Man%d Sl%d", postFxEnabled, postFxManualOverride, postFxTuningSlidersOnly);
+            ImGui::Text("PostFX Test Shake %.2f Warp %.2f", postFxTestShake, postFxTestWarp);
+            ImGui::Text("PostFX RawMax Shake %.2f Warp %.2f", postFxTestShakeMax, postFxTestWarpMax);
+            ImGui::Text("PostFX Speed %.2f Rough %.2f Min %.2f Max %.2f P%.2f", postFxPlayerSpeed,
+                        postFxPlayerRoughness, postFxSpeedMin, postFxSpeedMax, postFxResponsePower);
+            ImGui::Text("PostFX Gain Shake %.3f Warp %.2f", postFxTuningShakeStrength, postFxTuningWarpStrength);
+            ImGui::Text("PostFX Raw Shake %.3f Warp %.2f", postFxShakeStrength, postFxWarpIntensity);
             ImGui::Text("Layer HUD %d Active %d Scene %d HUD %d", postFxLayerHud, postFxLayerActive, postFxSceneFb,
                         postFxHudFb);
             ImGui::Text("Shifter %02X Raw %s Sm %s Req %s", shifterMask, GetGearLabel(shifterRaw),

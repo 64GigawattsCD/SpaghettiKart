@@ -46,20 +46,6 @@
 
 //! @warning this macro is undef'd at the end of this file
 #define MAKE_RGB(r, g, b) (((r) << 0x10) | ((g) << 0x08) | (b << 0x00))
-#define ARCADEKART_SPRING_BASELINE_CVAR "gArcadeKart.LogitechProfilerSpringBaselineMultiplier"
-#define ARCADEKART_SPRING_BASELINE_STEP 1.0f
-#define ARCADEKART_SPRING_BASELINE_MIN 0.25f
-#define ARCADEKART_SPRING_BASELINE_MAX 16.0f
-#define ARCADEKART_LOGITECH_SDK_SPRING_CVAR "gArcadeKart.LogitechSdkSpringPercent"
-#define ARCADEKART_LOGITECH_SDK_SPRING_STEP 5.0f
-#define ARCADEKART_LOGITECH_SDK_SPRING_MIN 0.0f
-#define ARCADEKART_LOGITECH_SDK_SPRING_MAX 100.0f
-#define ARCADEKART_POSTFX_MANUAL_OVERRIDE_CVAR "gArcadeKart.PostFx.ManualOverride"
-#define ARCADEKART_POSTFX_MANUAL_INTENSITY_CVAR "gArcadeKart.PostFx.ManualIntensity"
-#define ARCADEKART_POSTFX_MANUAL_STEP 0.10f
-#define ARCADEKART_POSTFX_MANUAL_MIN 0.0f
-#define ARCADEKART_POSTFX_MANUAL_MAX 1.0f
-#define ARCADEKART_TUNING_REPEAT_FRAMES 6
 
 s32 D_80165590;
 s32 D_80165594;
@@ -193,125 +179,6 @@ s32 D_80165860;
 UNUSED s32 D_80165864;
 UNUSED s32 D_80165868;
 s32 D_8016586C;
-
-static f32 clamp_arcadekart_postfx_intensity(f32 intensity) {
-    if (intensity < ARCADEKART_POSTFX_MANUAL_MIN) {
-        return ARCADEKART_POSTFX_MANUAL_MIN;
-    }
-    if (intensity > ARCADEKART_POSTFX_MANUAL_MAX) {
-        return ARCADEKART_POSTFX_MANUAL_MAX;
-    }
-    return intensity;
-}
-
-static f32 get_arcadekart_current_postfx_intensity(void) {
-    f32 speedRatio = CVarGetFloat("gArcadeKart.PostFx.Player1.SpeedRatio", 0.0f);
-    f32 boostAmount = CVarGetFloat("gArcadeKart.PostFx.Player1.BoostAmount", 0.0f);
-    f32 shakeAmount = CVarGetFloat("gArcadeKart.PostFx.Player1.ShakeAmount", 0.0f);
-    f32 intensity = (speedRatio * 0.65f) + boostAmount;
-
-    if (shakeAmount > intensity) {
-        intensity = shakeAmount;
-    }
-    return clamp_arcadekart_postfx_intensity(intensity);
-}
-
-static u16 get_arcadekart_menu_held(const struct Controller* controller) {
-    if (controller == NULL) {
-        return 0;
-    }
-
-    return (controller->button & ~(A_BUTTON | B_BUTTON)) | controller->stickDirection;
-}
-
-static u16 get_arcadekart_repeat_tuning_input(u16 menuPressed, u16 menuHeld, u16 tuningMask) {
-    static u16 sLastHeldTuningInput = 0;
-    static s32 sNextRepeatFrame = 0;
-    u16 heldTuningInput = menuHeld & tuningMask;
-    u16 pressedTuningInput = menuPressed & tuningMask;
-    u16 repeatTuningInput = 0;
-
-    if (heldTuningInput != sLastHeldTuningInput) {
-        sLastHeldTuningInput = heldTuningInput;
-        sNextRepeatFrame = gGlobalTimer + ARCADEKART_TUNING_REPEAT_FRAMES;
-    } else if ((heldTuningInput != 0) && (gGlobalTimer >= sNextRepeatFrame)) {
-        repeatTuningInput = heldTuningInput;
-        sNextRepeatFrame = gGlobalTimer + ARCADEKART_TUNING_REPEAT_FRAMES;
-    }
-
-    return pressedTuningInput | repeatTuningInput;
-}
-
-static void update_arcadekart_race_postfx_tuning(u16 menuPressed) {
-    f32 intensity;
-
-    if ((menuPressed & (L_JPAD | R_JPAD)) == 0) {
-        CVarSetInteger("gArcadeKart.PostFx.DebugRaceTunePressed", 0);
-        return;
-    }
-
-    if (CVarGetInteger(ARCADEKART_POSTFX_MANUAL_OVERRIDE_CVAR, 0) != 0) {
-        intensity = CVarGetFloat(ARCADEKART_POSTFX_MANUAL_INTENSITY_CVAR, 0.0f);
-    } else {
-        intensity = get_arcadekart_current_postfx_intensity();
-    }
-
-    if (menuPressed & R_JPAD) {
-        intensity += ARCADEKART_POSTFX_MANUAL_STEP;
-        gControllerOne->buttonPressed &= ~R_JPAD;
-        gControllerOne->stickPressed &= ~R_JPAD;
-    }
-    if (menuPressed & L_JPAD) {
-        intensity -= ARCADEKART_POSTFX_MANUAL_STEP;
-        gControllerOne->buttonPressed &= ~L_JPAD;
-        gControllerOne->stickPressed &= ~L_JPAD;
-    }
-
-    intensity = clamp_arcadekart_postfx_intensity(intensity);
-    CVarSetInteger("gArcadeKart.PostFx.Enabled", 1);
-    CVarSetInteger(ARCADEKART_POSTFX_MANUAL_OVERRIDE_CVAR, 1);
-    CVarSetFloat(ARCADEKART_POSTFX_MANUAL_INTENSITY_CVAR, intensity);
-    CVarSetFloat("gArcadeKart.PostFx.DebugManualIntensity", intensity);
-    CVarSetInteger("gArcadeKart.PostFx.DebugRaceTunePressed", menuPressed & (L_JPAD | R_JPAD));
-}
-
-static void update_arcadekart_race_spring_tuning(void) {
-    f32 springPercent;
-    u16 menuPressed;
-    u16 menuHeld;
-    u16 repeatedTuningInput;
-
-    if ((gControllerOne == NULL) || (gIsGamePaused != 0)) {
-        return;
-    }
-
-    springPercent = CVarGetFloat(ARCADEKART_LOGITECH_SDK_SPRING_CVAR, 96.0f);
-    menuPressed = kart_input_get_menu_pressed(gControllerOne);
-    menuHeld = get_arcadekart_menu_held(gControllerOne);
-    repeatedTuningInput =
-        get_arcadekart_repeat_tuning_input(menuPressed, menuHeld, U_JPAD | D_JPAD | L_JPAD | R_JPAD);
-    update_arcadekart_race_postfx_tuning(repeatedTuningInput);
-    if (repeatedTuningInput & U_JPAD) {
-        springPercent += ARCADEKART_LOGITECH_SDK_SPRING_STEP;
-        gControllerOne->buttonPressed &= ~U_JPAD;
-        gControllerOne->stickPressed &= ~U_JPAD;
-    }
-    if (repeatedTuningInput & D_JPAD) {
-        springPercent -= ARCADEKART_LOGITECH_SDK_SPRING_STEP;
-        gControllerOne->buttonPressed &= ~D_JPAD;
-        gControllerOne->stickPressed &= ~D_JPAD;
-    }
-
-    if (springPercent < ARCADEKART_LOGITECH_SDK_SPRING_MIN) {
-        springPercent = ARCADEKART_LOGITECH_SDK_SPRING_MIN;
-    } else if (springPercent > ARCADEKART_LOGITECH_SDK_SPRING_MAX) {
-        springPercent = ARCADEKART_LOGITECH_SDK_SPRING_MAX;
-    }
-
-    CVarSetFloat(ARCADEKART_LOGITECH_SDK_SPRING_CVAR, springPercent);
-    CVarSetFloat(ARCADEKART_SPRING_BASELINE_CVAR, springPercent / 12.0f);
-    CVarSetInteger("gArcadeKart.DebugSpringTunePressed", repeatedTuningInput & (U_JPAD | D_JPAD));
-}
 UNUSED s32 D_80165870[2];
 s32 D_80165878;
 s32 D_8016587C;
@@ -865,7 +732,6 @@ void func_80058F78(void) {
 
         set_matrix_hud_screen();
         if ((!gDemoMode) && (gIsHUDVisible != 0) && (D_801657D8 == 0)) {
-            update_arcadekart_race_spring_tuning();
             draw_item_window(PLAYER_ONE);
             render_hud_timer(PLAYER_ONE);
             func_8004EB38(0);
@@ -4954,6 +4820,17 @@ void func_800658A0(Player* player, s8 playerId, s16 idx, s8 screenId) {
 #ifdef NON_MATCHING
 // Something about the handling of the prim/env colors is off,
 // its causing a huge diff. Can't figure out what's up.
+static void arcade_kart_prepare_drift_particle_texture_state(void) {
+    gDPPipeSync(gDisplayListHead++);
+    gDPSetTextureLUT(gDisplayListHead++, G_TT_NONE);
+    gDPSetTextureLOD(gDisplayListHead++, G_TL_TILE);
+    gDPSetTextureDetail(gDisplayListHead++, G_TD_CLAMP);
+    gDPSetTexturePersp(gDisplayListHead++, G_TP_PERSP);
+    gDPSetTextureFilter(gDisplayListHead++, G_TF_BILERP);
+    gDPSetTextureConvert(gDisplayListHead++, G_TC_FILT);
+    gDPSetAlphaCompare(gDisplayListHead++, G_AC_NONE);
+}
+
 void render_player_drift_particles(Player* player, UNUSED s8 arg1, s16 arg2, s8 arg3) {
     Vec3f spB4;
     Vec3s spAC;
@@ -4988,6 +4865,7 @@ void render_player_drift_particles(Player* player, UNUSED s8 arg1, s16 arg2, s8 
         func_800652D4(spB4, spAC, player->particlePool1[arg2].scale * player->size);
         if (var_s0 == 0) {
             gSPDisplayList(gDisplayListHead++, D_0D008DB8);
+            arcade_kart_prepare_drift_particle_texture_state();
             gDPLoadTextureBlock(gDisplayListHead++, *D_800E4770[var_s0], G_IM_FMT_I, G_IM_SIZ_8b, 16, 16, 0,
                                 G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOMASK,
                                 G_TX_NOLOD, G_TX_NOLOD);
@@ -4996,6 +4874,7 @@ void render_player_drift_particles(Player* player, UNUSED s8 arg1, s16 arg2, s8 
             gSPDisplayList(gDisplayListHead++, D_0D008DF8);
         } else {
             gSPDisplayList(gDisplayListHead++, D_0D008DB8);
+            arcade_kart_prepare_drift_particle_texture_state();
             gDPLoadTextureBlock(gDisplayListHead++, *D_800E4770[var_s0], G_IM_FMT_I, G_IM_SIZ_8b, 32, 32, 0,
                                 G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOMASK,
                                 G_TX_NOLOD, G_TX_NOLOD);

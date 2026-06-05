@@ -613,6 +613,13 @@ void race_begin_viewport_4p(ScreenContext* screen) {
     func_802A39E0(screen);
 }
 
+static void arcade_kart_begin_scene_layer(s32* layerActive) {
+    if (FB_ArcadeKartPostFxShouldLayerHud()) {
+        FB_ArcadeKartPostFxBeginScene(&gDisplayListHead);
+        *layerActive = 1;
+    }
+}
+
 void render_screens(ScreenContext* screen, s32 mode, s32 someId, s32 playerId) {
     Mat4 matrix;
     Camera* camera = screen->camera;
@@ -624,16 +631,12 @@ void render_screens(ScreenContext* screen, s32 mode, s32 someId, s32 playerId) {
         return;
     }
 
-    if (FB_ArcadeKartPostFxShouldLayerHud()) {
-        FB_ArcadeKartPostFxBeginScene(&gDisplayListHead);
-        arcadeKartSceneLayerActive = 1;
-    }
-
     switch(mode) {
         case RENDER_SCREEN_MODE_3P_4P_PLAYER_FOUR: // Blank screen
             if (gPlayerCountSelection1 == 3) {
                 s32 arcadeKartHudLayerActive = 0;
                 race_blank_viewport(screen);
+                arcade_kart_begin_scene_layer(&arcadeKartSceneLayerActive);
                 if (D_800DC5B8 != 0) {
                     if (FB_ArcadeKartPostFxShouldLayerHud()) {
                         FB_ArcadeKartPostFxBeginHud(&gDisplayListHead);
@@ -654,6 +657,7 @@ void render_screens(ScreenContext* screen, s32 mode, s32 someId, s32 playerId) {
                 return;
             } else { // Player four
                 race_begin_viewport_4p(screen);
+                arcade_kart_begin_scene_layer(&arcadeKartSceneLayerActive);
 
                 if ((CVarGetInteger("gDrawSky", true) == true)) {
                     CM_RaceDrawSky(screen, someId);
@@ -663,6 +667,7 @@ void render_screens(ScreenContext* screen, s32 mode, s32 someId, s32 playerId) {
             break;
         default:
             race_begin_viewport(screen, mode);
+            arcade_kart_begin_scene_layer(&arcadeKartSceneLayerActive);
 
             if ((CVarGetInteger("gDrawSky", true) == true)) {
                 CM_RaceDrawSky(screen, someId);

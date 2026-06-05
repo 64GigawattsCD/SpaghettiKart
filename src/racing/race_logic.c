@@ -795,7 +795,7 @@ void func_8028F970(void) {
         }
     }
 
-    if (gEnableDebugMode) {
+    if (gEnableDebugMode && (CVarGetInteger("gArcadeKart.DebugLegacyLapSkipEnabled", 0) != 0)) {
         if (gModeSelection != BATTLE) { // Skip laps
             if (gControllerOne->buttonPressed & U_JPAD) {
                 gLapCountByPlayerId[0] = 2;

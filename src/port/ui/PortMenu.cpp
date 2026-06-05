@@ -394,6 +394,11 @@ void PortMenu::AddEnhancements() {
         .Options(CheckboxOptions()
                      .DefaultValue(true)
                      .Tooltip("Boots directly into 1P 50cc Grand Prix as Mario for HUD iteration."));
+    AddWidget(path, "Debug telemetry overlay", WIDGET_CVAR_CHECKBOX)
+        .CVar("gArcadeKart.DebugTelemetry.Enabled")
+        .Options(CheckboxOptions()
+                     .DefaultValue(true)
+                     .Tooltip("Shows the on-screen ArcadeKart telemetry block with FX, force feedback, and shifter data."));
 
     AddWidget(path, "Wheel Steering Tuning: %.2f", WIDGET_CVAR_SLIDER_FLOAT)
         .CVar("gArcadeKart.WheelSteeringTuning")
@@ -448,7 +453,7 @@ void PortMenu::AddEnhancements() {
                      .DefaultValue(96.0f)
                      .Step(5.0f)
                      .Format("%.0f")
-                     .Tooltip("Race menu up/down adjusts this value through the Logitech Steering Wheel SDK."));
+                     .Tooltip("Spring force sent through the Logitech Steering Wheel SDK."));
     AddWidget(path, "Use Logitech SDK dynamic spring force", WIDGET_CVAR_CHECKBOX)
         .CVar("gArcadeKart.LogitechSdkUseSpringForce")
         .Options(CheckboxOptions()
@@ -501,7 +506,7 @@ void PortMenu::AddEnhancements() {
         .Options(FloatSliderOptions()
                      .Min(0.0f)
                      .Max(40.0f)
-                     .DefaultValue(16.0f)
+                     .DefaultValue(10.0f)
                      .Step(1.0f)
                      .Format("%.0f")
                      .Tooltip("Adjusts how far the placement number sits from the left/top anchors."));
@@ -510,7 +515,7 @@ void PortMenu::AddEnhancements() {
         .Options(FloatSliderOptions()
                      .Min(0.0f)
                      .Max(40.0f)
-                     .DefaultValue(14.0f)
+                     .DefaultValue(10.0f)
                      .Step(1.0f)
                      .Format("%.0f")
                      .Tooltip("Adjusts how far the placement number sits from the left/top anchors."));
@@ -685,6 +690,74 @@ void PortMenu::AddEnhancements() {
         .Options(CheckboxOptions()
                      .DefaultValue(true)
                      .Tooltip("Composites the warped race view below a separate unwarped HUD layer."));
+    AddWidget(path, "Post FX tuning sliders only", WIDGET_CVAR_CHECKBOX)
+        .CVar("gArcadeKart.PostFx.TuningSlidersOnly")
+        .Options(CheckboxOptions()
+                     .DefaultValue(true)
+                     .Tooltip("Uses the shake and warp sliders directly, ignoring speed, boost, and impact drivers."));
+    AddWidget(path, "Post FX speed min: %.2f", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar("gArcadeKart.PostFx.SpeedMinRatio")
+        .Options(FloatSliderOptions()
+                     .Min(0.0f)
+                     .Max(1.0f)
+                     .DefaultValue(0.0f)
+                     .Step(0.05f)
+                     .Format("%.2f")
+                     .Tooltip("Speed ratio that maps to zero before post-FX response curve shaping."));
+    AddWidget(path, "Post FX speed max: %.2f", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar("gArcadeKart.PostFx.SpeedMaxRatio")
+        .Options(FloatSliderOptions()
+                     .Min(0.05f)
+                     .Max(2.0f)
+                     .DefaultValue(1.0f)
+                     .Step(0.05f)
+                     .Format("%.2f")
+                     .Tooltip("Speed ratio that maps to one before post-FX response curve shaping."));
+    AddWidget(path, "Post FX response power: %.2f", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar("gArcadeKart.PostFx.ResponsePower")
+        .Options(FloatSliderOptions()
+                     .Min(0.25f)
+                     .Max(4.0f)
+                     .DefaultValue(2.0f)
+                     .Step(0.05f)
+                     .Format("%.2f")
+                     .Tooltip("Exponential response curve applied to normalized post-FX drivers."));
+    AddWidget(path, "Post FX test shake: %.0f%%", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar("gArcadeKart.PostFx.TestShakeSlider")
+        .Options(FloatSliderOptions()
+                     .Min(0.0f)
+                     .Max(1.0f)
+                     .DefaultValue(0.0f)
+                     .Step(0.05f)
+                     .Format("%.2f")
+                     .Tooltip("Normalized screen-shake test value used while slider-only tuning is enabled."));
+    AddWidget(path, "Post FX test warp: %.0f%%", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar("gArcadeKart.PostFx.TestWarpSlider")
+        .Options(FloatSliderOptions()
+                     .Min(0.0f)
+                     .Max(1.0f)
+                     .DefaultValue(0.0f)
+                     .Step(0.05f)
+                     .Format("%.2f")
+                     .Tooltip("Normalized fisheye/barrel test value used while slider-only tuning is enabled."));
+    AddWidget(path, "Post FX test shake raw max: %.2f", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar("gArcadeKart.PostFx.TuningShakeInputMax")
+        .Options(FloatSliderOptions()
+                     .Min(0.01f)
+                     .Max(1.0f)
+                     .DefaultValue(0.25f)
+                     .Step(0.01f)
+                     .Format("%.2f")
+                     .Tooltip("Old raw shake value represented by a 100% normalized test shake slider."));
+    AddWidget(path, "Post FX test warp raw max: %.2f", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar("gArcadeKart.PostFx.TuningWarpInputMax")
+        .Options(FloatSliderOptions()
+                     .Min(0.01f)
+                     .Max(3.0f)
+                     .DefaultValue(2.0f)
+                     .Step(0.05f)
+                     .Format("%.2f")
+                     .Tooltip("Old raw warp value represented by a 100% normalized test warp slider."));
     AddWidget(path, "Manual post FX intensity", WIDGET_CVAR_CHECKBOX)
         .CVar("gArcadeKart.PostFx.ManualOverride")
         .Options(CheckboxOptions()
@@ -698,7 +771,7 @@ void PortMenu::AddEnhancements() {
                      .DefaultValue(0.0f)
                      .Step(0.10f)
                      .Format("%.2f")
-                     .Tooltip("Race menu left/right adjusts this value and enables the manual override."));
+                     .Tooltip("Locks all post effects to this value when manual post FX intensity is enabled."));
     AddWidget(path, "Post FX overscan: %.0f%%", WIDGET_CVAR_SLIDER_FLOAT)
         .CVar("gArcadeKart.PostFx.OverscanPercent")
         .Options(FloatSliderOptions()
@@ -726,19 +799,45 @@ void PortMenu::AddEnhancements() {
     AddWidget(path, "Post FX boost warp: %.2f", WIDGET_CVAR_SLIDER_FLOAT)
         .CVar("gArcadeKart.PostFx.BoostBarrelStrength")
         .Options(FloatSliderOptions().Min(0.0f).Max(0.65f).DefaultValue(0.12f).Step(0.005f).Format("%.3f"));
+    AddWidget(path, "Post FX warp intensity: %.2f", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar("gArcadeKart.PostFx.WarpIntensity")
+        .Options(FloatSliderOptions()
+                     .Min(0.0f)
+                     .Max(3.0f)
+                     .DefaultValue(1.0f)
+                     .Step(0.05f)
+                     .Format("%.2f")
+                     .Tooltip("Normal-mode fisheye/barrel multiplier used after slider-only tuning is off."));
+    AddWidget(path, "Post FX tuning warp strength: %.2f", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar("gArcadeKart.PostFx.TuningWarpStrength")
+        .Options(FloatSliderOptions()
+                     .Min(0.0f)
+                     .Max(1.0f)
+                     .DefaultValue(0.16f)
+                     .Step(0.01f)
+                     .Format("%.2f")
+                     .Tooltip("Visual barrel strength per warp-intensity unit in slider-only tuning mode."));
+    AddWidget(path, "Post FX tuning shake strength: %.2f", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar("gArcadeKart.PostFx.TuningShakeStrength")
+        .Options(FloatSliderOptions()
+                     .Min(0.0f)
+                     .Max(0.1f)
+                     .DefaultValue(0.04f)
+                     .Step(0.002f)
+                     .Format("%.3f")
+                     .Tooltip("Screen-shake strength at 100% test shake in slider-only tuning mode."));
     AddWidget(path, "Post FX motion blur: %.2f", WIDGET_CVAR_SLIDER_FLOAT)
         .CVar("gArcadeKart.PostFx.MotionBlur")
         .Options(FloatSliderOptions().Min(0.0f).Max(1.0f).DefaultValue(0.28f).Step(0.02f).Format("%.2f"));
     AddWidget(path, "Post FX shake: %.2f", WIDGET_CVAR_SLIDER_FLOAT)
         .CVar("gArcadeKart.PostFx.ShakeStrength")
-        .Options(FloatSliderOptions().Min(0.0f).Max(0.1f).DefaultValue(0.018f).Step(0.002f).Format("%.3f"));
-    AddWidget(path, "Post FX shake idle scale: %.2f", WIDGET_CVAR_SLIDER_FLOAT)
-        .CVar("gArcadeKart.PostFx.ShakeIdleScale")
-        .Options(FloatSliderOptions().Min(0.0f).Max(0.25f).DefaultValue(0.05f).Step(0.01f).Format("%.2f"));
-    AddWidget(path, "Post FX shake full speed: %.2f", WIDGET_CVAR_SLIDER_FLOAT)
-        .CVar("gArcadeKart.PostFx.ShakeFullSpeedRatio")
-        .Options(FloatSliderOptions().Min(0.5f).Max(1.5f).DefaultValue(1.0f).Step(0.05f).Format("%.2f"));
-
+        .Options(FloatSliderOptions()
+                     .Min(0.0f)
+                     .Max(0.1f)
+                     .DefaultValue(0.018f)
+                     .Step(0.002f)
+                     .Format("%.3f")
+                     .Tooltip("Normal-mode impact screen-shake strength used after slider-only tuning is off."));
     AddWidget(path, "Enable Digital Speedometer", WIDGET_CVAR_CHECKBOX)
         .CVar("gEnableDigitalSpeedometer")
         .Options(CheckboxOptions().Tooltip("Welcome to the modern era"));

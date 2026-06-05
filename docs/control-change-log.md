@@ -60,3 +60,4 @@ This file is the running list for intentional input and binding changes on the A
 ## Notes
 
 - Toggle HUD now uses `KART_TOGGLE_HUD_BUTTON` instead of legacy `BTN_CRIGHT`, so old C-right or right-stick-right bindings do not toggle the HUD.
+- Race-time post-FX tuning uses Menu Left/Right for screen shake strength and Menu Up/Down for fisheye/barrel warp intensity. In slider-only tuning mode, those two values directly drive the visual effect. Wheel spring tuning no longer consumes Menu Up/Down/Left/Right, and legacy debug lap skip is default-off.

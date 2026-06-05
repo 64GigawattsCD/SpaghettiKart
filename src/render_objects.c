@@ -2828,6 +2828,8 @@ static HudPadding get_arcadekart_hud_safe_zone_padding(HudRect viewRect) {
 #define ARCADEKART_PLACE_NUMBER_DRAW_Y 12.0f
 #define ARCADEKART_PLACE_NUMBER_SCREEN_PADDING_X 58.0f
 #define ARCADEKART_PLACE_NUMBER_SCREEN_PADDING_Y 12.0f
+#define ARCADEKART_PLACE_NUMBER_LEFT_CORRECTION_DEFAULT 10.0f
+#define ARCADEKART_PLACE_NUMBER_TOP_CORRECTION_DEFAULT 10.0f
 
 typedef struct ArcadeKartPlaceNumberLeaf {
     s32 playerId;
@@ -2891,8 +2893,14 @@ static void render_arcadekart_place_number_layout(s32 playerId, s32 rankIndex, s
     HudRect viewRect = get_arcadekart_hud_player_view_rect(playerId);
     f32 viewScale = get_arcadekart_hud_view_scale(viewRect);
     f32 placeScale = CVarGetFloat("gArcadeKart.Hud.PlaceNumberScale", 1.0f) * viewScale;
-    f32 edgePaddingX = get_arcadekart_hud_view_x(viewRect, ARCADEKART_PLACE_NUMBER_SCREEN_PADDING_X);
-    f32 edgePaddingY = get_arcadekart_hud_view_y(viewRect, ARCADEKART_PLACE_NUMBER_SCREEN_PADDING_Y);
+    f32 edgePaddingX = get_arcadekart_hud_view_x(
+        viewRect, ARCADEKART_PLACE_NUMBER_SCREEN_PADDING_X +
+                      CVarGetFloat("gArcadeKart.Hud.PlaceNumberLeftCorrection",
+                                   ARCADEKART_PLACE_NUMBER_LEFT_CORRECTION_DEFAULT));
+    f32 edgePaddingY = get_arcadekart_hud_view_y(
+        viewRect, ARCADEKART_PLACE_NUMBER_SCREEN_PADDING_Y +
+                      CVarGetFloat("gArcadeKart.Hud.PlaceNumberTopCorrection",
+                                   ARCADEKART_PLACE_NUMBER_TOP_CORRECTION_DEFAULT));
 
     if (placeScale < 0.25f) {
         placeScale = 0.25f;
