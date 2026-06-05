@@ -2828,7 +2828,7 @@ static HudPadding get_arcadekart_hud_safe_zone_padding(HudRect viewRect) {
 #define ARCADEKART_PLACE_NUMBER_DRAW_Y 12.0f
 #define ARCADEKART_PLACE_NUMBER_SCREEN_PADDING_X 58.0f
 #define ARCADEKART_PLACE_NUMBER_SCREEN_PADDING_Y 12.0f
-#define ARCADEKART_PLACE_NUMBER_LEFT_CORRECTION_DEFAULT 10.0f
+#define ARCADEKART_PLACE_NUMBER_LEFT_CORRECTION_DEFAULT 20.0f
 #define ARCADEKART_PLACE_NUMBER_TOP_CORRECTION_DEFAULT 10.0f
 
 typedef struct ArcadeKartPlaceNumberLeaf {
@@ -3039,9 +3039,14 @@ static f32 get_arcadekart_rpm_meter_motion_max(const Player* player) {
     (ARCADEKART_RPM_METER_NEEDLE_OFFSET_X / ARCADEKART_RPM_METER_TEXTURE_SCALE)
 #define ARCADEKART_RPM_METER_NEEDLE_FACE_OFFSET_Y \
     (ARCADEKART_RPM_METER_NEEDLE_OFFSET_Y / ARCADEKART_RPM_METER_TEXTURE_SCALE)
-#define ARCADEKART_RPM_METER_GEAR_TEXT_SCALE 0.42f
-#define ARCADEKART_RPM_METER_GEAR_PANEL_INSET_X 2.0f
-#define ARCADEKART_RPM_METER_GEAR_PANEL_INSET_Y 2.0f
+#define ARCADEKART_RPM_METER_GEAR_CELL_SIZE 2.0f
+#define ARCADEKART_RPM_METER_READOUT_RIGHT_X 86.0f
+#define ARCADEKART_RPM_METER_READOUT_BOTTOM_Y 35.6f
+#define ARCADEKART_RPM_METER_READOUT_DIGIT_SCALE 0.40f
+#define ARCADEKART_RPM_METER_READOUT_DIGITS 5
+#define ARCADEKART_RPM_METER_NEEDLE_INPUT_SCALE_DEFAULT 1.0f
+#define ARCADEKART_RPM_METER_NEEDLE_START_DEGREES_DEFAULT 310.8f
+#define ARCADEKART_RPM_METER_NEEDLE_SWEEP_DEGREES_DEFAULT 100.0f
 
 typedef enum ArcadeKartRpmMeterPass {
     ARCADEKART_RPM_METER_PASS_DIAL,
@@ -3053,7 +3058,6 @@ typedef enum ArcadeKartRpmMeterElement {
     ARCADEKART_RPM_METER_ELEMENT_NEEDLE_GLOW,
     ARCADEKART_RPM_METER_ELEMENT_NEEDLE,
     ARCADEKART_RPM_METER_ELEMENT_GEAR,
-    ARCADEKART_RPM_METER_ELEMENT_SHIFT_TEXT,
     ARCADEKART_RPM_METER_ELEMENT_DIGITAL
 } ArcadeKartRpmMeterElement;
 
@@ -3112,19 +3116,35 @@ static const char* get_arcadekart_gear_label(s32 playerIdx) {
     return gearLabel;
 }
 
-static void render_digital_speedometer_at(s32 playerIdx, f32 centerX, f32 centerY, f32 widgetScale) {
-    char str[20];
+static s32 get_arcadekart_display_rpm_int(s32 playerIdx) {
     f32 rpm = get_display_rpm(kart_transmission_get_engine_rpm(&gPlayers[playerIdx], playerIdx));
-    const char* gearLabel = get_arcadekart_gear_label(playerIdx);
-    set_text_color(TEXT_YELLOW);
 
-    size_t len = (size_t) snprintf(str, sizeof(str), "%s %.0f", gearLabel, rpm);
-    if (len >= sizeof(str)) {
-        printf("[render_objects.c] [render_digital_speedometer] str buffer too small, characters were discarded!\n");
+    if (rpm < 0.0f) {
+        rpm = 0.0f;
     }
+    if (rpm > 99999.0f) {
+        rpm = 99999.0f;
+    }
+    return (s32) (rpm + 0.5f);
+}
 
-    text_draw((s32) (centerX - (16.0f * widgetScale)), (s32) (centerY + (26.0f * widgetScale)), str, 0,
-              0.38f * widgetScale, 0.38f * widgetScale);
+static void draw_arcadekart_rpm_digits(s32 x, s32 y, const char* digits, f32 scale) {
+    s32 destWidth = get_arcadekart_scaled_size(8.0f * scale);
+    s32 destHeight = get_arcadekart_scaled_size(16.0f * scale);
+    s32 cursorX = x;
+
+    gSPDisplayList(gDisplayListHead++, D_0D008108);
+    gSPDisplayList(gDisplayListHead++, D_0D007EF8);
+    gDPSetAlphaCompare(gDisplayListHead++, G_AC_THRESHOLD);
+    load_texture_block_rgba16_mirror((u8*) common_texture_hud_normal_digit, 104, 16);
+    while (*digits != '\0') {
+        if ((*digits >= '0') && (*digits <= '9')) {
+            render_texture_rectangle_scaled(cursorX, y, destWidth, destHeight, 8, 16, (*digits - '0') * 8, 0);
+        }
+        cursorX += destWidth;
+        digits++;
+    }
+    gSPDisplayList(gDisplayListHead++, D_0D007EB8);
 }
 
 Vtx speedometer_vtx[] = {
@@ -3134,38 +3154,96 @@ Vtx speedometer_vtx[] = {
     { { { -32, 48, 0 }, 0, { 0, 6144 }, { 255, 255, 255, 255 } } },
 };
 
-static void render_arcadekart_rpm_faceplate(s32 playerIdx, const ArcadeKartRpmMeterCanvas* canvas) {
-    s32 meterRed = CM_GetProps()->Minimap.Colour.r;
-    s32 meterGreen = CM_GetProps()->Minimap.Colour.g;
-    s32 meterBlue = CM_GetProps()->Minimap.Colour.b;
+static f32 normalize_arcadekart_rpm_meter_input(s32 playerIdx) {
+    f32 rpm = kart_transmission_get_engine_rpm(&gPlayers[playerIdx], playerIdx);
+    f32 motionMaxRpm = get_arcadekart_rpm_meter_motion_max(&gPlayers[playerIdx]);
+    f32 inputScale = CVarGetFloat("gArcadeKart.Hud.RpmNeedleInputScale",
+                                  ARCADEKART_RPM_METER_NEEDLE_INPUT_SCALE_DEFAULT);
+    f32 scaledRpm;
+    f32 normalizedRpm;
 
-    gSPClearGeometryMode(gDisplayListHead++, G_ZBUFFER);
-    func_8004A2F4((s32) canvas->centerX, (s32) canvas->centerY, 0U, canvas->faceScale, meterRed, meterGreen,
-                  meterBlue, 0xFF, common_texture_speedometer, speedometer_vtx, 64, 96, 64, 48);
+    if (inputScale < 0.0f) {
+        inputScale = 0.0f;
+    }
+    if (inputScale > 12.0f) {
+        inputScale = 12.0f;
+    }
+    scaledRpm = rpm * inputScale;
+    normalizedRpm = scaledRpm / motionMaxRpm;
+
+    if (normalizedRpm < 0.0f) {
+        normalizedRpm = 0.0f;
+    }
+    if (normalizedRpm > 1.0f) {
+        normalizedRpm = 1.0f;
+    }
+    CVarSetFloat("gArcadeKart.Hud.DebugRpmNeedleActualRpm", rpm);
+    CVarSetFloat("gArcadeKart.Hud.DebugRpmNeedleScaledRpm", scaledRpm);
+    CVarSetFloat("gArcadeKart.Hud.DebugRpmNeedleMotionMaxRpm", motionMaxRpm);
+    CVarSetFloat("gArcadeKart.Hud.DebugRpmNeedleNormalized", normalizedRpm);
+    CVarSetFloat("gArcadeKart.Hud.DebugRpmNeedleInputScale", inputScale);
+    return normalizedRpm;
 }
 
 static u16 get_arcadekart_rpm_needle_rotation(s32 playerIdx) {
-    f32 rpm = kart_transmission_get_engine_rpm(&gPlayers[playerIdx], playerIdx);
-    f32 motionMaxRpm = get_arcadekart_rpm_meter_motion_max(&gPlayers[playerIdx]);
-    f32 rpmRatio = rpm / motionMaxRpm;
+    f32 normalizedRpm = normalize_arcadekart_rpm_meter_input(playerIdx);
+    f32 startDegrees = CVarGetFloat("gArcadeKart.Hud.RpmNeedleStartDegrees",
+                                    ARCADEKART_RPM_METER_NEEDLE_START_DEGREES_DEFAULT);
+    f32 sweepDegrees = CVarGetFloat("gArcadeKart.Hud.RpmNeedleSweepDegrees",
+                                    ARCADEKART_RPM_METER_NEEDLE_SWEEP_DEGREES_DEFAULT);
+    f32 startUnits;
+    f32 sweepUnits;
 
-    if (rpmRatio < 0.0f) {
-        rpmRatio = 0.0f;
+    if (sweepDegrees < 1.0f) {
+        sweepDegrees = 1.0f;
     }
-    if (rpmRatio > 1.0f) {
-        rpmRatio = 1.0f;
+    if (sweepDegrees > 180.0f) {
+        sweepDegrees = 180.0f;
     }
-    return 0xDD00 + (u16) (rpmRatio * 0x1980);
+
+    startUnits = startDegrees * (65536.0f / 360.0f);
+    sweepUnits = sweepDegrees * (65536.0f / 360.0f);
+    CVarSetFloat("gArcadeKart.Hud.DebugRpmNeedleSweepDegrees", sweepDegrees);
+    return (u16) (startUnits + (normalizedRpm * sweepUnits));
+}
+
+static s32 get_arcadekart_rpm_shift_ideal(s32 playerIdx) {
+    f32 rpm = kart_transmission_get_engine_rpm(&gPlayers[playerIdx], playerIdx);
+
+    return (rpm >= kart_transmission_get_shift_ideal_rpm_min(&gPlayers[playerIdx])) &&
+           (rpm <= kart_transmission_get_shift_ideal_rpm_max(&gPlayers[playerIdx]));
 }
 
 static s32 get_arcadekart_rpm_shift_ready(s32 playerIdx) {
     f32 rpm = kart_transmission_get_engine_rpm(&gPlayers[playerIdx], playerIdx);
-    return rpm >= kart_transmission_get_shift_ideal_rpm_max(&gPlayers[playerIdx]);
+
+    return rpm >= kart_transmission_get_shift_ideal_rpm_min(&gPlayers[playerIdx]);
 }
 
 static s32 get_arcadekart_rpm_shift_over(s32 playerIdx) {
     f32 rpm = kart_transmission_get_engine_rpm(&gPlayers[playerIdx], playerIdx);
-    return rpm >= kart_transmission_get_shift_over_rpm(&gPlayers[playerIdx]);
+
+    return rpm > kart_transmission_get_shift_ideal_rpm_max(&gPlayers[playerIdx]);
+}
+
+static void render_arcadekart_rpm_faceplate(s32 playerIdx, const ArcadeKartRpmMeterCanvas* canvas) {
+    s32 meterRed = 0xFF;
+    s32 meterGreen = 0xFF;
+    s32 meterBlue = 0xFF;
+
+    if (get_arcadekart_rpm_shift_over(playerIdx)) {
+        meterRed = 0xFF;
+        meterGreen = 0x20;
+        meterBlue = 0x18;
+    } else if (get_arcadekart_rpm_shift_ideal(playerIdx) && ((gGlobalTimer & 4) != 0)) {
+        meterRed = 0xFF;
+        meterGreen = 0x8C;
+        meterBlue = 0x00;
+    }
+
+    gSPClearGeometryMode(gDisplayListHead++, G_ZBUFFER);
+    func_8004A2F4((s32) canvas->centerX, (s32) canvas->centerY, 0U, canvas->faceScale, meterRed, meterGreen,
+                  meterBlue, 0xFF, common_texture_speedometer, speedometer_vtx, 64, 96, 64, 48);
 }
 
 static void render_arcadekart_rpm_needle(s32 playerIdx, const ArcadeKartRpmMeterCanvas* canvas, s32 glow) {
@@ -3189,50 +3267,95 @@ static void render_arcadekart_rpm_needle(s32 playerIdx, const ArcadeKartRpmMeter
                   D_0D005FF0, 0x40, 0x20, 0x40, 0x20);
 }
 
-static void render_arcadekart_rpm_gear_overlay(s32 playerIdx, const ArcadeKartRpmMeterCanvas* canvas) {
-    const char* gearLabel = get_arcadekart_gear_label(playerIdx);
-    f32 gearRightX;
-    f32 gearBottomY;
-    f32 textScale = ARCADEKART_RPM_METER_GEAR_TEXT_SCALE * canvas->canvasScale;
-    f32 textHeight = 16.0f * textScale;
-    f32 textWidth;
-    s32 textLeftX;
-    s32 textTopY;
-    f32 gearInsetX =
-        CVarGetFloat("gArcadeKart.Hud.RpmGearPanelInsetX", ARCADEKART_RPM_METER_GEAR_PANEL_INSET_X);
-    f32 gearInsetY =
-        CVarGetFloat("gArcadeKart.Hud.RpmGearPanelInsetY", ARCADEKART_RPM_METER_GEAR_PANEL_INSET_Y);
+static const char* const* get_arcadekart_rpm_gear_glyph(char letter) {
+    static const char* const glyph1[] = { "00100", "01100", "00100", "00100", "00100", "00100", "01110" };
+    static const char* const glyph2[] = { "01110", "10001", "00001", "00010", "00100", "01000", "11111" };
+    static const char* const glyph3[] = { "11110", "00001", "00001", "01110", "00001", "00001", "11110" };
+    static const char* const glyph4[] = { "10010", "10010", "10010", "11111", "00010", "00010", "00010" };
+    static const char* const glyph5[] = { "11111", "10000", "10000", "11110", "00001", "00001", "11110" };
+    static const char* const glyph6[] = { "01111", "10000", "10000", "11110", "10001", "10001", "01110" };
+    static const char* const glyphN[] = { "10001", "11001", "10101", "10011", "10001", "10001", "10001" };
+    static const char* const glyphR[] = { "11110", "10001", "10001", "11110", "10100", "10010", "10001" };
 
-    arcadekart_rpm_meter_canvas_to_screen(canvas,
-                                          ARCADEKART_RPM_METER_FACE_BOUNDS_RIGHT -
-                                              ARCADEKART_RPM_METER_CENTER_X - gearInsetX,
-                                          ARCADEKART_RPM_METER_FACE_BOUNDS_BOTTOM -
-                                              ARCADEKART_RPM_METER_CENTER_Y - gearInsetY,
-                                          &gearRightX, &gearBottomY);
-    set_text_color(TEXT_YELLOW);
-    textWidth = (f32) get_string_width((char*) gearLabel) * textScale;
-    textLeftX = (s32) (gearRightX - textWidth);
-    textTopY = (s32) (gearBottomY - textHeight);
-    if (gearRightX >= (SCREEN_WIDTH / 2.0f)) {
-        print_text_mode_2_wide_right(textLeftX, textTopY, (char*) gearLabel, 0, textScale, textScale);
-    } else {
-        text_draw(textLeftX, textTopY, (char*) gearLabel, 0, textScale, textScale);
+    switch (letter) {
+        case '1':
+            return glyph1;
+        case '2':
+            return glyph2;
+        case '3':
+            return glyph3;
+        case '4':
+            return glyph4;
+        case '5':
+            return glyph5;
+        case '6':
+            return glyph6;
+        case 'N':
+            return glyphN;
+        case 'R':
+            return glyphR;
+        default:
+            return glyphN;
     }
 }
 
-static void render_arcadekart_rpm_shift_text(s32 playerIdx, const ArcadeKartRpmMeterCanvas* canvas) {
-    f32 shiftX;
-    f32 shiftY;
+static void draw_arcadekart_rpm_gear_glyph(s32 x, s32 y, const char* gearLabel, s32 cellSize, s32 red, s32 green,
+                                           s32 blue) {
+    const char* const* glyph = get_arcadekart_rpm_gear_glyph(gearLabel[0]);
+    s32 row;
+    s32 column;
 
-    if (!get_arcadekart_rpm_shift_ready(playerIdx)) {
-        return;
+    for (row = 0; row < 7; row++) {
+        for (column = 0; column < 5; column++) {
+            if (glyph[row][column] != '0') {
+                s32 left = x + (column * cellSize);
+                s32 top = y + (row * cellSize);
+                gDisplayListHead = draw_box_fill(gDisplayListHead, left, top, left + cellSize - 1,
+                                                 top + cellSize - 1, red, green, blue, 255);
+            }
+        }
     }
+}
 
-    arcadekart_rpm_meter_canvas_to_screen(canvas, -17.0f, -31.0f, &shiftX, &shiftY);
-    set_text_color(get_arcadekart_rpm_shift_over(playerIdx) ? (((gGlobalTimer & 4) != 0) ? TEXT_RED : TEXT_YELLOW)
-                                                           : TEXT_RED);
-    text_draw((s32) shiftX, (s32) shiftY, get_arcadekart_rpm_shift_over(playerIdx) ? "SHIFT!" : "SHIFT", 0,
-              0.34f * canvas->faceScale, 0.34f * canvas->faceScale);
+static void render_arcadekart_rpm_gear_overlay(s32 playerIdx, const ArcadeKartRpmMeterCanvas* canvas) {
+    const char* gearLabel = get_arcadekart_gear_label(playerIdx);
+    f32 readoutRightX;
+    f32 readoutBottomY;
+    f32 digitScale = ARCADEKART_RPM_METER_READOUT_DIGIT_SCALE * canvas->canvasScale;
+    f32 digitHeight = 16.0f * digitScale;
+    s32 cellSize = get_arcadekart_scaled_size(ARCADEKART_RPM_METER_GEAR_CELL_SIZE * canvas->canvasScale);
+    s32 glyphWidth = 5 * cellSize;
+    s32 glyphHeight = 7 * cellSize;
+    s32 glyphRightX;
+    s32 glyphTopY;
+
+    arcadekart_rpm_meter_canvas_to_screen(canvas, ARCADEKART_RPM_METER_READOUT_RIGHT_X,
+                                          ARCADEKART_RPM_METER_READOUT_BOTTOM_Y, &readoutRightX, &readoutBottomY);
+    glyphRightX = (s32) readoutRightX;
+    glyphTopY = (s32) (readoutBottomY - digitHeight - ((f32) glyphHeight) - (2.0f * canvas->canvasScale));
+    draw_arcadekart_rpm_gear_glyph(glyphRightX - glyphWidth + cellSize, glyphTopY + cellSize, gearLabel, cellSize, 0,
+                                   0, 0);
+    draw_arcadekart_rpm_gear_glyph(glyphRightX - glyphWidth, glyphTopY, gearLabel, cellSize, 0xCA, 0x78, 0xFF);
+}
+
+static void render_arcadekart_rpm_readout(s32 playerIdx, const ArcadeKartRpmMeterCanvas* canvas) {
+    char rpmDigits[ARCADEKART_RPM_METER_READOUT_DIGITS + 1];
+    s32 displayRpm = get_arcadekart_display_rpm_int(playerIdx);
+    f32 readoutRightX;
+    f32 readoutBottomY;
+    f32 digitScale = ARCADEKART_RPM_METER_READOUT_DIGIT_SCALE * canvas->canvasScale;
+    f32 digitWidth = 8.0f * digitScale * ARCADEKART_RPM_METER_READOUT_DIGITS;
+    f32 digitHeight = 16.0f * digitScale;
+    s32 digitLeftX;
+    s32 digitTopY;
+
+    snprintf(rpmDigits, sizeof(rpmDigits), "%05d", displayRpm);
+    arcadekart_rpm_meter_canvas_to_screen(canvas, ARCADEKART_RPM_METER_READOUT_RIGHT_X,
+                                          ARCADEKART_RPM_METER_READOUT_BOTTOM_Y, &readoutRightX, &readoutBottomY);
+    digitLeftX = (s32) (readoutRightX - digitWidth);
+    digitTopY = (s32) (readoutBottomY - digitHeight);
+
+    draw_arcadekart_rpm_digits(digitLeftX, digitTopY, rpmDigits, digitScale);
 }
 
 static void draw_arcadekart_rpm_meter_leaf(UNUSED const HudLayoutContext* ctx, UNUSED HudWidgetId widgetId, HudRect rect,
@@ -3258,11 +3381,8 @@ static void draw_arcadekart_rpm_meter_leaf(UNUSED const HudLayoutContext* ctx, U
         case ARCADEKART_RPM_METER_ELEMENT_GEAR:
             render_arcadekart_rpm_gear_overlay(leaf->playerIdx, &canvas);
             break;
-        case ARCADEKART_RPM_METER_ELEMENT_SHIFT_TEXT:
-            render_arcadekart_rpm_shift_text(leaf->playerIdx, &canvas);
-            break;
         case ARCADEKART_RPM_METER_ELEMENT_DIGITAL:
-            render_digital_speedometer_at(leaf->playerIdx, canvas.centerX, canvas.centerY, canvas.canvasScale);
+            render_arcadekart_rpm_readout(leaf->playerIdx, &canvas);
             break;
     }
 }
@@ -3350,8 +3470,8 @@ static void render_arcadekart_rpm_meter_layout(s32 playerIdx, ArcadeKartRpmMeter
     } else {
         const ArcadeKartRpmMeterElement elements[] = {
             ARCADEKART_RPM_METER_ELEMENT_FACEPLATE, ARCADEKART_RPM_METER_ELEMENT_NEEDLE_GLOW,
-            ARCADEKART_RPM_METER_ELEMENT_NEEDLE,    ARCADEKART_RPM_METER_ELEMENT_GEAR,
-            ARCADEKART_RPM_METER_ELEMENT_SHIFT_TEXT,
+            ARCADEKART_RPM_METER_ELEMENT_NEEDLE,    ARCADEKART_RPM_METER_ELEMENT_DIGITAL,
+            ARCADEKART_RPM_METER_ELEMENT_GEAR,
         };
         s32 i;
 
@@ -3379,7 +3499,7 @@ static void render_arcadekart_rpm_meter_layout(s32 playerIdx, ArcadeKartRpmMeter
 }
 
 void render_digital_speedometer(s32 playerIdx) {
-    render_arcadekart_rpm_meter_layout(playerIdx, ARCADEKART_RPM_METER_PASS_DIGITAL);
+    UNUSED s32 pad = playerIdx;
 }
 
 // render the speedometer for the player

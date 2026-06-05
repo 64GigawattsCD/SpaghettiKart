@@ -33,6 +33,61 @@ Camera* camera3 = &cameras[2];
 Camera* camera4 = &cameras[3];
 Camera* gFreecamCamera = &cameras[4];
 
+static f32 sArcadeKartPostFxPlayerScale[NUM_PLAYERS] = { 1.0f, 1.0f, 1.0f, 1.0f,
+                                                         1.0f, 1.0f, 1.0f, 1.0f };
+
+static f32 step_arcadekart_postfx_scale(s32 playerIndex, s32 finished) {
+    f32 target = finished ? 0.0f : 1.0f;
+    f32 step = CVarGetFloat("gArcadeKart.PostFx.FinishFadeStep", 0.05f);
+
+    if ((playerIndex < 0) || (playerIndex >= NUM_PLAYERS)) {
+        return target;
+    }
+    if (step < 0.0f) {
+        step = 0.0f;
+    }
+    if (step > 1.0f) {
+        step = 1.0f;
+    }
+
+    if (sArcadeKartPostFxPlayerScale[playerIndex] < target) {
+        sArcadeKartPostFxPlayerScale[playerIndex] += step;
+        if (sArcadeKartPostFxPlayerScale[playerIndex] > target) {
+            sArcadeKartPostFxPlayerScale[playerIndex] = target;
+        }
+    } else if (sArcadeKartPostFxPlayerScale[playerIndex] > target) {
+        sArcadeKartPostFxPlayerScale[playerIndex] -= step;
+        if (sArcadeKartPostFxPlayerScale[playerIndex] < target) {
+            sArcadeKartPostFxPlayerScale[playerIndex] = target;
+        }
+    }
+
+    return sArcadeKartPostFxPlayerScale[playerIndex];
+}
+
+static f32 clamp_arcadekart_camera_value(f32 value, f32 minValue, f32 maxValue) {
+    if (value < minValue) {
+        return minValue;
+    }
+    if (value > maxValue) {
+        return maxValue;
+    }
+    return value;
+}
+
+static f32 normalize_arcadekart_camera_range(f32 value, f32 minValue, f32 maxValue) {
+    f32 range = maxValue - minValue;
+    if (fabsf(range) < 0.0001f) {
+        return (value >= maxValue) ? 1.0f : 0.0f;
+    }
+    return clamp_arcadekart_camera_value((value - minValue) / range, 0.0f, 1.0f);
+}
+
+static f32 apply_arcadekart_camera_curve(f32 value, f32 responsePower) {
+    return powf(clamp_arcadekart_camera_value(value, 0.0f, 1.0f),
+                clamp_arcadekart_camera_value(responsePower, 0.01f, 8.0f));
+}
+
 UNUSED s32 D_801649D0[2];
 
 f32 D_801649D8[NUM_CAMERAS];
@@ -1115,15 +1170,21 @@ static f32 camera_get_speed_zoom_fov(Camera* camera, Player* player, s32 playerI
     f32 boostAmount;
     f32 shakeAmount = 0.0f;
     f32 roadRoughness = 0.0f;
+    f32 postFxScale;
+    f32 speedCurve;
+    f32 speedMinRatio;
+    f32 speedMaxRatio;
+    f32 responsePower;
+    f32 wideFov;
+    f32 narrowFov;
+    s32 postFxFinished;
     f32 targetFov;
     f32 currentFov = camera->fieldOfView;
-    const f32 nearFov = 40.0f;
-    const f32 farFov = 60.0f;
     const f32 zoomStep = 1.0f;
     char cvarName[96];
 
     if ((player != NULL) && (player->topSpeed > 0.0f)) {
-        speedRatio = fabsf(player->speed) / player->topSpeed;
+        speedRatio = fabsf(player->currentSpeed) / player->topSpeed;
     }
     if (speedRatio < 0.0f) {
         speedRatio = 0.0f;
@@ -1155,17 +1216,34 @@ static f32 camera_get_speed_zoom_fov(Camera* camera, Player* player, s32 playerI
             }
         }
     }
+
+    postFxFinished = (player == NULL) || (playerHUD[playerIndex].lapCount >= 3) || (gRaceState == RACE_FINISHED) ||
+                     (gRaceState == RACE_EXIT) || (gGamestate != RACING);
+    postFxScale = step_arcadekart_postfx_scale(playerIndex, postFxFinished);
+    speedMinRatio = CVarGetFloat("gArcadeKart.PostFx.SpeedMinRatio", 0.0f);
+    speedMaxRatio = CVarGetFloat("gArcadeKart.PostFx.SpeedMaxRatio", 1.0f);
+    responsePower = CVarGetFloat("gArcadeKart.PostFx.ResponsePower", 2.0f);
+    wideFov = CVarGetFloat("gArcadeKart.Camera.SpeedWideFov", 100.0f);
+    narrowFov = CVarGetFloat("gArcadeKart.Camera.SpeedNarrowFov", 75.0f);
+    speedCurve = apply_arcadekart_camera_curve(
+        normalize_arcadekart_camera_range(speedRatio, speedMinRatio, speedMaxRatio), responsePower);
+
     CVarSetInteger("gArcadeKart.PostFx.ScreenMode", gActiveScreenMode);
     snprintf(cvarName, sizeof(cvarName), "gArcadeKart.PostFx.Player%d.SpeedRatio", playerIndex + 1);
-    CVarSetFloat(cvarName, speedRatio);
+    CVarSetFloat(cvarName, speedRatio * postFxScale);
     snprintf(cvarName, sizeof(cvarName), "gArcadeKart.PostFx.Player%d.BoostAmount", playerIndex + 1);
-    CVarSetFloat(cvarName, boostAmount);
+    CVarSetFloat(cvarName, boostAmount * postFxScale);
     snprintf(cvarName, sizeof(cvarName), "gArcadeKart.PostFx.Player%d.ShakeAmount", playerIndex + 1);
-    CVarSetFloat(cvarName, shakeAmount);
+    CVarSetFloat(cvarName, shakeAmount * postFxScale);
     snprintf(cvarName, sizeof(cvarName), "gArcadeKart.PostFx.Player%d.RoadRoughness", playerIndex + 1);
-    CVarSetFloat(cvarName, roadRoughness);
+    CVarSetFloat(cvarName, roadRoughness * postFxScale);
+    snprintf(cvarName, sizeof(cvarName), "gArcadeKart.PostFx.Player%d.FxScale", playerIndex + 1);
+    CVarSetFloat(cvarName, postFxScale);
 
-    targetFov = nearFov + ((farFov - nearFov) * speedRatio) + D_80164498[playerIndex];
+    targetFov = wideFov + ((narrowFov - wideFov) * speedCurve);
+    CVarSetFloat("gArcadeKart.Camera.DebugSpeedRatio", speedRatio);
+    CVarSetFloat("gArcadeKart.Camera.DebugSpeedCurve", speedCurve);
+    CVarSetFloat("gArcadeKart.Camera.DebugTargetFov", targetFov);
     if (currentFov < targetFov) {
         currentFov += zoomStep;
         if (currentFov > targetFov) {

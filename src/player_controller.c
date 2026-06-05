@@ -2720,6 +2720,7 @@ f32 func_80030150(Player* player, s8 arg1) {
     s16 temp_lo;
     f32 var_f2;
     s32 var_v0;
+    bool reverseGear;
 
     var_f0 = 0.0f;
     var_f2 = (player->speed / 18.0f) * 216.0f;
@@ -2830,8 +2831,9 @@ f32 func_80030150(Player* player, s8 arg1) {
         }
     }
     move_f32_towards(&player->unk_104, var_f0, gKartTurnSpeedReductionTable1[player->characterId] + 0.05);
+    reverseGear = kart_transmission_is_reverse_gear(arg1);
     var_f2 = (player->kartPropulsionStrength + player->unk_0E8 + player->boostPower + player->unk_0E4) - player->unk_0A0;
-    if (var_f2 < 0.0f) {
+    if ((var_f2 < 0.0f) && !reverseGear) {
         var_f2 = 0.0f;
     }
     if (((player->lakituProps & HELD_BY_LAKITU) == HELD_BY_LAKITU) || ((player->lakituProps & LAKITU_SCENE) == LAKITU_SCENE) ||
@@ -3170,7 +3172,7 @@ void player_decelerate_alternative(Player* player, f32 speed) {
         player->currentSpeed = player->topSpeed;
     }
     if ((player->effects & 8) != 8) {
-        player->kartPropulsionStrength = (player->currentSpeed * player->currentSpeed) / 25.0f;
+        player->kartPropulsionStrength = get_transmission_propulsion_strength(player, player_index);
     }
     player->kartProps &= ~THROTTLE;
     // Hacky way to check for START_SPINOUT_TRIGGER
@@ -3382,7 +3384,7 @@ void func_800323E4_with_input(Player* player, f32 brakeAmount) {
     }
     player->currentSpeed = startingSpeed + ((player->currentSpeed - startingSpeed) * brakeAmount);
     if ((player->effects & 8) != 8) {
-        player->kartPropulsionStrength = (player->currentSpeed * player->currentSpeed) / 25.0f;
+        player->kartPropulsionStrength = get_transmission_propulsion_strength(player, var_v1);
     }
 }
 
@@ -3736,7 +3738,8 @@ void func_80033AE0(Player* player, struct Controller* controller, s8 arg2) {
     }
     sp2E4 = player->unk_07C;
     temp_v0_3 = func_80038534(controller);
-    if (((player->kartProps & BACK_UP) == BACK_UP) || ((player->kartProps & MOVE_BACKWARDS) == MOVE_BACKWARDS)) {
+    if (!kart_transmission_is_reverse_gear(arg2) &&
+        (((player->kartProps & BACK_UP) == BACK_UP) || ((player->kartProps & MOVE_BACKWARDS) == MOVE_BACKWARDS))) {
         temp_v0_3 = -temp_v0_3;
     }
     player->unk_07C = (temp_v0_3 << 16) & 0xFFFF0000;
@@ -4383,6 +4386,11 @@ void func_80037CFC(Player* player, struct Controller* controller, s8 arg2) {
     const bool brakeActive = brakeAmount > 0.0f;
     const bool jumpPressed = kart_input_was_command_pressed(controller, KART_INPUT_JUMP);
     const bool driftActive = kart_input_is_command_active(controller, KART_INPUT_DRIFT);
+    const bool reverseGear = kart_transmission_is_reverse_gear(arg2);
+
+    if (reverseGear) {
+        player->kartProps &= ~BACK_UP;
+    }
 
     if (CVarGetInteger("gEnableMoonJump", 0)) {
         moon_jump(player, controller);
@@ -4429,7 +4437,7 @@ void func_80037CFC(Player* player, struct Controller* controller, s8 arg2) {
                 player->effects &= ~0x20;
             }
         }
-        if ((player->kartProps & BACK_UP) != BACK_UP) {
+        if (((player->kartProps & BACK_UP) != BACK_UP) || reverseGear) {
             if (throttleActive) {
                 player_accelerate_alternative_with_input(player, throttleAmount);
                 detect_triple_a_combo_a_pressed(player);
@@ -4449,7 +4457,7 @@ void func_80037CFC(Player* player, struct Controller* controller, s8 arg2) {
                 detect_triple_b_combo_b_released(player);
             }
         }
-        if ((!(player->effects & BOOST_RAMP_ASPHALT_EFFECT)) && (!(player->effects & 4))) {
+        if (!reverseGear && (!(player->effects & BOOST_RAMP_ASPHALT_EFFECT)) && (!(player->effects & 4))) {
             if (((func_800388B0(controller) < (-0x31)) && (((player->speed / 18.0f) * 216.0f) <= 5.0f)) &&
                 brakeActive) {
                 player->currentSpeed = 140.0f;

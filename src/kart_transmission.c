@@ -371,6 +371,7 @@ static void kart_transmission_score_pending_shift(Player* player, s32 playerInde
     bool clutchWasAdequate;
     bool releasedQuickly;
     bool rpmWasIdeal;
+    bool rpmWasHigh;
     f32 idealRpmMin;
     f32 idealRpmMax;
     s32 holdLimitFrames;
@@ -399,6 +400,7 @@ static void kart_transmission_score_pending_shift(Player* player, s32 playerInde
     idealRpmMax = kart_transmission_get_shift_ideal_rpm_max(player);
     rpmWasIdeal = (sKartShiftRpmAtRequest[playerIndex] >= idealRpmMin) &&
                   (sKartShiftRpmAtRequest[playerIndex] <= idealRpmMax);
+    rpmWasHigh = sKartShiftRpmAtRequest[playerIndex] > idealRpmMax;
 
     CVarSetInteger("gArcadeKart.DebugShiftFromGear", sKartShiftPendingFromGear[playerIndex]);
     CVarSetInteger("gArcadeKart.DebugShiftToGear", sKartShiftPendingToGear[playerIndex]);
@@ -412,12 +414,12 @@ static void kart_transmission_score_pending_shift(Player* player, s32 playerInde
                                       sKartShiftRpmAtRequest[playerIndex],
                                       kart_transmission_get_engine_rpm(player, playerIndex),
                                       sKartShiftPendingFrames[playerIndex], sKartShiftSessionHadClutch[playerIndex]);
-    printf("[ArcadeKart Shift] P%d %s->%s clutch %.2f rpm %.0f frames %d up %d down %d goodClutch %d adequateClutch %d quick %d idealRpm %d\n",
+    printf("[ArcadeKart Shift] P%d %s->%s clutch %.2f rpm %.0f frames %d up %d down %d goodClutch %d adequateClutch %d quick %d idealRpm %d highRpm %d\n",
            playerIndex, kart_transmission_get_gear_label(sKartShiftPendingFromGear[playerIndex]),
            kart_transmission_get_gear_label(sKartShiftPendingToGear[playerIndex]),
            sKartShiftClutchAtRequest[playerIndex], sKartShiftRpmAtRequest[playerIndex],
            sKartShiftPendingFrames[playerIndex], isUpshift, isDownshift, clutchWasGood, clutchWasAdequate,
-           releasedQuickly, rpmWasIdeal);
+           releasedQuickly, rpmWasIdeal, rpmWasHigh);
 
     if (!kart_transmission_is_drive_gear(sKartShiftPendingToGear[playerIndex]) ||
         (sKartShiftPendingFromGear[playerIndex] == sKartShiftPendingToGear[playerIndex])) {
@@ -425,6 +427,9 @@ static void kart_transmission_score_pending_shift(Player* player, s32 playerInde
         sKartShiftFeedbackTimer[playerIndex] = 0;
     } else if (isUpshift && clutchWasGood && releasedQuickly && rpmWasIdeal) {
         kart_transmission_apply_shift_feedback(player, playerIndex, KART_SHIFT_FEEDBACK_GOOD);
+    } else if (isUpshift && clutchWasGood && releasedQuickly && rpmWasHigh) {
+        sKartShiftFeedback[playerIndex] = KART_SHIFT_FEEDBACK_NONE;
+        sKartShiftFeedbackTimer[playerIndex] = 0;
     } else if (clutchWasAdequate && (isDownshift || (isUpshift && !releasedQuickly))) {
         sKartShiftFeedback[playerIndex] = KART_SHIFT_FEEDBACK_NONE;
         sKartShiftFeedbackTimer[playerIndex] = 0;
@@ -746,7 +751,7 @@ f32 kart_transmission_get_drive_amount(const Player* player, s32 playerIndex, f3
 
     driveAmount = throttleAmount * kart_transmission_get_clutch_drive_ratio(player, playerIndex);
     if (gear == KART_GEAR_REVERSE) {
-        return driveAmount * 0.55f;
+        return driveAmount * kart_transmission_get_cvarf("gArcadeKart.ReverseDriveMultiplier", 0.75f);
     }
 
     speedRatio = kart_transmission_get_speed_ratio(player);
@@ -794,7 +799,7 @@ void kart_transmission_apply_speed_limits(Player* player, s32 playerIndex) {
 
     gear = sKartGear[playerIndex];
     if (gear == KART_GEAR_REVERSE) {
-        maxGearSpeed = player->topSpeed * 0.14f;
+        maxGearSpeed = player->topSpeed * kart_transmission_get_cvarf("gArcadeKart.ReverseSpeedRatio", 0.44f);
     } else if (gear > KART_GEAR_NEUTRAL) {
         maxGearSpeed = player->topSpeed * (sGearMaxSpeed[gear] + 0.025f);
     } else {

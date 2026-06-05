@@ -1,6 +1,7 @@
 #include <libultraship.h>
 #include "framebuffer_effects.h"
 #include "mk64.h"
+#include "defines.h"
 #include <assets/models/common_data.h>
 #include "port/Engine.h"
 #include "port/interpolation/matrix.h"
@@ -70,6 +71,10 @@ s32 FB_ArcadeKartPostFxShouldLayerHud(void) {
         return 0;
     }
     if (CVarGetInteger("gArcadeKart.PostFx.LayerHud", 1) == 0) {
+        return 0;
+    }
+    if ((gGamestate != RACING) || (gRaceState == RACE_FINISHED) || (gRaceState == RACE_EXIT)) {
+        CVarSetInteger("gArcadeKart.PostFx.LayeredHudActive", 0);
         return 0;
     }
     return (gArcadeKartPostFxSceneFrameBuffer != -1) && (gArcadeKartPostFxHudFrameBuffer != -1);
