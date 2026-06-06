@@ -193,11 +193,11 @@ static void arcade_kart_debug_quick_boot_hud_race(void) {
         gCharacterGridIsSelected[i] = false;
     }
 
-    CM_SetCup(GetMushroomCup());
-    CM_SetCupIndex(MUSHROOM_CUP);
-    gCupSelection = MUSHROOM_CUP;
-    SetCupCursorPosition(TRACK_ONE);
-    gCourseIndexInCup = TRACK_ONE;
+    CM_SetCup(GetSpecialCup());
+    CM_SetCupIndex(SPECIAL_CUP);
+    gCupSelection = SPECIAL_CUP;
+    SetCupCursorPosition(TRACK_TWO);
+    gCourseIndexInCup = TRACK_TWO;
     D_800DC540 = GetCupIndex();
     gCurrentCourseId = gCupCourseOrder[gCupSelection][gCourseIndexInCup];
     TrackBrowser_SetTrackFromCup();

@@ -33,8 +33,12 @@ Camera* camera3 = &cameras[2];
 Camera* camera4 = &cameras[3];
 Camera* gFreecamCamera = &cameras[4];
 
-static f32 sArcadeKartPostFxPlayerScale[NUM_PLAYERS] = { 1.0f, 1.0f, 1.0f, 1.0f,
-                                                         1.0f, 1.0f, 1.0f, 1.0f };
+static f32 sArcadeKartPostFxPlayerScale[NUM_PLAYERS];
+
+static s32 is_arcadekart_race_speed_fx_active(void) {
+    return (gGamestate == RACING) &&
+           ((gRaceState == RACE_IN_PROGRESS) || (gRaceState == RACE_CALCULATE_RANKS));
+}
 
 static f32 step_arcadekart_postfx_scale(s32 playerIndex, s32 finished) {
     f32 target = finished ? 0.0f : 1.0f;
@@ -118,7 +122,7 @@ static f32 get_arcadekart_camera_speed_curve(Player* player, f32* speedForRatioO
     f32 speedMaxRatio;
     f32 responsePower;
 
-    if (player != NULL) {
+    if ((player != NULL) && is_arcadekart_race_speed_fx_active()) {
         speedForRatio = fabsf(player->currentSpeed);
         speedReference = get_arcadekart_camera_boosted_speed_reference(player);
         speedRatio = speedForRatio / speedReference;
@@ -157,8 +161,8 @@ static void get_arcadekart_camera_speed_position_offset(Player* player, Camera* 
     offset[1] = camera->unk_30[1];
     offset[2] = camera->unk_30[2];
 
-    if ((player == NULL) || (CVarGetInteger("gArcadeKart.Camera.SpeedPositionShift", 1) == 0) ||
-        (gModeSelection == BATTLE)) {
+    if ((player == NULL) || !is_arcadekart_race_speed_fx_active() ||
+        (CVarGetInteger("gArcadeKart.Camera.SpeedPositionShift", 1) == 0) || (gModeSelection == BATTLE)) {
         if (curveOut != NULL) {
             *curveOut = 0.0f;
         }
@@ -1358,8 +1362,14 @@ static f32 camera_get_speed_zoom_fov(Camera* camera, Player* player, s32 playerI
     const f32 zoomStep = 1.0f;
     char cvarName[96];
 
+    if (!is_arcadekart_race_speed_fx_active()) {
+        if ((playerIndex >= 0) && (playerIndex < NUM_PLAYERS)) {
+            sArcadeKartPostFxPlayerScale[playerIndex] = 0.0f;
+        }
+    }
+
     speedCurve = get_arcadekart_camera_speed_curve(player, &speedForRatio, &speedReference, &speedRatio);
-    boostAmount = D_80164498[playerIndex] / 25.0f;
+    boostAmount = is_arcadekart_race_speed_fx_active() ? (D_80164498[playerIndex] / 25.0f) : 0.0f;
     if (boostAmount < 0.0f) {
         boostAmount = 0.0f;
     }
@@ -1367,7 +1377,7 @@ static f32 camera_get_speed_zoom_fov(Camera* camera, Player* player, s32 playerI
         boostAmount = 1.0f;
     }
 
-    if (player != NULL) {
+    if ((player != NULL) && is_arcadekart_race_speed_fx_active()) {
         if ((player->effects & (HIT_BY_ITEM_EFFECT | HIT_EFFECT | LIGHTNING_EFFECT)) != 0) {
             shakeAmount = 1.0f;
         }
@@ -1376,7 +1386,8 @@ static f32 camera_get_speed_zoom_fov(Camera* camera, Player* player, s32 playerI
         boostShakeAmount = is_arcadekart_player_boosting(player) ? 1.0f : 0.0f;
     }
 
-    postFxFinished = (player == NULL) || (playerHUD[playerIndex].lapCount >= 3) || (gRaceState == RACE_FINISHED) ||
+    postFxFinished = (player == NULL) || !is_arcadekart_race_speed_fx_active() ||
+                     (playerHUD[playerIndex].lapCount >= 3) || (gRaceState == RACE_FINISHED) ||
                      (gRaceState == RACE_EXIT) || (gGamestate != RACING);
     postFxScale = step_arcadekart_postfx_scale(playerIndex, postFxFinished);
     wideFov = CVarGetFloat("gArcadeKart.Camera.SpeedWideFov", 100.0f);

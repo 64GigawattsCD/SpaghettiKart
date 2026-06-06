@@ -2,6 +2,7 @@
 #include "engine/World.h"
 #include "port/Game.h"
 #include "port/interpolation/FrameInterpolation.h"
+#include <cmath>
 #include <cstdint>
 
 extern "C" {
@@ -16,6 +17,17 @@ extern "C" {
 }
 
 size_t OHedgehog::_count = 0;
+
+extern Vtx gVtxHedgehogRight[];
+extern Vtx gVtxHedgehogLeft[];
+
+static f32 sHedgehogCameraSpaceX[OBJECT_LIST_SIZE][NUM_CAMERAS];
+static bool sHedgehogCameraSpaceXValid[OBJECT_LIST_SIZE][NUM_CAMERAS];
+static s8 sHedgehogCameraFacingFlipped[OBJECT_LIST_SIZE][NUM_CAMERAS];
+static const f32 HEDGEHOG_CAMERA_SPACE_FLIP_EPSILON = 0.05f;
+
+static void reset_hedgehog_camera_flip_state(s32 objectIndex);
+static void update_hedgehog_camera_flip_state(s32 objectIndex, s32 cameraId);
 
 OHedgehog::OHedgehog(const SpawnParams& params) : OObject(params) {
     Name = "Hedgehog";
@@ -33,6 +45,7 @@ OHedgehog::OHedgehog(const SpawnParams& params) : OObject(params) {
     gObjectList[_objectIndex].unk_0D5 = (u8) params.Behaviour.value_or(9);
     gObjectList[_objectIndex].unk_09C = PatrolEnd.x * xOrientation;
     gObjectList[_objectIndex].unk_09E = PatrolEnd.z;
+    reset_hedgehog_camera_flip_state(_objectIndex);
 
     _count++;
 }
@@ -92,6 +105,8 @@ void OHedgehog::func_800555BC(s32 objectIndex, s32 cameraId) {
         int width = 64;
         int height = 64;
         Vtx* vtx = (Vtx*) gObjectList[objectIndex].vertex;
+        update_hedgehog_camera_flip_state(objectIndex, cameraId);
+        vtx = (Vtx*) gObjectList[objectIndex].vertex;
         gDPLoadTLUT_pal256(gDisplayListHead++, tlut);
         rsp_load_texture(texture, width, height);
         gSPVertex(gDisplayListHead++, (uintptr_t) vtx, 4, 0);
@@ -195,6 +210,73 @@ Vtx gVtxHedgehogLeft[] = {
     {{{    31,      31,      0}, 0, {     0,   3968}, {255, 255, 255, 255}}},
     {{{   -32,      31,      0}, 0, {  4032,   3968}, {255, 255, 255, 255}}},
 };
+
+static void reset_hedgehog_camera_flip_state(s32 objectIndex) {
+    if ((objectIndex < 0) || (objectIndex >= OBJECT_LIST_SIZE)) {
+        return;
+    }
+
+    for (s32 cameraId = 0; cameraId < NUM_CAMERAS; cameraId++) {
+        sHedgehogCameraSpaceX[objectIndex][cameraId] = 0.0f;
+        sHedgehogCameraSpaceXValid[objectIndex][cameraId] = false;
+        sHedgehogCameraFacingFlipped[objectIndex][cameraId] = 0;
+    }
+}
+
+static void update_hedgehog_camera_flip_state(s32 objectIndex, s32 cameraId) {
+    Object* object;
+    Camera* camera;
+    f32 forwardX;
+    f32 forwardZ;
+    f32 forwardLengthSq;
+    f32 invForwardLength;
+    f32 cameraRightX;
+    f32 cameraRightZ;
+    f32 relativeX;
+    f32 relativeZ;
+    f32 cameraSpaceX;
+    f32 cameraSpaceDelta;
+
+    if ((objectIndex < 0) || (objectIndex >= OBJECT_LIST_SIZE) || (cameraId < 0) || (cameraId >= NUM_CAMERAS)) {
+        return;
+    }
+
+    object = &gObjectList[objectIndex];
+    camera = &camera1[cameraId];
+    forwardX = camera->lookAt[0] - camera->pos[0];
+    forwardZ = camera->lookAt[2] - camera->pos[2];
+    forwardLengthSq = (forwardX * forwardX) + (forwardZ * forwardZ);
+    if (forwardLengthSq < 0.0001f) {
+        object->vertex = (sHedgehogCameraFacingFlipped[objectIndex][cameraId] != 0) ? gVtxHedgehogLeft
+                                                                                    : gVtxHedgehogRight;
+        return;
+    }
+
+    invForwardLength = 1.0f / (f32) std::sqrt((double) forwardLengthSq);
+    cameraRightX = forwardZ * invForwardLength;
+    cameraRightZ = -forwardX * invForwardLength;
+    relativeX = object->pos[0] - camera->pos[0];
+    relativeZ = object->pos[2] - camera->pos[2];
+    cameraSpaceX = (relativeX * cameraRightX) + (relativeZ * cameraRightZ);
+
+    if (!sHedgehogCameraSpaceXValid[objectIndex][cameraId]) {
+        sHedgehogCameraSpaceXValid[objectIndex][cameraId] = true;
+        sHedgehogCameraSpaceX[objectIndex][cameraId] = cameraSpaceX;
+        object->vertex = gVtxHedgehogRight;
+        return;
+    }
+
+    cameraSpaceDelta = cameraSpaceX - sHedgehogCameraSpaceX[objectIndex][cameraId];
+    sHedgehogCameraSpaceX[objectIndex][cameraId] = cameraSpaceX;
+    if (cameraSpaceDelta < -HEDGEHOG_CAMERA_SPACE_FLIP_EPSILON) {
+        sHedgehogCameraFacingFlipped[objectIndex][cameraId] = 1;
+    } else if (cameraSpaceDelta > HEDGEHOG_CAMERA_SPACE_FLIP_EPSILON) {
+        sHedgehogCameraFacingFlipped[objectIndex][cameraId] = 0;
+    }
+
+    object->vertex = (sHedgehogCameraFacingFlipped[objectIndex][cameraId] != 0) ? gVtxHedgehogLeft
+                                                                                : gVtxHedgehogRight;
+}
 
 void OHedgehog::func_800833D0(s32 objectIndex, s32 id) {
     switch (gObjectList[objectIndex].state) {

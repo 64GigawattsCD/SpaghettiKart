@@ -3,6 +3,10 @@
 #include "SpaghettiGui.h"
 #include <ship/window/gui/Gui.h>
 #include <ship/window/Window.h>
+#include "ship/controller/controldeck/ControlDeck.h"
+#include "ship/controller/controldevice/controller/Controller.h"
+#include "ship/controller/controldevice/controller/ControllerRumble.h"
+#include "ship/controller/controldevice/controller/mapping/ControllerRumbleMapping.h"
 #include "ship/config/ConsoleVariable.h"
 #ifdef __SWITCH__
 #include "ConfigVersion.h"
@@ -53,7 +57,6 @@ extern "C" {
 #include "main.h"
 #include "mk64.h"
 #include "kart_input.h"
-#include "kart_transmission.h"
 #include "kart_character_stats.h"
 }
 
@@ -61,19 +64,97 @@ namespace Ship {
 #define TOGGLE_BTN ImGuiKey_F1
 #define TOGGLE_PAD_BTN ImGuiKey_GamepadBack
 
-    static const char* GetGearLabel(s32 gear) {
-        switch (gear) {
-            case KART_GEAR_REVERSE:
-                return "R";
-            case KART_GEAR_NEUTRAL:
-                return "N";
+    static const char* GetSurfaceLabel(s32 surfaceType) {
+        switch (surfaceType) {
+            case SURFACE_DEFAULT:
+                return "Default";
+            case AIRBORNE:
+                return "Airborne";
+            case ASPHALT:
+                return "Asphalt";
+            case DIRT:
+                return "Dirt";
+            case SAND:
+                return "Sand";
+            case STONE:
+                return "Stone";
+            case SNOW:
+                return "Snow";
+            case BRIDGE:
+                return "Bridge";
+            case SAND_OFFROAD:
+                return "Sand Offroad";
+            case GRASS:
+                return "Grass";
+            case ICE:
+                return "Ice";
+            case WET_SAND:
+                return "Wet Sand";
+            case SNOW_OFFROAD:
+                return "Snow Offroad";
+            case CLIFF:
+                return "Cliff";
+            case DIRT_OFFROAD:
+                return "Dirt Offroad";
+            case TRAIN_TRACK:
+                return "Train Track";
+            case CAVE:
+                return "Cave";
+            case ROPE_BRIDGE:
+                return "Rope Bridge";
+            case WOOD_BRIDGE:
+                return "Wood Bridge";
+            case WATER_SURFACE:
+                return "Water";
+            case BOOST_RAMP_WOOD:
+                return "Wood Boost Ramp";
+            case OUT_OF_BOUNDS:
+                return "Out Of Bounds";
+            case BOOST_RAMP_ASPHALT:
+                return "Asphalt Boost Ramp";
+            case RAMP:
+                return "Ramp";
             default:
-                break;
+                return "Unknown";
         }
+    }
 
-        static char gearLabel[4];
-        snprintf(gearLabel, sizeof(gearLabel), "%d", gear);
-        return gearLabel;
+    static f32 GetSurfaceRoughnessForDebug(s32 surfaceType) {
+        switch (surfaceType) {
+            case AIRBORNE:
+                return 0.0f;
+            case ICE:
+                return 0.05f;
+            case RAMP:
+            case BOOST_RAMP_WOOD:
+            case BOOST_RAMP_ASPHALT:
+                return 0.1f;
+            case ASPHALT:
+                return 0.15f;
+            case GRASS:
+                return 0.3f;
+            case STONE:
+            case CAVE:
+                return 0.4f;
+            case ROPE_BRIDGE:
+            case WOOD_BRIDGE:
+                return 0.7f;
+            case SAND:
+            case WET_SAND:
+            case SNOW:
+            case CLIFF:
+            case OUT_OF_BOUNDS:
+                return 0.8f;
+            case DIRT:
+                return 0.9f;
+            case SAND_OFFROAD:
+            case SNOW_OFFROAD:
+            case DIRT_OFFROAD:
+            case TRAIN_TRACK:
+                return 1.0f;
+            default:
+                return 0.5f;
+        }
     }
 
     static bool IsWheelForceFeedbackGrounded(const Player* player) {
@@ -115,6 +196,103 @@ namespace Ship {
         return std::clamp(downhillToRight * perpendicularToSlope * slopeSteepness * speedScale * 0.85f, -0.75f, 0.75f);
     }
 
+    static float NormalizeArcadeKartFxRange(float value, float minValue, float maxValue) {
+        if (maxValue <= minValue) {
+            return std::clamp(value, 0.0f, 1.0f);
+        }
+
+        return std::clamp((value - minValue) / (maxValue - minValue), 0.0f, 1.0f);
+    }
+
+    static float ApplyArcadeKartFxCurve(float value, float power) {
+        return powf(std::clamp(value, 0.0f, 1.0f), std::clamp(power, 0.01f, 8.0f));
+    }
+
+    static void SetControllerRumbleForPort(uint8_t portIndex, float strength) {
+        auto controlDeck = Context::GetInstance()->GetControlDeck();
+        if (controlDeck == nullptr) {
+            return;
+        }
+
+        auto controller = controlDeck->GetControllerByPort(portIndex);
+        if (controller == nullptr || controller->GetRumble() == nullptr) {
+            return;
+        }
+
+        auto rumble = controller->GetRumble();
+        auto mappings = rumble->GetAllRumbleMappings();
+        if (mappings.empty()) {
+            return;
+        }
+
+        strength = std::clamp(strength, 0.0f, 1.0f);
+        if (strength <= 0.01f) {
+            rumble->StopRumble();
+            return;
+        }
+
+        const float lowMax = std::clamp(CVarGetFloat("gArcadeKart.ControllerRumble.LowMotorMax", 70.0f), 0.0f, 100.0f);
+        const float highMax = std::clamp(CVarGetFloat("gArcadeKart.ControllerRumble.HighMotorMax", 55.0f), 0.0f, 100.0f);
+        const uint8_t lowPercent = static_cast<uint8_t>(std::clamp(strength * lowMax, 0.0f, 100.0f));
+        const uint8_t highPercent = static_cast<uint8_t>(std::clamp(strength * highMax, 0.0f, 100.0f));
+
+        for (auto& [id, mapping] : mappings) {
+            mapping->SetLowFrequencyIntensity(lowPercent);
+            mapping->SetHighFrequencyIntensity(highPercent);
+        }
+        rumble->StartRumble();
+
+        if (portIndex == 0) {
+            CVarSetFloat("gArcadeKart.DebugControllerRumbleStrength", strength);
+            CVarSetInteger("gArcadeKart.DebugControllerRumbleLow", lowPercent);
+            CVarSetInteger("gArcadeKart.DebugControllerRumbleHigh", highPercent);
+        }
+    }
+
+    static void UpdateControllerSurfaceRumble() {
+        if (CVarGetInteger("gArcadeKart.ControllerRumble.Enabled", 1) == 0 || gGamestate != RACING) {
+            for (uint8_t portIndex = 0; portIndex < 4; portIndex++) {
+                SetControllerRumbleForPort(portIndex, 0.0f);
+            }
+            return;
+        }
+
+        const float speedMinRatio = std::clamp(CVarGetFloat("gArcadeKart.PostFx.SpeedMinRatio", 0.0f), 0.0f, 1.0f);
+        const float speedMaxRatio = std::clamp(CVarGetFloat("gArcadeKart.PostFx.SpeedMaxRatio", 1.0f), 0.0f, 3.0f);
+        const float shakeResponsePower =
+            std::clamp(CVarGetFloat("gArcadeKart.PostFx.ShakeResponsePower", 3.0f), 0.01f, 8.0f);
+        const float outputScale =
+            std::clamp(CVarGetFloat("gArcadeKart.ControllerRumble.OutputScale", 0.65f), 0.0f, 1.0f);
+
+        for (uint8_t portIndex = 0; portIndex < 4; portIndex++) {
+            char cvarName[96];
+
+            snprintf(cvarName, sizeof(cvarName), "gArcadeKart.PostFx.Player%d.SpeedRatio", portIndex + 1);
+            const float speedRatio = CVarGetFloat(cvarName, 0.0f);
+            snprintf(cvarName, sizeof(cvarName), "gArcadeKart.PostFx.Player%d.RoadRoughness", portIndex + 1);
+            const float roadRoughness = CVarGetFloat(cvarName, 0.0f);
+            snprintf(cvarName, sizeof(cvarName), "gArcadeKart.PostFx.Player%d.DriftAmount", portIndex + 1);
+            const float driftAmount = CVarGetFloat(cvarName, 0.0f);
+            snprintf(cvarName, sizeof(cvarName), "gArcadeKart.PostFx.Player%d.BoostShakeAmount", portIndex + 1);
+            const float boostShakeAmount = CVarGetFloat(cvarName, 0.0f);
+            snprintf(cvarName, sizeof(cvarName), "gArcadeKart.PostFx.Player%d.FxScale", portIndex + 1);
+            const float fxScale = CVarGetFloat(cvarName, 0.0f);
+
+            const float normalizedSpeed = NormalizeArcadeKartFxRange(speedRatio, speedMinRatio, speedMaxRatio);
+            const float rumbleInput =
+                std::clamp((normalizedSpeed * std::clamp(roadRoughness, 0.0f, 1.0f)) +
+                               (driftAmount > 0.0f ? 0.1f : 0.0f) + (boostShakeAmount > 0.0f ? 0.3f : 0.0f),
+                           0.0f, 1.0f);
+            const float rumbleStrength = ApplyArcadeKartFxCurve(rumbleInput, shakeResponsePower) *
+                                         std::clamp(fxScale, 0.0f, 1.0f) * outputScale;
+
+            SetControllerRumbleForPort(portIndex, rumbleStrength);
+            if (portIndex == 0) {
+                CVarSetFloat("gArcadeKart.DebugControllerRumbleInput", rumbleInput);
+            }
+        }
+    }
+
     static void UpdateWheelForceFeedback() {
         if (gPlayerOne == nullptr) {
             LUS::WheelDeviceManager::Instance().UpdatePlayerOneMenuForceFeedback();
@@ -149,124 +327,15 @@ namespace Ship {
         const ImVec2 pos(viewport->WorkPos.x + (viewport->WorkSize.x * 0.5f),
                          viewport->WorkPos.y + viewport->WorkSize.y - 12.0f);
         Player* player = gPlayerOne;
-        const s32 playerIndex = 0;
         const f32 speed = (player->speed / 18.0f) * 216.0f;
-        const f32 rpm = kart_transmission_get_engine_rpm(player, playerIndex) *
-                        CVarGetFloat("gArcadeKart.RpmDisplayMultiplier", 4.5f);
-        const f32 slopeSteeringForce =
-            ComputeWheelSlopeSteeringForce(player, IsWheelForceFeedbackGrounded(player), speed);
-        const f32 springRawBase = CVarGetFloat("gArcadeKart.DebugSpringRawBase", 0.0f);
-        const f32 springBase = CVarGetFloat("gArcadeKart.DebugSpringBase", 0.0f);
-        const f32 springCharacterMultiplier = CVarGetFloat("gArcadeKart.DebugSpringCharacterMultiplier", 1.0f);
-        const f32 springSurfaceMultiplier = CVarGetFloat("gArcadeKart.DebugSpringSurfaceMultiplier", 1.0f);
-        const f32 springPercent = CVarGetFloat("gArcadeKart.DebugSpringPercent", 0.0f);
-        const f32 springBaselineMultiplier = CVarGetFloat("gArcadeKart.DebugSpringBaselineMultiplier", 1.0f);
-        const f32 springCenteringRatio = CVarGetFloat("gArcadeKart.DebugSpringCenteringRatio", 0.0f);
-        const s32 springGrounded = CVarGetInteger("gArcadeKart.DebugSpringGrounded", 0);
-        const s32 springSurface = CVarGetInteger("gArcadeKart.DebugSpringSurface", 0);
-        const s32 springTunePressed = CVarGetInteger("gArcadeKart.DebugSpringTunePressed", 0);
-        const s32 profilerRequested = CVarGetInteger("gArcadeKart.DebugSpringProfilerRequested", 0);
-        const s32 profilerLast = CVarGetInteger("gArcadeKart.DebugSpringProfilerLast", -1);
-        const s32 profilerSkipped = CVarGetInteger("gArcadeKart.DebugSpringProfilerSkipped", 0);
-        const s32 profilerEnabled = CVarGetInteger("gArcadeKart.DebugSpringProfilerEnabled", 0);
-        const s32 profilerDriverWrite = CVarGetInteger("gArcadeKart.DebugSpringProfilerDriverWrite", 0);
-        const s32 profilerGlobalWrite = CVarGetInteger("gArcadeKart.DebugSpringProfilerGlobalWrite", 0);
-        const s32 profilerWriteOk = CVarGetInteger("gArcadeKart.DebugSpringProfilerWriteOk", 0);
-        const s32 profilerDriverValue = CVarGetInteger("gArcadeKart.DebugSpringProfilerDriverValue", 0);
-        const s32 sdlCenteringEnabled = CVarGetInteger("gArcadeKart.DebugSpringSdlCenteringEnabled", 0);
-        const s32 sdlAutocenterWriteOk = CVarGetInteger("gArcadeKart.DebugSpringSdlAutocenterWriteOk", 0);
-        const s32 sdlAutocenterPercent = CVarGetInteger("gArcadeKart.DebugSpringSdlAutocenterPercent", 0);
-        const s32 hapticOpen = CVarGetInteger("gArcadeKart.DebugSpringHapticOpen", 0);
-        const s32 hapticSpring = CVarGetInteger("gArcadeKart.DebugSpringSupportsSpring", 0);
-        const s32 hapticConstant = CVarGetInteger("gArcadeKart.DebugSpringSupportsConstant", 0);
-        const s32 hapticPeriodic = CVarGetInteger("gArcadeKart.DebugSpringSupportsPeriodic", 0);
-        const s32 hapticRumble = CVarGetInteger("gArcadeKart.DebugSpringSupportsRumble", 0);
-        const s32 hapticActive = CVarGetInteger("gArcadeKart.DebugSpringHapticEffectActive", 0);
-        const s32 hapticWriteOk = CVarGetInteger("gArcadeKart.DebugSpringHapticWriteOk", 0);
-        const s32 hapticEffectId = CVarGetInteger("gArcadeKart.DebugSpringHapticEffectId", -1);
-        const s32 hapticCoefficient = CVarGetInteger("gArcadeKart.DebugSpringHapticCoefficient", 0);
-        const s32 hapticSaturation = CVarGetInteger("gArcadeKart.DebugSpringHapticSaturation", 0);
-        const s32 hapticDeadband = CVarGetInteger("gArcadeKart.DebugSpringHapticDeadband", 0);
-        const s32 logitechSdkLoaded = CVarGetInteger("gArcadeKart.DebugLogitechSdkLoaded", 0);
-        const s32 logitechSdkInitialized = CVarGetInteger("gArcadeKart.DebugLogitechSdkInitialized", 0);
-        const s32 logitechSdkWorkerRunning = CVarGetInteger("gArcadeKart.DebugLogitechSdkWorkerRunning", 0);
-        const s32 logitechSdkCurrentOk = CVarGetInteger("gArcadeKart.DebugLogitechSdkCurrentOk", 0);
-        const s32 logitechSdkSetPreferredOk = CVarGetInteger("gArcadeKart.DebugLogitechSdkSetPreferredOk", 0);
-        const s32 logitechSdkPlaySpringOk = CVarGetInteger("gArcadeKart.DebugLogitechSdkPlaySpringOk", 0);
-        const s32 logitechSdkSpringGain = CVarGetInteger("gArcadeKart.DebugLogitechSdkSpringGain", 0);
-        const s32 logitechSdkDefaultSpringGain = CVarGetInteger("gArcadeKart.DebugLogitechSdkDefaultSpringGain", 0);
-        const s32 logitechSdkSpringRequested = CVarGetInteger("gArcadeKart.DebugLogitechSdkSpringRequested", 0);
-        const s32 logitechSdkSpringApplied = CVarGetInteger("gArcadeKart.DebugLogitechSdkSpringApplied", 0);
-        const s32 logitechSdkSpringObserved = CVarGetInteger("gArcadeKart.DebugLogitechSdkSpringObserved", 0);
-        const f32 logitechSdkSpringPercent = CVarGetFloat("gArcadeKart.LogitechSdkSpringPercent", 0.0f);
-        const f32 forceConstant = CVarGetFloat("gArcadeKart.DebugForceConstantSigned", 0.0f);
-        const f32 terrainKick = CVarGetFloat("gArcadeKart.DebugForceTerrainKick", 0.0f);
-        const f32 coarseKick = CVarGetFloat("gArcadeKart.DebugForceCoarseKick", 0.0f);
+        const s32 surfaceType = player->surfaceType;
+        const f32 surfaceRoughness = GetSurfaceRoughnessForDebug(surfaceType);
+        const f32 fxRoughness = CVarGetFloat("gArcadeKart.PostFx.Player1.RoadRoughness", surfaceRoughness);
+        const f32 rumbleInput = CVarGetFloat("gArcadeKart.DebugControllerRumbleInput", 0.0f);
         const f32 surfaceRumble = CVarGetFloat("gArcadeKart.DebugForceSurfaceRumble", 0.0f);
-        const s32 shifterMask = CVarGetInteger("gArcadeKart.DebugShifterButtonMask", -1);
-        const s32 shifterRequest = CVarGetInteger("gArcadeKart.DebugShifterRequestedGear", -2);
-        const s32 shifterRaw = CVarGetInteger("gArcadeKart.DebugShifterRawGear", -2);
-        const s32 shifterSmooth = CVarGetInteger("gArcadeKart.DebugShifterSmoothedGear", -2);
-        const s32 shifterSmoothingFrames = CVarGetInteger("gArcadeKart.DebugShifterSmoothingFrames", 4);
-        const s32 shifterNeutralSamples = CVarGetInteger("gArcadeKart.DebugShifterNeutralSamples", 0);
-        const s32 shifterPressedCount = CVarGetInteger("gArcadeKart.DebugShifterPressedGearCount", 0);
-        const s32 postFxEnabled = CVarGetInteger("gArcadeKart.PostFx.Enabled", 1);
-        const s32 postFxManualOverride = CVarGetInteger("gArcadeKart.PostFx.ManualOverride", 0);
-        const s32 postFxTuningSlidersOnly = CVarGetInteger("gArcadeKart.PostFx.TuningSlidersOnly", 0);
-        const s32 postFxLayerHud = CVarGetInteger("gArcadeKart.PostFx.LayerHud", 1);
-        const s32 postFxLayerActive = CVarGetInteger("gArcadeKart.PostFx.LayeredHudActive", 0);
-        const s32 postFxSceneFb = CVarGetInteger("gArcadeKart.PostFx.SceneFramebufferId", -1);
-        const s32 postFxHudFb = CVarGetInteger("gArcadeKart.PostFx.HudFramebufferId", -1);
-        const f32 postFxShakeStrength = CVarGetFloat("gArcadeKart.PostFx.ShakeStrength", 0.018f);
-        const f32 postFxShakeOutputScale = CVarGetFloat("gArcadeKart.PostFx.ShakeOutputScale", 0.3f);
-        const f32 postFxShakeFrequencyFastHz = CVarGetFloat("gArcadeKart.PostFx.ShakeFrequencyFastHz", 60.0f);
-        const f32 postFxShakeFrequencySlowHz = CVarGetFloat("gArcadeKart.PostFx.ShakeFrequencySlowHz", 8.0f);
-        const f32 postFxShakeFrequencyRoughnessPower =
-            CVarGetFloat("gArcadeKart.PostFx.ShakeFrequencyRoughnessPower", 0.5f);
-        const f32 postFxWarpIntensity = CVarGetFloat("gArcadeKart.PostFx.WarpIntensity", 1.0f);
-        const f32 postFxWarpOutputScale = CVarGetFloat("gArcadeKart.PostFx.WarpOutputScale", 4.0f);
-        const f32 postFxTestShake = CVarGetFloat("gArcadeKart.PostFx.TestShakeSlider", 0.0f);
-        const f32 postFxTestWarp = CVarGetFloat("gArcadeKart.PostFx.TestWarpSlider", 0.0f);
-        const f32 postFxSpeedMin = CVarGetFloat("gArcadeKart.PostFx.SpeedMinRatio", 0.0f);
-        const f32 postFxSpeedMax = CVarGetFloat("gArcadeKart.PostFx.SpeedMaxRatio", 1.0f);
-        const f32 postFxResponsePower = CVarGetFloat("gArcadeKart.PostFx.ResponsePower", 2.0f);
-        const f32 postFxShakeResponsePower = CVarGetFloat("gArcadeKart.PostFx.ShakeResponsePower", 3.0f);
-        const f32 postFxTestShakeMax = CVarGetFloat("gArcadeKart.PostFx.TuningShakeInputMax", 0.25f);
-        const f32 postFxTestWarpMax = CVarGetFloat("gArcadeKart.PostFx.TuningWarpInputMax", 2.0f);
-        const f32 postFxTuningShakeStrength = CVarGetFloat("gArcadeKart.PostFx.TuningShakeStrength", 0.04f);
-        const f32 postFxTuningWarpStrength = CVarGetFloat("gArcadeKart.PostFx.TuningWarpStrength", 0.16f);
-        const f32 postFxPlayerSpeed = CVarGetFloat("gArcadeKart.PostFx.Player1.SpeedRatio", 0.0f);
-        const f32 postFxPlayerRoughness = CVarGetFloat("gArcadeKart.PostFx.Player1.RoadRoughness", 0.0f);
-        const f32 postFxPlayerDrift = CVarGetFloat("gArcadeKart.PostFx.Player1.DriftAmount", 0.0f);
-        const f32 postFxPlayerBoostShake = CVarGetFloat("gArcadeKart.PostFx.Player1.BoostShakeAmount", 0.0f);
-        const f32 postFxPlayerScale = CVarGetFloat("gArcadeKart.PostFx.Player1.FxScale", 1.0f);
-        const f32 speedWideFov = CVarGetFloat("gArcadeKart.Camera.SpeedWideFov", 100.0f);
-        const f32 speedNarrowFov = CVarGetFloat("gArcadeKart.Camera.SpeedNarrowFov", 60.0f);
-        const f32 cameraSpeedForRatio = CVarGetFloat("gArcadeKart.Camera.DebugSpeedForRatio", 0.0f);
-        const f32 cameraSpeedReference = CVarGetFloat("gArcadeKart.Camera.DebugSpeedReference", 1.0f);
-        const f32 cameraSpeedRatio = CVarGetFloat("gArcadeKart.Camera.DebugSpeedRatio", 0.0f);
-        const f32 cameraSpeedCurve = CVarGetFloat("gArcadeKart.Camera.DebugSpeedCurve", 0.0f);
-        const f32 cameraTargetFov = CVarGetFloat("gArcadeKart.Camera.DebugTargetFov", speedWideFov);
-        const f32 cameraPositionCurve = CVarGetFloat("gArcadeKart.Camera.DebugPositionCurve", 0.0f);
-        const f32 cameraPositionBack = CVarGetFloat("gArcadeKart.Camera.DebugPositionBack", 45.0f);
-        const f32 cameraPositionUp = CVarGetFloat("gArcadeKart.Camera.DebugPositionUp", 12.0f);
-        const f32 postFxActiveBarrel = CVarGetFloat("gArcadeKart.PostFx.DebugActiveBarrel", 0.0f);
-        const f32 postFxActiveIntensity = CVarGetFloat("gArcadeKart.PostFx.DebugActiveIntensity", 0.0f);
-        const f32 postFxActiveShakePixels = CVarGetFloat("gArcadeKart.PostFx.DebugActiveShakePixels", 0.0f);
-        const f32 postFxActiveShakeFrequencyHz =
-            CVarGetFloat("gArcadeKart.PostFx.DebugShakeFrequencyHz", postFxShakeFrequencyFastHz);
-        const f32 postFxActiveShakeFrequencyCurve =
-            CVarGetFloat("gArcadeKart.PostFx.DebugShakeFrequencyCurve", 1.0f);
-        const f32 postFxSpeedCurve = CVarGetFloat("gArcadeKart.PostFx.DebugSpeedCurve", 0.0f);
-        const f32 postFxRoughnessCurve = CVarGetFloat("gArcadeKart.PostFx.DebugRoughnessCurve", 0.0f);
-        const f32 postFxRoughnessShakeInput = CVarGetFloat("gArcadeKart.PostFx.DebugRoughnessShakeInput", 0.0f);
-        const f32 playerFov = (camera1 != nullptr) ? camera1->fieldOfView : 0.0f;
-        const f32 rpmNeedleActual = CVarGetFloat("gArcadeKart.Hud.DebugRpmNeedleActualRpm", 0.0f);
-        const f32 rpmNeedleScaled = CVarGetFloat("gArcadeKart.Hud.DebugRpmNeedleScaledRpm", 0.0f);
-        const f32 rpmNeedleMax = CVarGetFloat("gArcadeKart.Hud.DebugRpmNeedleMotionMaxRpm", 7200.0f);
-        const f32 rpmNeedleNormalized = CVarGetFloat("gArcadeKart.Hud.DebugRpmNeedleNormalized", 0.0f);
-        const f32 rpmNeedleInputScale = CVarGetFloat("gArcadeKart.Hud.DebugRpmNeedleInputScale", 1.0f);
-        const f32 rpmNeedleSweepDegrees = CVarGetFloat("gArcadeKart.Hud.DebugRpmNeedleSweepDegrees", 100.0f);
+        const bool grounded = IsWheelForceFeedbackGrounded(player);
+        const f32 slopeSteeringForce =
+            ComputeWheelSlopeSteeringForce(player, grounded, speed);
 
         ImGui::SetNextWindowPos(pos, ImGuiCond_Always, pivot);
         ImGui::SetNextWindowBgAlpha(0.35f);
@@ -275,68 +344,20 @@ namespace Ship {
                                  ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove;
         if (ImGui::Begin("Kart Telemetry", nullptr, flags)) {
             ImGui::SetWindowFontScale(1.8f);
-            ImGui::Text("Gear %s", GetGearLabel(kart_transmission_get_gear(playerIndex)));
-            ImGui::Text("RPM  %.0f", rpm);
-            ImGui::Text("Speed %.1f", speed);
-            ImGui::Text("Slope %.2f Ground %d Surf %d", slopeSteeringForce, springGrounded, springSurface);
-            ImGui::Text("Spring %.0f%% Raw %.0f Clamp %.0f x%.1f", springPercent, springRawBase, springBase,
-                        springBaselineMultiplier);
-            ImGui::Text("Mult C%.2f S%.2f Ratio %.2f Tune %04X", springCharacterMultiplier,
-                        springSurfaceMultiplier, springCenteringRatio, springTunePressed);
-            ImGui::Text("Profiler En%d Req%d Last%d Skip%d", profilerEnabled, profilerRequested, profilerLast,
-                        profilerSkipped);
-            ImGui::Text("Reg OK%d D%d G%d Val%d", profilerWriteOk, profilerDriverWrite, profilerGlobalWrite,
-                        profilerDriverValue);
-            ImGui::Text("SDL Center %d Auto OK%d Pct%d", sdlCenteringEnabled, sdlAutocenterWriteOk,
-                        sdlAutocenterPercent);
-            ImGui::Text("Haptic O%d Sp%d C%d Per%d R%d", hapticOpen, hapticSpring, hapticConstant, hapticPeriodic,
-                        hapticRumble);
-            ImGui::Text("Haptic A%d W%d Id%d", hapticActive, hapticWriteOk, hapticEffectId);
-            ImGui::Text("Coeff %d Sat %d Dead %d", hapticCoefficient, hapticSaturation, hapticDeadband);
-            ImGui::Text("Logi SDK L%d I%d W%d Cur%d Pref%d Play%d", logitechSdkLoaded, logitechSdkInitialized,
-                        logitechSdkWorkerRunning, logitechSdkCurrentOk, logitechSdkSetPreferredOk,
-                        logitechSdkPlaySpringOk);
-            ImGui::Text("Logi Spring %.0f%% Req%d App%d Obs%d SG%d DSG%d", logitechSdkSpringPercent,
-                        logitechSdkSpringRequested, logitechSdkSpringApplied, logitechSdkSpringObserved,
-                        logitechSdkSpringGain, logitechSdkDefaultSpringGain);
-            ImGui::Text("Forces Const %.2f TK %.2f CK %.2f R %.2f", forceConstant, terrainKick, coarseKick,
+            ImGui::Text("Surface %s (%d)", GetSurfaceLabel(surfaceType), surfaceType);
+            ImGui::Text("Tyres FL %d FR %d BL %d BR %d", player->tyres[FRONT_LEFT].surfaceType,
+                        player->tyres[FRONT_RIGHT].surfaceType, player->tyres[BACK_LEFT].surfaceType,
+                        player->tyres[BACK_RIGHT].surfaceType);
+            ImGui::Text("Rough %.2f FX %.2f Rum %.2f Wheel %.2f", surfaceRoughness, fxRoughness, rumbleInput,
                         surfaceRumble);
-            ImGui::Text("PostFX En%d Man%d Sl%d", postFxEnabled, postFxManualOverride, postFxTuningSlidersOnly);
-            ImGui::Text("PostFX Test Shake %.2f Warp %.2f", postFxTestShake, postFxTestWarp);
-            ImGui::Text("PostFX RawMax Shake %.2f Warp %.2f", postFxTestShakeMax, postFxTestWarpMax);
-            ImGui::Text("PostFX Speed %.2f Rough %.2f Drift %.0f Boost %.0f Scale %.2f", postFxPlayerSpeed,
-                        postFxPlayerRoughness, postFxPlayerDrift, postFxPlayerBoostShake, postFxPlayerScale);
-            ImGui::Text("Camera FOV %.1f Target %.1f %.2f/%.2f W%.0f N%.0f", playerFov, cameraTargetFov,
-                        cameraSpeedRatio, cameraSpeedCurve, speedWideFov, speedNarrowFov);
-            ImGui::Text("Camera Speed %.1f Ref %.1f", cameraSpeedForRatio, cameraSpeedReference);
-            ImGui::Text("Camera Pos B%.1f U%.1f C%.2f", cameraPositionBack, cameraPositionUp, cameraPositionCurve);
-            ImGui::Text("RPM Needle %.2f Raw %.0f Sc %.0f Max %.0f x%.2f Sw%.0f", rpmNeedleNormalized,
-                        rpmNeedleActual, rpmNeedleScaled, rpmNeedleMax, rpmNeedleInputScale,
-                        rpmNeedleSweepDegrees);
-            ImGui::Text("PostFX Range Min %.2f Max %.2f P%.2f ShP%.2f", postFxSpeedMin, postFxSpeedMax,
-                        postFxResponsePower, postFxShakeResponsePower);
-            ImGui::Text("PostFX Gain Shake %.3f Warp %.2f", postFxTuningShakeStrength, postFxTuningWarpStrength);
-            ImGui::Text("PostFX Raw Shake %.3f x%.2f F%.0f-%.0fHz P%.2f", postFxShakeStrength,
-                        postFxShakeOutputScale, postFxShakeFrequencyFastHz, postFxShakeFrequencySlowHz,
-                        postFxShakeFrequencyRoughnessPower);
-            ImGui::Text("PostFX Warp Int %.2f Out %.2f", postFxWarpIntensity, postFxWarpOutputScale);
-            ImGui::Text("PostFX Active I%.2f B%.3f Sh%.1f SC%.2f RI%.2f RC%.2f", postFxActiveIntensity,
-                        postFxActiveBarrel, postFxActiveShakePixels, postFxSpeedCurve, postFxRoughnessShakeInput,
-                        postFxRoughnessCurve);
-            ImGui::Text("PostFX Active Shake %.1fHz FC%.2f", postFxActiveShakeFrequencyHz,
-                        postFxActiveShakeFrequencyCurve);
-            ImGui::Text("Layer HUD %d Active %d Scene %d HUD %d", postFxLayerHud, postFxLayerActive, postFxSceneFb,
-                        postFxHudFb);
-            ImGui::Text("Shifter %02X Raw %s Sm %s Req %s", shifterMask, GetGearLabel(shifterRaw),
-                        GetGearLabel(shifterSmooth), GetGearLabel(shifterRequest));
-            ImGui::Text("Shifter Count %d Smooth %d N%d", shifterPressedCount, shifterSmoothingFrames,
-                        shifterNeutralSamples);
+            ImGui::Text("Ground %d Slope %.2f Speed %.1f", grounded ? 1 : 0, slopeSteeringForce, speed);
         }
         ImGui::End();
     }
 
     void SpaghettiGui::DrawMenu() {
         UpdateWheelForceFeedback();
+        UpdateControllerSurfaceRumble();
 
         const std::shared_ptr<Window> wnd = Context::GetInstance()->GetWindow();
         const std::shared_ptr<Config> conf = Context::GetInstance()->GetConfig();

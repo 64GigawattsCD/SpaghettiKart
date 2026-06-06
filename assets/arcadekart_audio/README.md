@@ -2,6 +2,7 @@ ArcadeKart audio overrides
 ==========================
 
 bad_shift_grind_a.ogg, bad_shift_grind_b.ogg, and bad_shift_grind_c.ogg come from the OpenGameArt "Scrapes" pack by AntumDeluge.
+bad_shift_grind_a.wav, bad_shift_grind_b.wav, and bad_shift_grind_c.wav are PCM WAV conversions of those files for Spaghetti Kart's miniaudio/HMAS loader.
 
 Source: https://opengameart.org/content/scrapes
 License: Creative Commons Zero 1.0 Universal (CC0)

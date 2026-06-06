@@ -39,6 +39,10 @@
 - Keep the running controls list in `docs/control-change-log.md`.
 - `Toggle HUD` now uses `KART_TOGGLE_HUD_BUTTON`; `BTN_CRIGHT` is legacy only, so stale right-stick-right/C-right mappings do not hide the HUD.
 
+## Transmission Mode
+
+- Manual/automatic selection should first land in the ArcadeKart options near clutch, shifter smoothing, and gear tuning as a `Transmission Mode` option. Longer term it belongs in race setup/character select as a driving preference; AI should remain automatic until AI manual-shift behavior is explicitly authored.
+
 ## Render Modernize
 
 - The race scene now renders into `gArcadeKartPostFxSceneFrameBuffer`; HUD rendering switches to `gArcadeKartPostFxHudFrameBuffer` afterward so post effects sit under HUD.
@@ -50,3 +54,13 @@
 - Screen shake uses `gArcadeKart.PostFx.ShakeStrength` as the mushroom/top-speed-ish amount, then scales it by speed: `gArcadeKart.PostFx.ShakeIdleScale` defaults to 0.05 at idle and `gArcadeKart.PostFx.ShakeFullSpeedRatio` defaults to 1.0 for full shake.
 - Race menu directions no longer tune post-FX or wheel spring values. Post-FX tuning lives in menu CVars: normalized `gArcadeKart.PostFx.TestShakeSlider`/`TestWarpSlider`, raw-max remaps `TuningShakeInputMax`/`TuningWarpInputMax`, visual gains `TuningShakeStrength`/`TuningWarpStrength`, and response shaping via `SpeedMinRatio`/`SpeedMaxRatio` plus `ResponsePower`. Legacy debug lap skip is gated by default-off `gArcadeKart.DebugLegacyLapSkipEnabled`.
 - On `FXpass`, scene framebuffer binding moved after race viewport setup because `race_begin_viewport` can select the normal framebuffer. Drift puffs also explicitly reset texture LUT/alpha state inside `render_player_drift_particles` before loading the old I8 drift textures.
+
+## ArcadeKart Audio
+
+- Custom bad-shift samples are copied by the `Spaghettify` post-build step from `assets/arcadekart_audio/` to the executable-side `arcadekart_audio/` folder. HMAS rejected the original Vorbis OGG files as `Invalid file`, so gameplay now loads PCM WAV conversions instead. A bad shift writes `GRIND_SOUND ... custom 1` to `logs/ArcadeKartShift.log` when the custom sample path is active.
+
+## Texture Mods
+
+- The active HD texture pack is `mods/mk64-reloaded-v2025.12.20-sk-hd.o2r` (`MK64-Reloaded-SK`). Track targeted overrides as a separate loose folder mod named `spiny-valley-porcupine-override`, currently containing `textures/tracks/yoshi_valley/yoshi_valley_data/d_course_yoshi_valley_hedgehog.png` and `textures/common_data/common_texture_speedometer.png`. Keep copies in both `E:\SpaghettiKart\mods\` and `E:\SpaghettiKart\build\x64\Debug\mods\` so the runtime loads it after Reloaded without modifying the large pack.
+- Yoshi Valley hedgehog sprite flipping is camera-space now: each hedgehog/camera pair tracks its previous projected X and uses the mirrored quad only when it moves camera-left.
+- World drift feedback text keeps a per-particle tire corner anchor; the current anchor has `unk_010 == 1` using the positive card half-width and `unk_010 == 0` using the negative half-width.

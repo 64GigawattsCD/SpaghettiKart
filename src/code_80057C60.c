@@ -46,6 +46,20 @@
 
 //! @warning this macro is undef'd at the end of this file
 #define MAKE_RGB(r, g, b) (((r) << 0x10) | ((g) << 0x08) | (b << 0x00))
+#define ARCADEKART_WORLD_DRIFT_FEEDBACK_BACKWARD_SPEED 4.5f
+#define ARCADEKART_WORLD_DRIFT_FEEDBACK_LATERAL_SPEED 5.0f
+#define ARCADEKART_WORLD_DRIFT_FEEDBACK_SPAWN_OUTWARD_OFFSET 1.25f
+#define ARCADEKART_WORLD_DRIFT_FEEDBACK_RISE_SPEED 0.675f
+#define ARCADEKART_WORLD_DRIFT_FEEDBACK_SPAWN_INTERVAL 6
+#define ARCADEKART_WORLD_DRIFT_FEEDBACK_POSITION_JITTER 0.2f
+#define ARCADEKART_WORLD_DRIFT_FEEDBACK_POOL_COUNT 24
+
+static void arcadekart_prepare_world_drift_feedback_particle(Player* player, UnkPlayerStruct258* particle);
+static void arcadekart_init_world_drift_feedback_word_textures(void);
+static void render_arcadekart_world_drift_particle_feedback(Player* player, s8 playerId, s16 particleIndex,
+                                                           s8 screenId);
+static void arcadekart_update_world_drift_feedback_pool(Player* player, s8 playerId);
+static void arcadekart_render_world_drift_feedback_pool(Player* player, s8 playerId, s8 screenId);
 
 s32 D_80165590;
 s32 D_80165594;
@@ -406,6 +420,7 @@ s32 D_800E480C[] = {
 
 // UI Code?
 void func_80057C60(void) {
+    arcadekart_init_world_drift_feedback_word_textures();
     gSPViewport(gDisplayListHead++, VIRTUAL_TO_PHYSICAL(D_802B8880));
     gDPSetScissor(gDisplayListHead++, G_SC_NON_INTERLACE, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
     gSPMatrix(gDisplayListHead++, VIRTUAL_TO_PHYSICAL(&D_80183D60), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
@@ -2590,13 +2605,13 @@ void set_drift_particles(Player* player, s16 arg1, UNUSED s32 arg2, UNUSED s8 ar
     s32 shouldForceDirectDriftParticle;
 
     if (player->unk_0C0 >= 0) {
-        set_particle_position_and_rotation(player, &player->particlePool1[arg1], player->tyres[BACK_LEFT].pos[0],
-                      player->tyres[BACK_LEFT].baseHeight + 2.0f, player->tyres[BACK_LEFT].pos[2],
-                      player->tyres[BACK_LEFT].surfaceType, 1);
-    } else {
         set_particle_position_and_rotation(player, &player->particlePool1[arg1], player->tyres[BACK_RIGHT].pos[0],
                       player->tyres[BACK_RIGHT].baseHeight + 2.0f, player->tyres[BACK_RIGHT].pos[2],
                       player->tyres[BACK_RIGHT].surfaceType, 0);
+    } else {
+        set_particle_position_and_rotation(player, &player->particlePool1[arg1], player->tyres[BACK_LEFT].pos[0],
+                      player->tyres[BACK_LEFT].baseHeight + 2.0f, player->tyres[BACK_LEFT].pos[2],
+                      player->tyres[BACK_LEFT].surfaceType, 1);
     }
 
     temp_lo = player->unk_0C0 / 182;
@@ -2620,18 +2635,21 @@ void set_drift_particles(Player* player, s16 arg1, UNUSED s32 arg2, UNUSED s8 ar
         if (player->driftState >= 2) {
             // Why not put this in previous if statement?
             player->particlePool1[arg1].unk_040 = 2;
+            arcadekart_prepare_world_drift_feedback_particle(player, &player->particlePool1[arg1]);
             return;
         }
 
         player->particlePool1[arg1].unk_040 = player->driftState;
+        arcadekart_prepare_world_drift_feedback_particle(player, &player->particlePool1[arg1]);
     }
 }
 
 void check_drift_particles_setup_valid(Player* player, s16 arg1, s32 arg2, s8 arg3, s8 arg4) {
     if ((arg1 == 0) &&
-        ((player->particlePool1[arg2].unk_01E >= 3) || (player->particlePool1[arg2].isAlive == 0))) {
+        ((player->particlePool1[arg2].unk_01E >= ARCADEKART_WORLD_DRIFT_FEEDBACK_SPAWN_INTERVAL) ||
+         (player->particlePool1[arg2].isAlive == 0))) {
         set_drift_particles(player, arg1, arg2, arg3, arg4);
-    } else if (player->particlePool1[arg2].unk_01E >= 3) {
+    } else if (player->particlePool1[arg2].unk_01E >= ARCADEKART_WORLD_DRIFT_FEEDBACK_SPAWN_INTERVAL) {
         set_drift_particles(player, arg1, arg2, arg3, arg4);
     }
 }
@@ -4109,24 +4127,35 @@ void func_80063268(Player* player, s16 arg1, UNUSED s8 arg2, UNUSED s8 arg3) {
 }
 
 void func_80063408(Player* player, s16 arg1, UNUSED s8 arg2, UNUSED s8 arg3) {
+    f32 baseX;
+    f32 baseZ;
+    f32 backwardDistance;
+    f32 lateralDistance;
+    s16 lateralYaw;
+
     if (player->particlePool1[arg1].unk_010 == 1) {
-        player->particlePool1[arg1].pos[2] =
-            player->tyres[BACK_LEFT].pos[2] +
-            (player->particlePool1[arg1].unk_01E * -7) * coss(player->particlePool1[arg1].unk_020);
-        player->particlePool1[arg1].pos[0] =
-            player->tyres[BACK_LEFT].pos[0] +
-            (player->particlePool1[arg1].unk_01E * -7) * sins(player->particlePool1[arg1].unk_020);
+        baseX = player->tyres[BACK_LEFT].pos[0];
+        baseZ = player->tyres[BACK_LEFT].pos[2];
     } else {
-        player->particlePool1[arg1].pos[2] =
-            player->tyres[BACK_RIGHT].pos[2] +
-            (player->particlePool1[arg1].unk_01E * -7) * coss(player->particlePool1[arg1].unk_020);
-        player->particlePool1[arg1].pos[0] =
-            player->tyres[BACK_RIGHT].pos[0] +
-            (player->particlePool1[arg1].unk_01E * -7) * sins(player->particlePool1[arg1].unk_020);
+        baseX = player->tyres[BACK_RIGHT].pos[0];
+        baseZ = player->tyres[BACK_RIGHT].pos[2];
     }
 
+    backwardDistance = (f32) player->particlePool1[arg1].unk_01E * -ARCADEKART_WORLD_DRIFT_FEEDBACK_BACKWARD_SPEED;
+    lateralDistance = ARCADEKART_WORLD_DRIFT_FEEDBACK_SPAWN_OUTWARD_OFFSET +
+                      ((f32) player->particlePool1[arg1].unk_01E *
+                       ARCADEKART_WORLD_DRIFT_FEEDBACK_LATERAL_SPEED);
+    if (player->unk_0C0 < 0) {
+        lateralDistance = -lateralDistance;
+    }
+    lateralYaw = player->particlePool1[arg1].unk_020 + 0x4000;
+    player->particlePool1[arg1].pos[2] = baseZ + (backwardDistance * coss(player->particlePool1[arg1].unk_020)) +
+                                         (lateralDistance * coss(lateralYaw)) + player->particlePool1[arg1].unk_028;
+    player->particlePool1[arg1].pos[0] = baseX + (backwardDistance * sins(player->particlePool1[arg1].unk_020)) +
+                                         (lateralDistance * sins(lateralYaw)) + player->particlePool1[arg1].unk_024;
+
     ++player->particlePool1[arg1].unk_01E;
-    player->particlePool1[arg1].pos[1] += 1.0f;
+    player->particlePool1[arg1].pos[1] += ARCADEKART_WORLD_DRIFT_FEEDBACK_RISE_SPEED;
 
     if (((player->effects & 0x80) != 0) || ((player->effects & 0x40) != 0)) {
         player->particlePool1[arg1].isAlive = 0;
@@ -4727,9 +4756,833 @@ void func_800652D4(Vec3f arg0, Vec3s arg1, f32 arg2) {
     AddEffectMatrix(mtx, G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
 }
 
-void func_8006538C(Player* player, s8 arg1, s16 arg2, s8 arg3) {
+typedef enum {
+    ARCADEKART_WORLD_DRIFT_FEEDBACK_NONE,
+    ARCADEKART_WORLD_DRIFT_FEEDBACK_SLIDE,
+    ARCADEKART_WORLD_DRIFT_FEEDBACK_DRIFT,
+    ARCADEKART_WORLD_DRIFT_FEEDBACK_TURBO,
+} ArcadeKartWorldDriftFeedbackStage;
+
+#define ARCADEKART_WORLD_DRIFT_FEEDBACK_PLAYER_COUNT 8
+#define ARCADEKART_WORLD_DRIFT_FEEDBACK_CELL_STEP 0.85f
+#define ARCADEKART_WORLD_DRIFT_FEEDBACK_CELL_SCALE 0.026f
+#define ARCADEKART_WORLD_DRIFT_FEEDBACK_TEXTURE_WIDTH 128
+#define ARCADEKART_WORLD_DRIFT_FEEDBACK_TEXTURE_HEIGHT 32
+#define ARCADEKART_WORLD_DRIFT_FEEDBACK_TEXTURE_COUNT 3
+#define ARCADEKART_WORLD_DRIFT_FEEDBACK_TEXTURE_BYTES \
+    (ARCADEKART_WORLD_DRIFT_FEEDBACK_TEXTURE_WIDTH * ARCADEKART_WORLD_DRIFT_FEEDBACK_TEXTURE_HEIGHT)
+#define ARCADEKART_WORLD_DRIFT_FEEDBACK_TEXTURE_U64S (ARCADEKART_WORLD_DRIFT_FEEDBACK_TEXTURE_BYTES / sizeof(u64))
+#define ARCADEKART_WORLD_DRIFT_FEEDBACK_CARD_HALF_WIDTH 32
+#define ARCADEKART_WORLD_DRIFT_FEEDBACK_CARD_HALF_HEIGHT 8
+#define ARCADEKART_WORLD_DRIFT_FEEDBACK_CARD_SCALE 0.36f
+
+static s8 sArcadeKartWorldDriftFeedbackSpawnToggle[ARCADEKART_WORLD_DRIFT_FEEDBACK_PLAYER_COUNT];
+static s8 sArcadeKartWorldDriftFeedbackLastStage[ARCADEKART_WORLD_DRIFT_FEEDBACK_PLAYER_COUNT];
+static s8 sArcadeKartWorldDriftFeedbackSpawnCooldown[ARCADEKART_WORLD_DRIFT_FEEDBACK_PLAYER_COUNT];
+static s8 sArcadeKartWorldDriftFeedbackTexturesInitialized;
+static s32 sArcadeKartWorldDriftFeedbackPrepareCount;
+static s32 sArcadeKartWorldDriftFeedbackRenderAttemptCount;
+static s32 sArcadeKartWorldDriftFeedbackRenderSkipCount;
+static s32 sArcadeKartWorldDriftFeedbackDrawCount;
+static s32 sArcadeKartWorldDriftFeedbackSpawnAttemptCount;
+
+static u64 sArcadeKartWorldDriftFeedbackFillTextures[ARCADEKART_WORLD_DRIFT_FEEDBACK_TEXTURE_COUNT]
+                                                     [ARCADEKART_WORLD_DRIFT_FEEDBACK_TEXTURE_U64S];
+static u64 sArcadeKartWorldDriftFeedbackOutlineTextures[ARCADEKART_WORLD_DRIFT_FEEDBACK_TEXTURE_COUNT]
+                                                        [ARCADEKART_WORLD_DRIFT_FEEDBACK_TEXTURE_U64S];
+static UnkPlayerStruct258 sArcadeKartWorldDriftFeedbackParticles[ARCADEKART_WORLD_DRIFT_FEEDBACK_PLAYER_COUNT]
+                                                               [ARCADEKART_WORLD_DRIFT_FEEDBACK_POOL_COUNT];
+
+static Vtx sArcadeKartWorldDriftFeedbackCardVtx[] = {
+    { { { -ARCADEKART_WORLD_DRIFT_FEEDBACK_CARD_HALF_WIDTH, ARCADEKART_WORLD_DRIFT_FEEDBACK_CARD_HALF_HEIGHT, 0 },
+          0,
+          { (ARCADEKART_WORLD_DRIFT_FEEDBACK_TEXTURE_WIDTH - 1) * 64, 0 },
+          { 255, 255, 255, 255 } } },
+    { { { ARCADEKART_WORLD_DRIFT_FEEDBACK_CARD_HALF_WIDTH, ARCADEKART_WORLD_DRIFT_FEEDBACK_CARD_HALF_HEIGHT, 0 },
+          0,
+          { 0, 0 },
+          { 255, 255, 255, 255 } } },
+    { { { ARCADEKART_WORLD_DRIFT_FEEDBACK_CARD_HALF_WIDTH, -ARCADEKART_WORLD_DRIFT_FEEDBACK_CARD_HALF_HEIGHT, 0 },
+          0,
+          { 0, (ARCADEKART_WORLD_DRIFT_FEEDBACK_TEXTURE_HEIGHT - 1) * 64 },
+          { 255, 255, 255, 255 } } },
+    { { { -ARCADEKART_WORLD_DRIFT_FEEDBACK_CARD_HALF_WIDTH, -ARCADEKART_WORLD_DRIFT_FEEDBACK_CARD_HALF_HEIGHT, 0 },
+          0,
+          { (ARCADEKART_WORLD_DRIFT_FEEDBACK_TEXTURE_WIDTH - 1) * 64,
+            (ARCADEKART_WORLD_DRIFT_FEEDBACK_TEXTURE_HEIGHT - 1) * 64 },
+          { 255, 255, 255, 255 } } },
+};
+
+static const char* const* get_arcadekart_world_feedback_glyph(char letter) {
+    static const char* const glyphB[] = { "11110", "10001", "10001", "11110", "10001", "10001", "11110" };
+    static const char* const glyphD[] = { "11110", "10001", "10001", "10001", "10001", "10001", "11110" };
+    static const char* const glyphE[] = { "11111", "10000", "10000", "11110", "10000", "10000", "11111" };
+    static const char* const glyphF[] = { "11111", "10000", "10000", "11110", "10000", "10000", "10000" };
+    static const char* const glyphI[] = { "11111", "00100", "00100", "00100", "00100", "00100", "11111" };
+    static const char* const glyphL[] = { "10000", "10000", "10000", "10000", "10000", "10000", "11111" };
+    static const char* const glyphO[] = { "01110", "10001", "10001", "10001", "10001", "10001", "01110" };
+    static const char* const glyphR[] = { "11110", "10001", "10001", "11110", "10100", "10010", "10001" };
+    static const char* const glyphS[] = { "01111", "10000", "10000", "01110", "00001", "00001", "11110" };
+    static const char* const glyphT[] = { "11111", "00100", "00100", "00100", "00100", "00100", "00100" };
+    static const char* const glyphU[] = { "10001", "10001", "10001", "10001", "10001", "10001", "01110" };
+    static const char* const glyphBang[] = { "00100", "00100", "00100", "00100", "00100", "00000", "00100" };
+
+    switch (letter) {
+        case 'B':
+            return glyphB;
+        case 'D':
+            return glyphD;
+        case 'E':
+            return glyphE;
+        case 'F':
+            return glyphF;
+        case 'I':
+            return glyphI;
+        case 'L':
+            return glyphL;
+        case 'O':
+            return glyphO;
+        case 'R':
+            return glyphR;
+        case 'S':
+            return glyphS;
+        case 'T':
+            return glyphT;
+        case 'U':
+            return glyphU;
+        case '!':
+            return glyphBang;
+        default:
+            return glyphI;
+    }
+}
+
+static s32 get_arcadekart_world_drift_feedback_player_index(Player* player) {
+    s32 playerIndex = player - gPlayerOne;
+
+    if ((playerIndex < 0) || (playerIndex >= ARCADEKART_WORLD_DRIFT_FEEDBACK_PLAYER_COUNT)) {
+        return -1;
+    }
+    return playerIndex;
+}
+
+static struct Controller* get_arcadekart_world_drift_feedback_controller(s32 playerIndex) {
+    if ((playerIndex < 0) || (playerIndex >= ARCADEKART_WORLD_DRIFT_FEEDBACK_PLAYER_COUNT)) {
+        return NULL;
+    }
+
+    return &gControllerOne[playerIndex];
+}
+
+static s8 get_arcadekart_world_drift_feedback_stage(Player* player) {
+    if ((player->type & PLAYER_HUMAN) != PLAYER_HUMAN) {
+        return ARCADEKART_WORLD_DRIFT_FEEDBACK_NONE;
+    }
+    if (player->driftState <= 0) {
+        return ARCADEKART_WORLD_DRIFT_FEEDBACK_SLIDE;
+    }
+    if (player->driftState == 1) {
+        return ARCADEKART_WORLD_DRIFT_FEEDBACK_DRIFT;
+    }
+    return ARCADEKART_WORLD_DRIFT_FEEDBACK_TURBO;
+}
+
+static f32 get_arcadekart_world_drift_feedback_position_jitter(void) {
+    return (((f32) random_int(401U) - 200.0f) / 200.0f) * ARCADEKART_WORLD_DRIFT_FEEDBACK_POSITION_JITTER;
+}
+
+static s16 get_arcadekart_world_drift_feedback_alpha(s16 age) {
+    static const s16 alphaByAge[] = { 128, 255, 204, 153, 102, 77, 51, 26, 0 };
+    s32 index = age;
+
+    if (index < 0) {
+        index = 0;
+    }
+    if (index >= (s32) (sizeof(alphaByAge) / sizeof(alphaByAge[0]))) {
+        index = (s32) (sizeof(alphaByAge) / sizeof(alphaByAge[0])) - 1;
+    }
+    return alphaByAge[index];
+}
+
+static s32 arcadekart_world_drift_feedback_should_spawn(Player* player, s32 playerIndex) {
+    struct Controller* controller = get_arcadekart_world_drift_feedback_controller(playerIndex);
+    s32 yawAmount = player->unk_0C0 / 182;
+    s32 absYaw = yawAmount;
+    s32 driftInputActive = 0;
+    f32 speedKmh = (player->speed / 18.0f) * 216.0f;
+
+    if (absYaw < 0) {
+        absYaw = -absYaw;
+    }
+    if (controller != NULL) {
+        driftInputActive = kart_input_is_command_active(controller, KART_INPUT_DRIFT);
+    }
+
+    if (playerIndex == 0) {
+        CVarSetInteger("gArcadeKart.DebugDriftFxEffectBit", (player->effects & DRIFTING_EFFECT) == DRIFTING_EFFECT);
+        CVarSetInteger("gArcadeKart.DebugDriftFxDriftState", player->driftState);
+        CVarSetInteger("gArcadeKart.DebugDriftFxDriftDuration", player->driftDuration);
+        CVarSetInteger("gArcadeKart.DebugDriftFxYaw", yawAmount);
+        CVarSetInteger("gArcadeKart.DebugDriftFxInput", driftInputActive);
+    }
+
+    if ((player->type & PLAYER_HUMAN) != PLAYER_HUMAN) {
+        return false;
+    }
+    if ((player->type & PLAYER_INVISIBLE_OR_BOMB) == PLAYER_INVISIBLE_OR_BOMB) {
+        return false;
+    }
+    if ((player->effects & (0x80 | 0x40 | HIT_BY_ITEM_EFFECT | HIT_EFFECT)) != 0) {
+        return false;
+    }
+    if (speedKmh <= 10.0f) {
+        return false;
+    }
+
+    if (((player->effects & DRIFTING_EFFECT) == DRIFTING_EFFECT) || (player->driftDuration > 0) ||
+        (player->driftState > 0)) {
+        return true;
+    }
+
+    return (driftInputActive && (absYaw >= 2)) || ((absYaw >= 7) && (speedKmh > 20.0f));
+}
+
+static f32 get_arcadekart_world_feedback_text_width(const char* text) {
+    f32 width = 0.0f;
+    s32 i;
+
+    for (i = 0; text[i] != '\0'; i++) {
+        width += (text[i] == ' ') ? (3.0f * ARCADEKART_WORLD_DRIFT_FEEDBACK_CELL_STEP)
+                                  : (5.0f * ARCADEKART_WORLD_DRIFT_FEEDBACK_CELL_STEP);
+        if (text[i + 1] != '\0') {
+            width += ARCADEKART_WORLD_DRIFT_FEEDBACK_CELL_STEP;
+        }
+    }
+    return width;
+}
+
+static u8* get_arcadekart_world_drift_feedback_fill_texture(s32 textureIndex) {
+    return (u8*) sArcadeKartWorldDriftFeedbackFillTextures[textureIndex];
+}
+
+static u8* get_arcadekart_world_drift_feedback_outline_texture(s32 textureIndex) {
+    return (u8*) sArcadeKartWorldDriftFeedbackOutlineTextures[textureIndex];
+}
+
+static void clear_arcadekart_world_drift_feedback_texture(u8* texture) {
+    s32 i;
+
+    for (i = 0; i < ARCADEKART_WORLD_DRIFT_FEEDBACK_TEXTURE_BYTES; i++) {
+        texture[i] = 0;
+    }
+}
+
+static void set_arcadekart_world_drift_feedback_texture_pixel(u8* texture, s32 x, s32 y, u8 value) {
+    if ((x < 0) || (x >= ARCADEKART_WORLD_DRIFT_FEEDBACK_TEXTURE_WIDTH) || (y < 0) ||
+        (y >= ARCADEKART_WORLD_DRIFT_FEEDBACK_TEXTURE_HEIGHT)) {
+        return;
+    }
+    texture[(y * ARCADEKART_WORLD_DRIFT_FEEDBACK_TEXTURE_WIDTH) + x] = value;
+}
+
+static s32 get_arcadekart_world_drift_feedback_line_width(const char* text, s32 pixelSize) {
+    s32 width = 0;
+    s32 i;
+
+    for (i = 0; text[i] != '\0'; i++) {
+        width += ((text[i] == ' ') ? 3 : 5) * pixelSize;
+        if (text[i + 1] != '\0') {
+            width += pixelSize;
+        }
+    }
+    return width;
+}
+
+static void blit_arcadekart_world_drift_feedback_glyph(u8* texture, char letter, s32 originX, s32 originY,
+                                                       s32 pixelSize) {
+    const char* const* glyph = get_arcadekart_world_feedback_glyph(letter);
+    s32 row;
+    s32 column;
+    s32 pixelY;
+    s32 pixelX;
+
+    if (letter == ' ') {
+        return;
+    }
+
+    for (row = 0; row < 7; row++) {
+        for (column = 0; column < 5; column++) {
+            if (glyph[row][column] == '0') {
+                continue;
+            }
+            for (pixelY = 0; pixelY < pixelSize; pixelY++) {
+                for (pixelX = 0; pixelX < pixelSize; pixelX++) {
+                    set_arcadekart_world_drift_feedback_texture_pixel(texture, originX + (column * pixelSize) + pixelX,
+                                                                      originY + (row * pixelSize) + pixelY, 0xFF);
+                }
+            }
+        }
+    }
+}
+
+static void compose_arcadekart_world_drift_feedback_line(u8* texture, const char* text, s32 pixelSize, s32 originY) {
+    s32 cursorX = (ARCADEKART_WORLD_DRIFT_FEEDBACK_TEXTURE_WIDTH -
+                   get_arcadekart_world_drift_feedback_line_width(text, pixelSize)) /
+                  2;
+    s32 i;
+
+    for (i = 0; text[i] != '\0'; i++) {
+        if (text[i] == ' ') {
+            cursorX += 3 * pixelSize;
+        } else {
+            blit_arcadekart_world_drift_feedback_glyph(texture, text[i], cursorX, originY, pixelSize);
+            cursorX += 5 * pixelSize;
+        }
+        if (text[i + 1] != '\0') {
+            cursorX += pixelSize;
+        }
+    }
+}
+
+static void build_arcadekart_world_drift_feedback_outline_texture(u8* fillTexture, u8* outlineTexture) {
+    s32 y;
+    s32 x;
+    s32 offsetY;
+    s32 offsetX;
+
+    clear_arcadekart_world_drift_feedback_texture(outlineTexture);
+    for (y = 0; y < ARCADEKART_WORLD_DRIFT_FEEDBACK_TEXTURE_HEIGHT; y++) {
+        for (x = 0; x < ARCADEKART_WORLD_DRIFT_FEEDBACK_TEXTURE_WIDTH; x++) {
+            if (fillTexture[(y * ARCADEKART_WORLD_DRIFT_FEEDBACK_TEXTURE_WIDTH) + x] == 0) {
+                continue;
+            }
+            for (offsetY = -1; offsetY <= 1; offsetY++) {
+                for (offsetX = -1; offsetX <= 1; offsetX++) {
+                    if ((offsetX == 0) && (offsetY == 0)) {
+                        continue;
+                    }
+                    set_arcadekart_world_drift_feedback_texture_pixel(outlineTexture, x + offsetX, y + offsetY, 0xFF);
+                }
+            }
+        }
+    }
+    for (y = 0; y < ARCADEKART_WORLD_DRIFT_FEEDBACK_TEXTURE_HEIGHT; y++) {
+        for (x = 0; x < ARCADEKART_WORLD_DRIFT_FEEDBACK_TEXTURE_WIDTH; x++) {
+            if (fillTexture[(y * ARCADEKART_WORLD_DRIFT_FEEDBACK_TEXTURE_WIDTH) + x] != 0) {
+                outlineTexture[(y * ARCADEKART_WORLD_DRIFT_FEEDBACK_TEXTURE_WIDTH) + x] = 0;
+            }
+        }
+    }
+}
+
+static void compose_arcadekart_world_drift_feedback_texture(s32 textureIndex, const char* text, s32 pixelSize,
+                                                            s32 originY) {
+    u8* fillTexture = get_arcadekart_world_drift_feedback_fill_texture(textureIndex);
+    u8* outlineTexture = get_arcadekart_world_drift_feedback_outline_texture(textureIndex);
+
+    clear_arcadekart_world_drift_feedback_texture(fillTexture);
+    compose_arcadekart_world_drift_feedback_line(fillTexture, text, pixelSize, originY);
+    build_arcadekart_world_drift_feedback_outline_texture(fillTexture, outlineTexture);
+}
+
+static void compose_arcadekart_world_drift_feedback_turbo_texture(s32 textureIndex) {
+    u8* fillTexture = get_arcadekart_world_drift_feedback_fill_texture(textureIndex);
+    u8* outlineTexture = get_arcadekart_world_drift_feedback_outline_texture(textureIndex);
+
+    clear_arcadekart_world_drift_feedback_texture(fillTexture);
+    compose_arcadekart_world_drift_feedback_line(fillTexture, "TURBO", 2, 1);
+    compose_arcadekart_world_drift_feedback_line(fillTexture, "DRIFT!!", 2, 17);
+    build_arcadekart_world_drift_feedback_outline_texture(fillTexture, outlineTexture);
+}
+
+static void arcadekart_init_world_drift_feedback_word_textures(void) {
+    if (sArcadeKartWorldDriftFeedbackTexturesInitialized != 0) {
+        return;
+    }
+
+    compose_arcadekart_world_drift_feedback_texture(0, "SLIDE", 2, 9);
+    compose_arcadekart_world_drift_feedback_texture(1, "DRIFT!", 2, 9);
+    compose_arcadekart_world_drift_feedback_turbo_texture(2);
+    sArcadeKartWorldDriftFeedbackTexturesInitialized = 1;
+}
+
+static s32 get_arcadekart_world_drift_feedback_turbo_color(void) {
+    static const s32 rainbowColors[] = {
+        0xFF4040, 0xFF9A20, 0xFFEB40, 0x40EB60, 0x40B4FF, 0x8C60FF, 0xFF60DC,
+    };
+
+    return rainbowColors[(gGlobalTimer / 2) % 7];
+}
+
+static void render_arcadekart_world_drift_feedback_texture_pass(u8* texture, s32 rgb, s16 alpha) {
+    s16 red = (rgb >> 0x10) & 0xFF;
+    s16 green = (rgb >> 0x08) & 0xFF;
+    s16 blue = rgb & 0xFF;
+
+    gSPDisplayList(gDisplayListHead++, D_0D008DB8);
+    gDPSetTextureLUT(gDisplayListHead++, G_TT_NONE);
+    gDPLoadTextureBlock(gDisplayListHead++, VIRTUAL_TO_PHYSICAL(texture), G_IM_FMT_IA, G_IM_SIZ_8b,
+                        ARCADEKART_WORLD_DRIFT_FEEDBACK_TEXTURE_WIDTH,
+                        ARCADEKART_WORLD_DRIFT_FEEDBACK_TEXTURE_HEIGHT, 0,
+                        G_TX_NOMIRROR | G_TX_CLAMP, G_TX_NOMIRROR | G_TX_CLAMP, G_TX_NOMASK, G_TX_NOMASK, G_TX_NOLOD,
+                        G_TX_NOLOD);
+    func_8004B35C(red, green, blue, alpha);
+    gDPSetRenderMode(gDisplayListHead++, G_RM_ZB_XLU_SURF, G_RM_ZB_XLU_SURF2);
+    gSPVertex(gDisplayListHead++, sArcadeKartWorldDriftFeedbackCardVtx, 4, 0);
+    gSPDisplayList(gDisplayListHead++, D_0D008DA0);
+}
+
+static void render_arcadekart_world_feedback_cell(Player* player, s8 playerId, s8 screenId, s32 instanceIndex,
+                                                  Vec3f anchor, f32 localX, f32 localY, f32 scale, s32 rgb,
+                                                  s16 alpha, uintptr_t tag) {
+    Vec3f pos;
+    Vec3s rot;
+    f32 offsetX;
+    f32 offsetY;
+    f32 offsetZ;
+    s16 red = (rgb >> 0x10) & 0xFF;
+    s16 green = (rgb >> 0x08) & 0xFF;
+    s16 blue = rgb & 0xFF;
+
+    func_80062B18(&offsetX, &offsetY, &offsetZ, localX, localY, 0.0f, -player->unk_048[screenId], 0);
+    pos[0] = anchor[0] + offsetX;
+    pos[1] = anchor[1] + offsetY;
+    pos[2] = anchor[2] + offsetZ;
+    rot[0] = 0;
+    rot[1] = player->unk_048[screenId];
+    rot[2] = 0;
+
+    FrameInterpolation_RecordOpenChild("arcadekart_world_drift_feedback_cell",
+                                        tag | ((uintptr_t) (playerId & 0xF) << 40) |
+                                            ((uintptr_t) (screenId & 0xF) << 36) |
+                                            ((uintptr_t) (instanceIndex & 0xF) << 32));
+    func_800652D4(pos, rot, scale * player->size);
+    gSPDisplayList(gDisplayListHead++, D_0D008DB8);
+    gDPSetTextureLUT(gDisplayListHead++, G_TT_NONE);
+    gDPLoadTextureBlock(gDisplayListHead++, gTexture69C80C, G_IM_FMT_IA, G_IM_SIZ_8b, 32, 32, 0,
+                        G_TX_NOMIRROR | G_TX_CLAMP, G_TX_NOMIRROR | G_TX_CLAMP, G_TX_NOMASK, G_TX_NOMASK, G_TX_NOLOD,
+                        G_TX_NOLOD);
+    func_8004B35C(red, green, blue, alpha);
+    gDPSetRenderMode(gDisplayListHead++, G_RM_ZB_CLD_SURF, G_RM_ZB_CLD_SURF2);
+    gSPDisplayList(gDisplayListHead++, D_0D008E48);
+    FrameInterpolation_RecordCloseChild();
+    gMatrixEffectCount += 1;
+}
+
+static void render_arcadekart_world_feedback_glyph(Player* player, s8 playerId, s8 screenId, s32 instanceIndex,
+                                                   Vec3f anchor, char letter, s32 letterIndex, f32 originX,
+                                                   f32 originY, f32 scale, s32 rgb, s16 alpha, s32 pass) {
+    const char* const* glyph = get_arcadekart_world_feedback_glyph(letter);
+    s32 row;
+    s32 column;
+
+    if (letter == ' ') {
+        return;
+    }
+
+    for (row = 0; row < 7; row++) {
+        for (column = 0; column < 5; column++) {
+            if (glyph[row][column] != '0') {
+                f32 localX = originX + ((f32) column * ARCADEKART_WORLD_DRIFT_FEEDBACK_CELL_STEP);
+                f32 localY = originY - ((f32) row * ARCADEKART_WORLD_DRIFT_FEEDBACK_CELL_STEP);
+                uintptr_t tag = ((uintptr_t) (pass & 0xF) << 20) | ((uintptr_t) (letterIndex & 0xFF) << 12) |
+                                ((uintptr_t) (row & 0xF) << 8) | ((uintptr_t) (column & 0xF) << 4);
+
+                render_arcadekart_world_feedback_cell(player, playerId, screenId, instanceIndex, anchor, localX, localY,
+                                                      scale, rgb, alpha, tag);
+            }
+        }
+    }
+}
+
+static void render_arcadekart_world_feedback_text_pass(Player* player, s8 playerId, s8 screenId, Vec3f anchor,
+                                                       s32 instanceIndex, const char* text, f32 originX, f32 originY,
+                                                       f32 passOffsetX, f32 passOffsetY, f32 scale, s32 rgb, s16 alpha,
+                                                       s32 pass) {
+    s32 i;
+    f32 cursorX = originX + passOffsetX;
+
+    for (i = 0; text[i] != '\0'; i++) {
+        if (text[i] != ' ') {
+            render_arcadekart_world_feedback_glyph(player, playerId, screenId, instanceIndex, anchor, text[i], i, cursorX,
+                                                   originY + passOffsetY, scale, rgb, alpha, pass);
+            cursorX += 5.0f * ARCADEKART_WORLD_DRIFT_FEEDBACK_CELL_STEP;
+        } else {
+            cursorX += 3.0f * ARCADEKART_WORLD_DRIFT_FEEDBACK_CELL_STEP;
+        }
+        if (text[i + 1] != '\0') {
+            cursorX += ARCADEKART_WORLD_DRIFT_FEEDBACK_CELL_STEP;
+        }
+    }
+}
+
+static void render_arcadekart_world_feedback_turbo_text(Player* player, s8 playerId, s8 screenId, s32 instanceIndex,
+                                                        Vec3f anchor, f32 originX, f32 originY, f32 scale, s16 alpha) {
+    static const s32 rainbowColors[] = {
+        0xFF4040, 0xFF9A20, 0xFFEB40, 0x40EB60, 0x40B4FF, 0x8C60FF, 0xFF60DC,
+    };
+    const char* text = "TURBO DRIFT!!";
+    s32 i;
+    f32 cursorX = originX;
+
+    render_arcadekart_world_feedback_text_pass(player, playerId, screenId, anchor, instanceIndex, text, originX, originY,
+                                               ARCADEKART_WORLD_DRIFT_FEEDBACK_CELL_STEP * 0.6f,
+                                               -ARCADEKART_WORLD_DRIFT_FEEDBACK_CELL_STEP * 0.6f, scale, 0x000000,
+                                               alpha / 2, 8);
+    for (i = 0; text[i] != '\0'; i++) {
+        if (text[i] != ' ') {
+            s32 rgb = rainbowColors[(i + (gGlobalTimer / 2)) % 7];
+
+            render_arcadekart_world_feedback_glyph(player, playerId, screenId, instanceIndex, anchor, text[i], i,
+                                                   cursorX, originY, scale, rgb, alpha, 9);
+            cursorX += 5.0f * ARCADEKART_WORLD_DRIFT_FEEDBACK_CELL_STEP;
+        } else {
+            cursorX += 3.0f * ARCADEKART_WORLD_DRIFT_FEEDBACK_CELL_STEP;
+        }
+        if (text[i + 1] != '\0') {
+            cursorX += ARCADEKART_WORLD_DRIFT_FEEDBACK_CELL_STEP;
+        }
+    }
+}
+
+static void arcadekart_prepare_world_drift_feedback_particle(Player* player, UnkPlayerStruct258* particle) {
+    s32 playerIndex = get_arcadekart_world_drift_feedback_player_index(player);
+    s8 stage;
+
+    if (playerIndex < 0) {
+        return;
+    }
+
+    stage = get_arcadekart_world_drift_feedback_stage(player);
+    if (stage == ARCADEKART_WORLD_DRIFT_FEEDBACK_NONE) {
+        particle->unk_044 = 0;
+        sArcadeKartWorldDriftFeedbackLastStage[playerIndex] = ARCADEKART_WORLD_DRIFT_FEEDBACK_NONE;
+        return;
+    }
+
+    sArcadeKartWorldDriftFeedbackSpawnToggle[playerIndex] = 1;
+    sArcadeKartWorldDriftFeedbackLastStage[playerIndex] = stage;
+    particle->unk_018 = get_arcadekart_world_drift_feedback_position_jitter();
+    particle->unk_024 = get_arcadekart_world_drift_feedback_position_jitter();
+    particle->unk_028 = get_arcadekart_world_drift_feedback_position_jitter();
+    particle->pos[1] += particle->unk_018;
+    particle->unk_044 = 1;
+    sArcadeKartWorldDriftFeedbackPrepareCount++;
+    CVarSetInteger("gArcadeKart.DebugDriftFxPrepareCount", sArcadeKartWorldDriftFeedbackPrepareCount);
+    CVarSetInteger("gArcadeKart.DebugDriftFxLastStage", stage);
+    CVarSetFloat("gArcadeKart.DebugDriftFxJitterX", particle->unk_024);
+    CVarSetFloat("gArcadeKart.DebugDriftFxJitterY", particle->unk_018);
+    CVarSetFloat("gArcadeKart.DebugDriftFxJitterZ", particle->unk_028);
+}
+
+static void arcadekart_update_world_drift_feedback_particle(Player* player, UnkPlayerStruct258* particle) {
+    f32 baseX;
+    f32 baseZ;
+    f32 backwardDistance;
+    f32 lateralDistance;
+    s16 lateralYaw;
+
+    if (particle->isAlive != 1) {
+        return;
+    }
+
+    if (particle->unk_010 == 1) {
+        baseX = player->tyres[BACK_LEFT].pos[0];
+        baseZ = player->tyres[BACK_LEFT].pos[2];
+    } else {
+        baseX = player->tyres[BACK_RIGHT].pos[0];
+        baseZ = player->tyres[BACK_RIGHT].pos[2];
+    }
+
+    backwardDistance = (f32) particle->unk_01E * -ARCADEKART_WORLD_DRIFT_FEEDBACK_BACKWARD_SPEED;
+    lateralDistance = ARCADEKART_WORLD_DRIFT_FEEDBACK_SPAWN_OUTWARD_OFFSET +
+                      ((f32) particle->unk_01E * ARCADEKART_WORLD_DRIFT_FEEDBACK_LATERAL_SPEED);
+    if (player->unk_0C0 < 0) {
+        lateralDistance = -lateralDistance;
+    }
+    lateralYaw = particle->unk_020 + 0x4000;
+    particle->pos[2] = baseZ + (backwardDistance * coss(particle->unk_020)) + (lateralDistance * coss(lateralYaw)) +
+                       particle->unk_028;
+    particle->pos[0] = baseX + (backwardDistance * sins(particle->unk_020)) + (lateralDistance * sins(lateralYaw)) +
+                       particle->unk_024;
+
+    ++particle->unk_01E;
+    particle->pos[1] += ARCADEKART_WORLD_DRIFT_FEEDBACK_RISE_SPEED;
+
+    if (((player->effects & 0x80) != 0) || ((player->effects & 0x40) != 0)) {
+        particle->isAlive = 0;
+        particle->unk_01E = 0;
+    }
+
+    if (particle->unk_01E > 8) {
+        particle->unk_01E = 0;
+        particle->isAlive = 0;
+        particle->type = 0;
+        particle->unk_044 = 0;
+    }
+
+    particle->scale += 0.08;
+}
+
+static void arcadekart_spawn_world_drift_feedback_particle(Player* player, s32 playerIndex) {
+    UnkPlayerStruct258* particle;
+    s32 particleIndex = -1;
+    s32 oldestIndex = 0;
+    s32 oldestAge = -1;
+    s8 stage;
+    s32 i;
+
+    stage = get_arcadekart_world_drift_feedback_stage(player);
+    if (stage == ARCADEKART_WORLD_DRIFT_FEEDBACK_NONE) {
+        return;
+    }
+
+    for (i = 0; i < ARCADEKART_WORLD_DRIFT_FEEDBACK_POOL_COUNT; i++) {
+        particle = &sArcadeKartWorldDriftFeedbackParticles[playerIndex][i];
+        if (particle->isAlive == 0) {
+            particleIndex = i;
+            break;
+        }
+        if (particle->unk_01E > oldestAge) {
+            oldestAge = particle->unk_01E;
+            oldestIndex = i;
+        }
+    }
+
+    if (particleIndex < 0) {
+        particleIndex = oldestIndex;
+    }
+
+    particle = &sArcadeKartWorldDriftFeedbackParticles[playerIndex][particleIndex];
+    if (player->unk_0C0 >= 0) {
+        set_particle_position_and_rotation(player, particle, player->tyres[BACK_RIGHT].pos[0],
+                                           player->tyres[BACK_RIGHT].baseHeight + 2.0f,
+                                           player->tyres[BACK_RIGHT].pos[2], player->tyres[BACK_RIGHT].surfaceType, 0);
+    } else {
+        set_particle_position_and_rotation(player, particle, player->tyres[BACK_LEFT].pos[0],
+                                           player->tyres[BACK_LEFT].baseHeight + 2.0f, player->tyres[BACK_LEFT].pos[2],
+                                           player->tyres[BACK_LEFT].surfaceType, 1);
+    }
+
+    init_particle_player(particle, DRIFT_PARTICLE, 0.35f);
+    set_particle_colour(particle, 0xFFFFFF, 0x70);
+    particle->unk_040 = stage - 1;
+    arcadekart_prepare_world_drift_feedback_particle(player, particle);
+    sArcadeKartWorldDriftFeedbackSpawnAttemptCount++;
+    CVarSetInteger("gArcadeKart.DebugDriftFxSpawnAttemptCount", sArcadeKartWorldDriftFeedbackSpawnAttemptCount);
+    CVarSetInteger("gArcadeKart.DebugDriftFxLastParticle", particleIndex);
+}
+
+static void arcadekart_update_world_drift_feedback_pool(Player* player, UNUSED s8 playerId) {
+    s32 playerIndex = get_arcadekart_world_drift_feedback_player_index(player);
+    s32 shouldSpawn;
+    s32 aliveCount = 0;
+    s32 i;
+
+    if (playerIndex < 0) {
+        return;
+    }
+
+    for (i = 0; i < ARCADEKART_WORLD_DRIFT_FEEDBACK_POOL_COUNT; i++) {
+        if (sArcadeKartWorldDriftFeedbackParticles[playerIndex][i].isAlive == 1) {
+            arcadekart_update_world_drift_feedback_particle(player, &sArcadeKartWorldDriftFeedbackParticles[playerIndex][i]);
+            if (sArcadeKartWorldDriftFeedbackParticles[playerIndex][i].isAlive == 1) {
+                aliveCount++;
+            }
+        }
+    }
+
+    shouldSpawn = arcadekart_world_drift_feedback_should_spawn(player, playerIndex);
+    if (playerIndex == 0) {
+        CVarSetInteger("gArcadeKart.DebugDriftFxActive", shouldSpawn);
+        CVarSetInteger("gArcadeKart.DebugDriftFxPoolAlive", aliveCount);
+        CVarSetInteger("gArcadeKart.DebugDriftFxPoolMax", ARCADEKART_WORLD_DRIFT_FEEDBACK_POOL_COUNT);
+        CVarSetInteger("gArcadeKart.DebugDriftFxCooldown", sArcadeKartWorldDriftFeedbackSpawnCooldown[playerIndex]);
+    }
+
+    if (!shouldSpawn) {
+        sArcadeKartWorldDriftFeedbackSpawnCooldown[playerIndex] = 0;
+        sArcadeKartWorldDriftFeedbackLastStage[playerIndex] = ARCADEKART_WORLD_DRIFT_FEEDBACK_NONE;
+        return;
+    }
+
+    if (sArcadeKartWorldDriftFeedbackSpawnCooldown[playerIndex] > 0) {
+        sArcadeKartWorldDriftFeedbackSpawnCooldown[playerIndex]--;
+        return;
+    }
+
+    arcadekart_spawn_world_drift_feedback_particle(player, playerIndex);
+    sArcadeKartWorldDriftFeedbackSpawnCooldown[playerIndex] = ARCADEKART_WORLD_DRIFT_FEEDBACK_SPAWN_INTERVAL;
+}
+
+static void render_arcadekart_world_drift_particle_feedback_instance(Player* player, s8 playerId,
+                                                                     UnkPlayerStruct258* particle, s16 particleIndex,
+                                                                     s8 screenId) {
+    s32 playerIndex = get_arcadekart_world_drift_feedback_player_index(player);
+    s16 alpha;
+    f32 scale;
+    s32 textureIndex;
+    s32 outlineColor;
+    s32 fillColor;
+    f32 worldScale;
+    f32 cornerX;
+    f32 cornerY;
+    Vec3f anchor;
+    Vec3s rot;
+
+    if (playerIndex < 0) {
+        return;
+    }
+    if ((gActiveScreenMode == SCREEN_MODE_3P_4P_SPLITSCREEN) && (screenId != playerId)) {
+        sArcadeKartWorldDriftFeedbackRenderSkipCount++;
+        CVarSetInteger("gArcadeKart.DebugDriftFxRenderSkipCount", sArcadeKartWorldDriftFeedbackRenderSkipCount);
+        return;
+    }
+    if ((player->type & PLAYER_HUMAN) != PLAYER_HUMAN) {
+        sArcadeKartWorldDriftFeedbackLastStage[playerIndex] = ARCADEKART_WORLD_DRIFT_FEEDBACK_NONE;
+        sArcadeKartWorldDriftFeedbackRenderSkipCount++;
+        CVarSetInteger("gArcadeKart.DebugDriftFxRenderSkipCount", sArcadeKartWorldDriftFeedbackRenderSkipCount);
+        return;
+    }
+
+    if ((particle->isAlive != 1) || (particle->unk_044 == 0)) {
+        sArcadeKartWorldDriftFeedbackRenderSkipCount++;
+        CVarSetInteger("gArcadeKart.DebugDriftFxRenderSkipCount", sArcadeKartWorldDriftFeedbackRenderSkipCount);
+        CVarSetInteger("gArcadeKart.DebugDriftFxLastAlive", particle->isAlive);
+        CVarSetInteger("gArcadeKart.DebugDriftFxLastEnabled", particle->unk_044);
+        return;
+    }
+
+    arcadekart_init_world_drift_feedback_word_textures();
+    sArcadeKartWorldDriftFeedbackRenderAttemptCount++;
+    CVarSetInteger("gArcadeKart.DebugDriftFxRenderAttemptCount", sArcadeKartWorldDriftFeedbackRenderAttemptCount);
+
+    alpha = get_arcadekart_world_drift_feedback_alpha(particle->unk_01E);
+    textureIndex = particle->unk_040;
+    if (textureIndex < 0) {
+        textureIndex = 0;
+    }
+    if (textureIndex >= ARCADEKART_WORLD_DRIFT_FEEDBACK_TEXTURE_COUNT) {
+        textureIndex = ARCADEKART_WORLD_DRIFT_FEEDBACK_TEXTURE_COUNT - 1;
+    }
+    scale = particle->scale * ARCADEKART_WORLD_DRIFT_FEEDBACK_CARD_SCALE;
+    anchor[0] = particle->pos[0];
+    anchor[1] = particle->pos[1] + 2.0f;
+    anchor[2] = particle->pos[2];
+    rot[0] = 0;
+    rot[1] = player->unk_048[screenId];
+    rot[2] = 0;
+    worldScale = scale * player->size;
+    cornerX = (particle->unk_010 == 1) ? ARCADEKART_WORLD_DRIFT_FEEDBACK_CARD_HALF_WIDTH
+                                       : -ARCADEKART_WORLD_DRIFT_FEEDBACK_CARD_HALF_WIDTH;
+    cornerY = -ARCADEKART_WORLD_DRIFT_FEEDBACK_CARD_HALF_HEIGHT;
+    anchor[0] -= coss(rot[1]) * cornerX * worldScale;
+    anchor[1] -= cornerY * worldScale;
+    anchor[2] += sins(rot[1]) * cornerX * worldScale;
+    CVarSetInteger("gArcadeKart.DebugDriftFxLastParticle", particleIndex);
+    CVarSetInteger("gArcadeKart.DebugDriftFxLastAge", particle->unk_01E);
+    CVarSetInteger("gArcadeKart.DebugDriftFxLastTexture", textureIndex);
+    CVarSetInteger("gArcadeKart.DebugDriftFxLastAlpha", alpha);
+    CVarSetFloat("gArcadeKart.DebugDriftFxLastScale", scale);
+    CVarSetFloat("gArcadeKart.DebugDriftFxLastX", anchor[0]);
+    CVarSetFloat("gArcadeKart.DebugDriftFxLastY", anchor[1]);
+    CVarSetFloat("gArcadeKart.DebugDriftFxLastZ", anchor[2]);
+
+    switch (textureIndex) {
+        case 0:
+            outlineColor = 0x000000;
+            fillColor = 0xFFFFFF;
+            break;
+        case 1:
+            outlineColor = 0xFF9600;
+            fillColor = 0xFFFFFF;
+            break;
+        default:
+            outlineColor = 0x000000;
+            fillColor = get_arcadekart_world_drift_feedback_turbo_color();
+            break;
+    }
+
+    FrameInterpolation_RecordOpenChild("arcadekart_world_drift_feedback_word",
+                                        ((uintptr_t) (particleIndex & 0xFF) << 16) |
+                                            ((uintptr_t) (playerId & 0xF) << 8) | (screenId & 0xF));
+    func_800652D4(anchor, rot, scale * player->size);
+    render_arcadekart_world_drift_feedback_texture_pass(
+        get_arcadekart_world_drift_feedback_outline_texture(textureIndex), outlineColor, alpha);
+    render_arcadekart_world_drift_feedback_texture_pass(get_arcadekart_world_drift_feedback_fill_texture(textureIndex),
+                                                        fillColor, alpha);
+    FrameInterpolation_RecordCloseChild();
+    gMatrixEffectCount += 1;
+    sArcadeKartWorldDriftFeedbackDrawCount++;
+    CVarSetInteger("gArcadeKart.DebugDriftFxDrawCount", sArcadeKartWorldDriftFeedbackDrawCount);
+}
+
+static void render_arcadekart_world_drift_particle_feedback(Player* player, s8 playerId, s16 particleIndex,
+                                                            s8 screenId) {
+    render_arcadekart_world_drift_particle_feedback_instance(player, playerId, &player->particlePool1[particleIndex],
+                                                            particleIndex, screenId);
+}
+
+static void arcadekart_render_world_drift_feedback_pool(Player* player, s8 playerId, s8 screenId) {
+    s32 playerIndex = get_arcadekart_world_drift_feedback_player_index(player);
+    s32 i;
+
+    if (playerIndex < 0) {
+        return;
+    }
+    if ((gActiveScreenMode == SCREEN_MODE_3P_4P_SPLITSCREEN) && (screenId != playerId)) {
+        return;
+    }
+
+    for (i = 0; i < ARCADEKART_WORLD_DRIFT_FEEDBACK_POOL_COUNT; i++) {
+        render_arcadekart_world_drift_particle_feedback_instance(
+            player, playerId, &sArcadeKartWorldDriftFeedbackParticles[playerIndex][i], i, screenId);
+    }
+}
+
+#define ARCADEKART_EXHAUST_STACK_SIDE_OFFSET 1.458f
+#define ARCADEKART_EXHAUST_STACK_QUAD_HEIGHT 32.0f
+#define ARCADEKART_EXHAUST_STACK_HEIGHT_LIFT_RATIO 0.05f
+
+void render_player_exhaust_smoke_stack(Player* player, s8 playerId, s16 particleIndex, s8 screenId, f32 sideOffset,
+                                       s16 primRed, s16 primGreen, s16 primBlue, s16 envRed, s16 envGreen,
+                                       s16 envBlue, s16 primAlpha, f32 scale, s32 useDitherAlpha) {
     Vec3f spB4;
     Vec3s spAC;
+    f32 offsetX;
+    f32 offsetY;
+    f32 offsetZ;
+    s16 exhaustYaw;
+
+    exhaustYaw = player->particlePool0[particleIndex].unk_020 - (player->unk_0C0 / 2);
+    func_80062B18(&offsetX, &offsetY, &offsetZ, sideOffset, 0.0f, 0.0f, -exhaustYaw, 2 * -player->unk_206);
+
+    spB4[0] = player->particlePool0[particleIndex].pos[0] + offsetX;
+    spB4[1] = player->particlePool0[particleIndex].pos[1] + offsetY +
+              (scale * ARCADEKART_EXHAUST_STACK_QUAD_HEIGHT * ARCADEKART_EXHAUST_STACK_HEIGHT_LIFT_RATIO);
+    spB4[2] = player->particlePool0[particleIndex].pos[2] + offsetZ;
+    spAC[0] = 0;
+    spAC[1] = player->unk_048[screenId];
+    spAC[2] = 0;
+
+    FrameInterpolation_RecordOpenChild(
+        "exhaust_smoke_stack",
+        (uintptr_t) ((particleIndex << 12) | ((sideOffset > 0.0f) << 8) | (playerId << 4) | screenId));
+    func_800652D4(spB4, spAC, scale);
+    gSPDisplayList(gDisplayListHead++, D_0D008DB8);
+    gDPLoadTextureBlock(gDisplayListHead++, common_texture_particle_smoke[player->particlePool0[particleIndex].unk_010],
+                        G_IM_FMT_I, G_IM_SIZ_8b, 32, 32, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP,
+                        G_TX_NOMASK, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOLOD);
+    func_8004B72C(primRed, primGreen, primBlue, envRed, envGreen, envBlue, primAlpha);
+    if (useDitherAlpha) {
+        gDPSetAlphaCompare(gDisplayListHead++, G_AC_DITHER);
+    }
+    gSPDisplayList(gDisplayListHead++, D_0D008E48);
+    FrameInterpolation_RecordCloseChild();
+    gMatrixEffectCount += 1;
+}
+
+void func_8006538C(Player* player, s8 arg1, s16 arg2, s8 arg3) {
     s32 primColors[] = { MAKE_RGB(0xFB, 0xFF, 0xFB), MAKE_RGB(0xFF, 0xFB, 0x86) };
     s32 envColors[] = { MAKE_RGB(0x89, 0x62, 0x8F), MAKE_RGB(0xFE, 0x01, 0x09) };
     s16 primRed;
@@ -4739,14 +5592,13 @@ void func_8006538C(Player* player, s8 arg1, s16 arg2, s8 arg3) {
     s16 envRed;
     s16 envGreen;
     s16 envBlue;
+    s16 side;
+    f32 sideOffset;
+    f32 scale;
+    s32 useDitherAlpha;
 
     if (player->particlePool0[arg2].isAlive == 1) {
-        spB4[0] = player->particlePool0[arg2].pos[0];
-        spB4[1] = player->particlePool0[arg2].pos[1];
-        spB4[2] = player->particlePool0[arg2].pos[2];
-        spAC[0] = 0;
-        spAC[1] = player->unk_048[arg3];
-        spAC[2] = 0;
+        useDitherAlpha = false;
         if ((player->effects & STAR_EFFECT) && (((s32) gCourseTimer - gPlayerStarEffectStartTime[arg1]) < 9)) {
             primRed = (primColors[1] >> 0x10) & 0xFF;
             primGreen = (primColors[1] >> 0x08) & 0xFF;
@@ -4755,15 +5607,7 @@ void func_8006538C(Player* player, s8 arg1, s16 arg2, s8 arg3) {
             envGreen = (envColors[1] >> 0x08) & 0xFF;
             envBlue = (envColors[1] >> 0x00) & 0xFF;
             primAlpha = player->particlePool0[arg2].alpha;
-            func_800652D4(spB4, spAC, ((player->particlePool0[arg2].scale * player->size) * 1.4));
-            gSPDisplayList(gDisplayListHead++, D_0D008DB8);
-            gDPLoadTextureBlock(gDisplayListHead++,
-                                common_texture_particle_smoke[player->particlePool0[arg2].unk_010], G_IM_FMT_I,
-                                G_IM_SIZ_8b, 32, 32, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP,
-                                G_TX_NOMASK, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOLOD);
-            func_8004B72C(primRed, primGreen, primBlue, envRed, envGreen, envBlue, primAlpha);
-            gDPSetAlphaCompare(gDisplayListHead++, G_AC_DITHER);
-            gSPDisplayList(gDisplayListHead++, D_0D008E48);
+            scale = player->particlePool0[arg2].scale * player->size;
         } else {
             primRed = (primColors[player->particlePool0[arg2].red] >> 0x10) & 0xFF;
             primGreen = (primColors[player->particlePool0[arg2].red] >> 0x08) & 0xFF;
@@ -4772,16 +5616,14 @@ void func_8006538C(Player* player, s8 arg1, s16 arg2, s8 arg3) {
             envGreen = (envColors[player->particlePool0[arg2].red] >> 0x08) & 0xFF;
             envBlue = (envColors[player->particlePool0[arg2].red] >> 0x00) & 0xFF;
             primAlpha = player->particlePool0[arg2].alpha;
-            func_800652D4(spB4, spAC, player->particlePool0[arg2].scale * player->size);
-            gSPDisplayList(gDisplayListHead++, D_0D008DB8);
-            gDPLoadTextureBlock(gDisplayListHead++,
-                                common_texture_particle_smoke[player->particlePool0[arg2].unk_010], G_IM_FMT_I,
-                                G_IM_SIZ_8b, 32, 32, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP,
-                                G_TX_NOMASK, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOLOD);
-            func_8004B72C(primRed, primGreen, primBlue, envRed, envGreen, envBlue, primAlpha);
-            gSPDisplayList(gDisplayListHead++, D_0D008E48);
+            scale = player->particlePool0[arg2].scale * player->size;
         }
-        gMatrixEffectCount += 1;
+
+        for (side = -1; side <= 1; side += 2) {
+            sideOffset = ARCADEKART_EXHAUST_STACK_SIDE_OFFSET * side;
+            render_player_exhaust_smoke_stack(player, arg1, arg2, arg3, sideOffset, primRed, primGreen, primBlue,
+                                              envRed, envGreen, envBlue, primAlpha, scale, useDitherAlpha);
+        }
     }
 }
 
@@ -6431,10 +7273,10 @@ void func_8006D474(Player* player, s8 playerId, s8 screenId) {
                 case DRIFT_PARTICLE:
                     if (gActiveScreenMode == SCREEN_MODE_3P_4P_SPLITSCREEN) {
                         if (screenId == playerId) {
-                            render_player_drift_particles(player, playerId, var_s2, screenId);
+                            render_arcadekart_world_drift_particle_feedback(player, playerId, var_s2, screenId);
                         }
                     } else {
-                        render_player_drift_particles(player, playerId, var_s2, screenId);
+                        render_arcadekart_world_drift_particle_feedback(player, playerId, var_s2, screenId);
                     }
                     break;
                 case GROUND_PARTICLE:
@@ -6471,6 +7313,7 @@ void func_8006D474(Player* player, s8 playerId, s8 screenId) {
             // @port Pop the transform id.
             FrameInterpolation_RecordCloseChild();
         }
+        arcadekart_render_world_drift_feedback_pool(player, playerId, screenId);
     }
     if ((gModeSelection == BATTLE) && (player->unk_002 & (UNK_002_UNKNOWN_0x2 << (screenId * 4)))) {
         func_8006BA94(player, playerId, screenId);
@@ -6647,6 +7490,9 @@ void func_8006E420(Player* player, s8 arg1, s8 arg2) {
                 func_8006C9B8(player, temp_s0, arg1, arg2);
             }
             func_8006C6AC(player, temp_s0, arg1, arg2);
+        }
+        if ((player->type & PLAYER_HUMAN) == PLAYER_HUMAN) {
+            arcadekart_update_world_drift_feedback_pool(player, arg1);
         }
 
         if (gModeSelection == BATTLE) {

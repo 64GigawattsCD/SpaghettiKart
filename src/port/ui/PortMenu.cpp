@@ -393,12 +393,12 @@ void PortMenu::AddEnhancements() {
         .CVar("gArcadeKart.DebugQuickBootHudRace")
         .Options(CheckboxOptions()
                      .DefaultValue(true)
-                     .Tooltip("Boots directly into 1P 50cc Grand Prix as Mario for HUD iteration."));
+                     .Tooltip("Boots directly into 1P 50cc Grand Prix on Yoshi Valley as Mario for HUD iteration."));
     AddWidget(path, "Debug telemetry overlay", WIDGET_CVAR_CHECKBOX)
         .CVar("gArcadeKart.DebugTelemetry.Enabled")
         .Options(CheckboxOptions()
                      .DefaultValue(true)
-                     .Tooltip("Shows the on-screen ArcadeKart telemetry block with FX, force feedback, and shifter data."));
+                     .Tooltip("Shows the compact on-screen ArcadeKart surface telemetry block."));
 
     AddWidget(path, "Wheel Steering Tuning: %.2f", WIDGET_CVAR_SLIDER_FLOAT)
         .CVar("gArcadeKart.WheelSteeringTuning")

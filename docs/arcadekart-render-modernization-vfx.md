@@ -35,6 +35,9 @@ This note records the intent and current shape of the render-modernization and p
 - Changed CPU framebuffer readback for jumbotron-style course screens to use the scene framebuffer when layered post-FX is active, so Luigi Raceway and Wario Stadium screens can receive the game image instead of the wrong layer.
 - Restored recent drift particle state by resetting texture LUT/alpha state inside the drift particle render path before loading the old I8 drift textures.
 - Restored boing/landing-style feedback separately from drift-start behavior.
+- ArcadeKart drift text feedback now precomposes `SLIDE`, `DRIFT!`, and two-line `TURBO DRIFT!!` IA masks into cached word textures once, then renders each active world-space particle as outline/fill word cards instead of per-cell billboards.
+- Player visual particles live in four small `UnkPlayerStruct258` pools on `Player` and are mostly scripted billboards with age/scale/alpha fields rather than a reusable velocity/collision solver. The heavier `gObjectList` object path and actor path do have velocity, surface height, and terrain contact helpers that can be borrowed if a future effect needs true ballistic motion or contact response.
+- Current drift text motion uses age-based kart-relative backward/lateral/rise offsets, swapped rear tire anchoring, stable per-particle position jitter up to `0.2` world units per axis, and a 6-frame spawn gate. A test with restored larger source glyphs still produced no visible drift words, so the disappearance is not explained by cached glyph source size alone.
 
 ## Current Effect Drivers
 
@@ -49,6 +52,7 @@ This note records the intent and current shape of the render-modernization and p
   - `normalizedSpeed * roadRoughness`
   - `+0.1` while drifting
   - `+0.3` while boosting
+- Controller rumble now uses the same normalized speed, roughness, drift, boost, and shake power-curve terms as the screen/wheel shake driver, then maps the result to configurable low/high gamepad motor percentages.
 - Screen-shake frequency is now driven by inverse roughness:
   - `curve = pow(1.0 - roughness, 0.5)`
   - `activeHz = lerp(8.0, 60.0, curve)`
@@ -83,7 +87,7 @@ This note records the intent and current shape of the render-modernization and p
 
 ## Debug Readouts
 
-- The on-screen telemetry block reports active barrel strength, shake pixels, speed curve, roughness input, roughness curve, active shake Hz, FOV target, camera speed reference, and camera position curve.
+- The on-screen telemetry block is intentionally compact now: current surface ID/name, tire surface IDs, normalized roughness/FX roughness, rumble inputs, grounded state, slope force, and speed.
 - Screenshot capture notes live in `docs/codex-session-notes.md`; fullscreen captures need DPI awareness or Windows reports only a scaled top-left portion of the 4K display.
 
 ## Guardrails

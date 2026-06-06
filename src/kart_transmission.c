@@ -208,9 +208,9 @@ static void kart_transmission_load_grind_sounds(void) {
         return;
     }
 
-    kart_transmission_register_grind_sound(0, "bad_shift_grind_a.ogg");
-    kart_transmission_register_grind_sound(1, "bad_shift_grind_b.ogg");
-    kart_transmission_register_grind_sound(2, "bad_shift_grind_c.ogg");
+    kart_transmission_register_grind_sound(0, "bad_shift_grind_a.wav");
+    kart_transmission_register_grind_sound(1, "bad_shift_grind_b.wav");
+    kart_transmission_register_grind_sound(2, "bad_shift_grind_c.wav");
     sKartShiftGrindSoundsLoaded = true;
 }
 
@@ -225,17 +225,38 @@ static s32 kart_transmission_pick_grind_sound_index(void) {
     return (sKartLastShiftGrindSoundIndex + offset) % KART_SHIFT_GRIND_SOUND_COUNT;
 }
 
-static void kart_transmission_play_grind_sound(void) {
+static void kart_transmission_log_grind_sound(s32 playerIndex, s32 soundId, bool registered) {
+    FILE* logFile = fopen("logs/ArcadeKartShift.log", "a");
+
+    if (logFile == NULL) {
+        logFile = fopen("ArcadeKartShift.log", "a");
+        if (logFile == NULL) {
+            return;
+        }
+    }
+
+    fprintf(logFile, "[ArcadeKart Shift] GRIND_SOUND P%d id %d custom %d\n", playerIndex, soundId,
+            registered ? 1 : 0);
+    fclose(logFile);
+}
+
+static void kart_transmission_play_grind_sound(s32 playerIndex) {
     s32 soundIndex;
     s32 soundId;
+    bool registered;
 
     kart_transmission_load_grind_sounds();
     soundIndex = kart_transmission_pick_grind_sound_index();
     soundId = KART_SHIFT_GRIND_SOUND_ID_BASE + soundIndex;
     sKartLastShiftGrindSoundIndex = soundIndex;
+    registered = HMAS_IsIDRegistered(soundId);
+    CVarSetInteger("gArcadeKart.DebugShiftLastGrindSoundId", soundId);
+    CVarSetInteger("gArcadeKart.DebugShiftLastGrindSoundCustom", registered ? 1 : 0);
+    kart_transmission_log_grind_sound(playerIndex, soundId, registered);
 
-    if (HMAS_IsIDRegistered(soundId)) {
+    if (registered) {
         HMAS_Play(HMAS_SFX, soundId, false);
+        HMAS_SetVolume(HMAS_SFX, kart_transmission_get_cvarf("gArcadeKart.ShiftGrindVolume", 1.25f));
     } else {
         play_sound2(KART_SHIFT_BAD_SOUND);
     }
@@ -318,7 +339,7 @@ static void kart_transmission_apply_shift_feedback(Player* player, s32 playerInd
             badSpeedPenalty = kart_transmission_get_cvarf("gArcadeKart.ShiftBadSpeedPenalty", 0.88f);
             player->currentSpeed *= badSpeedPenalty;
         }
-        kart_transmission_play_grind_sound();
+        kart_transmission_play_grind_sound(playerIndex);
     }
 }
 
