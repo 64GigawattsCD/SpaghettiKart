@@ -22,8 +22,25 @@ typedef struct ArcadeKartParticleParams {
     Vec3f Acceleration = { 0.0f, 0.0f, 0.0f };
     f32 InitialScale = 1.0f;
     f32 FinalScale = 1.0f;
+    f32 RandomScaleMin = 1.0f;
+    f32 RandomScaleMax = 1.0f;
+    s16 InitialRed = 0xFF;
+    s16 InitialGreen = 0xFF;
+    s16 InitialBlue = 0xFF;
+    s16 FinalRed = 0xFF;
+    s16 FinalGreen = 0xFF;
+    s16 FinalBlue = 0xFF;
+    f32 ColorPower = 1.0f;
+    bool ColorOverLife = true;
     s16 InitialAlpha = 0xFF;
     s16 FinalAlpha = 0;
+    f32 AlphaPower = 1.0f;
+    uint8_t TextureIndex = 0;
+    uint8_t TextureCount = 1;
+    bool RandomTexture = false;
+    bool RandomBillboardRoll = false;
+    bool RandomHorizontalFlip = false;
+    s16 InitialBillboardRoll = 0;
 } ArcadeKartParticleParams;
 
 typedef struct ArcadeKartParticle {
@@ -35,7 +52,15 @@ typedef struct ArcadeKartParticle {
     Vec3f Velocity = { 0.0f, 0.0f, 0.0f };
     Vec3s Rotation = { 0, 0, 0 };
     f32 Scale = 1.0f;
+    f32 ScaleMultiplier = 1.0f;
+    s16 Red = 0xFF;
+    s16 Green = 0xFF;
+    s16 Blue = 0xFF;
     s16 Alpha = 0xFF;
+    uint8_t TextureIndex = 0;
+    s16 BillboardRoll = 0;
+    bool FlipHorizontal = false;
+    uint16_t SpawnId = 0;
 } ArcadeKartParticle;
 
 class ArcadeKartParticleEmitter : public ParticleEmitter {
@@ -66,6 +91,7 @@ protected:
     virtual void DrawParticle(s32 cameraId, const ArcadeKartParticle& particle);
 
     const std::vector<ArcadeKartParticle>& GetParticles() const;
+    Player* GetAttachedPlayer() const;
 
 private:
     ArcadeKartParticleParams Params;
@@ -75,6 +101,7 @@ private:
     Vec3s WorldRotation = { 0, 0, 0 };
     f32 SpawnAccumulator = 0.0f;
     size_t NextParticleIndex = 0;
+    uint16_t NextSpawnId = 0;
 
     ArcadeKartParticle* AllocateParticle();
     void SpawnOne();

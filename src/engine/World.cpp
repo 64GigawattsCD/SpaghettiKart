@@ -270,6 +270,8 @@ void World::CleanWorld(void) {
     StaticMeshActors.clear();
     Objects.clear();
     Emitters.clear();
+    CM_ClearArcadeKartBoostSparkEmitters();
+    CM_ClearArcadeKartDriftTireSparkEmitters();
     Lakitus.clear();
     Sky::Instance->GetSkyActors().clear();
 }

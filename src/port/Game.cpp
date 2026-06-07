@@ -16,6 +16,8 @@
 #include "engine/TrainCrossing.h"
 #include "engine/objects/BombKart.h"
 #include "engine/objects/Lakitu.h"
+#include "engine/particles/ArcadeKartBoostSparkEmitter.h"
+#include "engine/particles/ArcadeKartDriftTireSparkEmitter.h"
 
 #include "Smoke.h"
 
@@ -49,6 +51,7 @@ extern "C" {
 #include "src/enhancements/collision_viewer.h"
 #include "code_800029B0.h"
 #include "code_80057C60.h"
+#include "defines.h"
 // #include "engine/wasm.h"
 }
 
@@ -73,6 +76,9 @@ HarbourMastersIntro gMenuIntro;
 TrackEditor::Editor gEditor;
 
 s32 gTrophyIndex = NULL_OBJECT_ID;
+
+static ArcadeKartBoostSparkEmitter* sArcadeKartBoostSparkEmitters[8][2] = {};
+static ArcadeKartDriftTireSparkEmitter* sArcadeKartDriftTireSparkEmitters[8][2] = {};
 
 /** Spawner Registries **/
 Registry<TrackInfo> gTrackRegistry;
@@ -557,6 +563,124 @@ void CM_TickParticles() {
 void CM_DrawParticles(s32 cameraId) {
     if (GetWorld()->GetTrack()) {
         GetWorld()->DrawParticles(cameraId);
+    }
+}
+
+static ArcadeKartBoostSparkEmitter* CM_GetArcadeKartBoostSparkEmitter(Player* player, s8 playerId, s8 sideIndex) {
+    s8 side = (sideIndex == 0) ? -1 : 1;
+    std::unique_ptr<ArcadeKartBoostSparkEmitter> emitter;
+
+    if ((playerId < 0) || (playerId >= 8) || (sideIndex < 0) || (sideIndex >= 2)) {
+        return nullptr;
+    }
+
+    if (sArcadeKartBoostSparkEmitters[playerId][sideIndex] != nullptr) {
+        return sArcadeKartBoostSparkEmitters[playerId][sideIndex];
+    }
+
+    emitter = std::make_unique<ArcadeKartBoostSparkEmitter>(player, playerId, side);
+    sArcadeKartBoostSparkEmitters[playerId][sideIndex] = emitter.get();
+    GetWorld()->AddEmitter(std::move(emitter));
+    return sArcadeKartBoostSparkEmitters[playerId][sideIndex];
+}
+
+void CM_UpdateArcadeKartBoostSparkEmitters(Player* player, s8 playerId) {
+    bool active;
+
+    if ((player == nullptr) || (playerId < 0) || (playerId >= 8)) {
+        return;
+    }
+
+    active = ((player->type & PLAYER_EXISTS) == PLAYER_EXISTS) && ((player->effects & BOOST_EFFECT) == BOOST_EFFECT);
+    for (s8 sideIndex = 0; sideIndex < 2; sideIndex++) {
+        ArcadeKartBoostSparkEmitter* emitter = active ? CM_GetArcadeKartBoostSparkEmitter(player, playerId, sideIndex)
+                                                      : sArcadeKartBoostSparkEmitters[playerId][sideIndex];
+        if (emitter != nullptr) {
+            emitter->ConfigureForPlayer(player, active);
+        }
+    }
+}
+
+void CM_ClearArcadeKartBoostSparkEmitters(void) {
+    for (size_t playerId = 0; playerId < 8; playerId++) {
+        for (size_t sideIndex = 0; sideIndex < 2; sideIndex++) {
+            sArcadeKartBoostSparkEmitters[playerId][sideIndex] = nullptr;
+        }
+    }
+}
+
+static s8 CM_GetArcadeKartDriftTireSparkTireIndex(s8 sideIndex) {
+    return (sideIndex == 0) ? BACK_LEFT : BACK_RIGHT;
+}
+
+static bool CM_ShouldShowArcadeKartDriftTireSparks(Player* player) {
+    bool driftEvidence;
+
+    if (player == nullptr) {
+        return false;
+    }
+    if ((player->type & PLAYER_EXISTS) != PLAYER_EXISTS) {
+        return false;
+    }
+    if ((player->type & PLAYER_INVISIBLE_OR_BOMB) == PLAYER_INVISIBLE_OR_BOMB) {
+        return false;
+    }
+    if ((player->effects & (0x80 | 0x40 | HIT_BY_ITEM_EFFECT | HIT_EFFECT)) != 0) {
+        return false;
+    }
+    driftEvidence = ((player->effects & DRIFTING_EFFECT) == DRIFTING_EFFECT) || (player->driftDuration > 0) ||
+                    (player->driftState > 0);
+    return driftEvidence;
+}
+
+static ArcadeKartDriftTireSparkEmitter* CM_GetArcadeKartDriftTireSparkEmitter(Player* player, s8 playerId,
+                                                                               s8 sideIndex) {
+    s8 tireIndex = CM_GetArcadeKartDriftTireSparkTireIndex(sideIndex);
+    std::unique_ptr<ArcadeKartDriftTireSparkEmitter> emitter;
+
+    if ((playerId < 0) || (playerId >= 8) || (sideIndex < 0) || (sideIndex >= 2)) {
+        return nullptr;
+    }
+
+    if (sArcadeKartDriftTireSparkEmitters[playerId][sideIndex] != nullptr) {
+        return sArcadeKartDriftTireSparkEmitters[playerId][sideIndex];
+    }
+
+    emitter = std::make_unique<ArcadeKartDriftTireSparkEmitter>(player, playerId, tireIndex);
+    sArcadeKartDriftTireSparkEmitters[playerId][sideIndex] = emitter.get();
+    GetWorld()->AddEmitter(std::move(emitter));
+    return sArcadeKartDriftTireSparkEmitters[playerId][sideIndex];
+}
+
+void CM_UpdateArcadeKartDriftTireSparkEmitters(Player* player, s8 playerId) {
+    bool active;
+
+    if ((player == nullptr) || (playerId < 0) || (playerId >= 8)) {
+        return;
+    }
+
+    active = CM_ShouldShowArcadeKartDriftTireSparks(player);
+    if (playerId == 0) {
+        CVarSetInteger("gArcadeKart.DebugTireSparkActive", active);
+        CVarSetInteger("gArcadeKart.DebugTireSparkEffectBit", (player->effects & DRIFTING_EFFECT) == DRIFTING_EFFECT);
+        CVarSetInteger("gArcadeKart.DebugTireSparkDriftState", player->driftState);
+        CVarSetInteger("gArcadeKart.DebugTireSparkDriftDuration", player->driftDuration);
+    }
+    for (s8 sideIndex = 0; sideIndex < 2; sideIndex++) {
+        ArcadeKartDriftTireSparkEmitter* emitter = active
+                                                       ? CM_GetArcadeKartDriftTireSparkEmitter(player, playerId, sideIndex)
+                                                       : sArcadeKartDriftTireSparkEmitters[playerId][sideIndex];
+        if (emitter != nullptr) {
+            emitter->ConfigureForPlayer(player, active);
+        }
+    }
+}
+
+void CM_ClearArcadeKartDriftTireSparkEmitters(void) {
+    for (size_t playerId = 0; playerId < 8; playerId++) {
+        for (size_t sideIndex = 0; sideIndex < 2; sideIndex++) {
+            sArcadeKartDriftTireSparkEmitters[playerId][sideIndex] = nullptr;
+        }
     }
 }
 

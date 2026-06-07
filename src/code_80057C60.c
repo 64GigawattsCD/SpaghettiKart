@@ -48,9 +48,13 @@
 //! @warning this macro is undef'd at the end of this file
 #define MAKE_RGB(r, g, b) (((r) << 0x10) | ((g) << 0x08) | (b << 0x00))
 #define ARCADEKART_WORLD_DRIFT_FEEDBACK_BACKWARD_SPEED 4.5f
-#define ARCADEKART_WORLD_DRIFT_FEEDBACK_LATERAL_SPEED 5.0f
+#define ARCADEKART_WORLD_DRIFT_FEEDBACK_LATERAL_SPEED 3.75f
 #define ARCADEKART_WORLD_DRIFT_FEEDBACK_RISE_SPEED 0.675f
-#define ARCADEKART_WORLD_DRIFT_FEEDBACK_SPAWN_INTERVAL 8
+#define ARCADEKART_WORLD_DRIFT_FEEDBACK_SPAWN_INTERVAL_FRAMES 8
+#define ARCADEKART_WORLD_DRIFT_FEEDBACK_SPAWN_INTERVAL 8.0f
+#define ARCADEKART_WORLD_DRIFT_FEEDBACK_SPAWN_RATE_SCALE 1.25f
+#define ARCADEKART_WORLD_DRIFT_FEEDBACK_WORD_SPAWN_INTERVAL_FRAMES \
+    (ARCADEKART_WORLD_DRIFT_FEEDBACK_SPAWN_INTERVAL / ARCADEKART_WORLD_DRIFT_FEEDBACK_SPAWN_RATE_SCALE)
 #define ARCADEKART_WORLD_DRIFT_FEEDBACK_POOL_COUNT 24
 #define ARCADEKART_WORLD_DRIFT_FEEDBACK_BACK_LEFT_BOTTOM_LEFT 0
 #define ARCADEKART_WORLD_DRIFT_FEEDBACK_BACK_RIGHT_BOTTOM_RIGHT 1
@@ -4808,7 +4812,7 @@ static f32 arcadekart_world_drift_feedback_aligned_corner_x(s8 anchor) {
 
 static s8 sArcadeKartWorldDriftFeedbackSpawnToggle[ARCADEKART_WORLD_DRIFT_FEEDBACK_PLAYER_COUNT];
 static s8 sArcadeKartWorldDriftFeedbackLastStage[ARCADEKART_WORLD_DRIFT_FEEDBACK_PLAYER_COUNT];
-static s8 sArcadeKartWorldDriftFeedbackSpawnCooldown[ARCADEKART_WORLD_DRIFT_FEEDBACK_PLAYER_COUNT];
+static f32 sArcadeKartWorldDriftFeedbackSpawnCooldown[ARCADEKART_WORLD_DRIFT_FEEDBACK_PLAYER_COUNT];
 static s8 sArcadeKartWorldDriftFeedbackTexturesInitialized;
 static s32 sArcadeKartWorldDriftFeedbackPrepareCount;
 static s32 sArcadeKartWorldDriftFeedbackRenderAttemptCount;
@@ -5222,7 +5226,7 @@ static void render_arcadekart_world_drift_feedback_debug_markers(Player* player,
     Vec3f spawnPos;
     s8 anchor;
 
-    if (CVarGetInteger("gArcadeKart.DebugDriftFxWorldMarkers", 1) == 0) {
+    if (CVarGetInteger("gArcadeKart.DebugDriftFxWorldMarkers", 0) == 0) {
         return;
     }
     if ((player->type & PLAYER_HUMAN) != PLAYER_HUMAN) {
@@ -5460,7 +5464,7 @@ static void arcadekart_update_world_drift_feedback_pool(Player* player, UNUSED s
         CVarSetInteger("gArcadeKart.DebugDriftFxActive", shouldSpawn);
         CVarSetInteger("gArcadeKart.DebugDriftFxPoolAlive", aliveCount);
         CVarSetInteger("gArcadeKart.DebugDriftFxPoolMax", ARCADEKART_WORLD_DRIFT_FEEDBACK_POOL_COUNT);
-        CVarSetInteger("gArcadeKart.DebugDriftFxCooldown", sArcadeKartWorldDriftFeedbackSpawnCooldown[playerIndex]);
+        CVarSetFloat("gArcadeKart.DebugDriftFxCooldown", sArcadeKartWorldDriftFeedbackSpawnCooldown[playerIndex]);
     }
 
     if (!shouldSpawn) {
@@ -5475,7 +5479,8 @@ static void arcadekart_update_world_drift_feedback_pool(Player* player, UNUSED s
     }
 
     arcadekart_spawn_world_drift_feedback_particle(player, playerIndex);
-    sArcadeKartWorldDriftFeedbackSpawnCooldown[playerIndex] = ARCADEKART_WORLD_DRIFT_FEEDBACK_SPAWN_INTERVAL;
+    sArcadeKartWorldDriftFeedbackSpawnCooldown[playerIndex] =
+        ARCADEKART_WORLD_DRIFT_FEEDBACK_WORD_SPAWN_INTERVAL_FRAMES;
 }
 
 static void render_arcadekart_world_drift_particle_feedback_instance(Player* player, s8 playerId,
@@ -5595,8 +5600,6 @@ static void arcadekart_render_world_drift_feedback_pool(Player* player, s8 playe
     if ((gActiveScreenMode == SCREEN_MODE_3P_4P_SPLITSCREEN) && (screenId != playerId)) {
         return;
     }
-
-    render_arcadekart_world_drift_feedback_debug_markers(player, playerId, screenId);
 
     for (i = 0; i < ARCADEKART_WORLD_DRIFT_FEEDBACK_POOL_COUNT; i++) {
         render_arcadekart_world_drift_particle_feedback_instance(
@@ -6074,37 +6077,10 @@ void func_80067280(Player* player, UNUSED s8 arg1, s16 arg2, s8 arg3) {
 }
 
 void render_player_boost_spark_particles(Player* player, s8 playerId, s16 arg2, s8 screenId) {
-    Vec3f sp8C;
-    Vec3s sp84;
-    UNUSED s32 stackPadding[4];
-
-    if (player->particlePool3[arg2].isAlive == 1) {
-        sp8C[0] = player->particlePool3[arg2].pos[0];
-        sp8C[1] = player->particlePool3[arg2].pos[1];
-        sp8C[2] = player->particlePool3[arg2].pos[2];
-        sp84[0] = 0;
-        sp84[1] = player->unk_048[screenId];
-        sp84[2] = 0;
-        FrameInterpolation_RecordOpenChild("boost_spark_particle", TAG_SMOKE_DUST((arg2 << 8) | (playerId << 4) | screenId));
-        func_800652D4(sp8C, sp84, player->particlePool3[arg2].scale * player->size);
-        if (player->particlePool3[arg2].unk_010 == 1) {
-            gSPDisplayList(gDisplayListHead++, D_0D008DB8);
-            gDPLoadTextureBlock(gDisplayListHead++, common_texture_particle_spark[0], G_IM_FMT_I, G_IM_SIZ_8b, 32, 32,
-                                0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOMASK,
-                                G_TX_NOLOD, G_TX_NOLOD);
-            func_8004B72C(0x000000FF, 0x000000FF, 0x000000DF, 0x000000FF, 0x0000005F, 0, 0x00000060);
-            gSPDisplayList(gDisplayListHead++, D_0D008E70);
-        } else {
-            gSPDisplayList(gDisplayListHead++, D_0D008DB8);
-            gDPLoadTextureBlock(gDisplayListHead++, common_texture_particle_spark[0], G_IM_FMT_I, G_IM_SIZ_8b, 32, 32,
-                                0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOMASK,
-                                G_TX_NOLOD, G_TX_NOLOD);
-            func_8004B72C(0x000000FF, 0x000000FF, 0x000000DF, 0x000000FF, 0x0000005F, 0, 0x00000060);
-            gSPDisplayList(gDisplayListHead++, D_0D008E48);
-        }
-        FrameInterpolation_RecordCloseChild();
-        gMatrixEffectCount += 1;
-    }
+    (void) player;
+    (void) playerId;
+    (void) arg2;
+    (void) screenId;
 }
 
 void render_player_onomatopoeia_whrrrr(Player* player, UNUSED s8 arg1, f32 arg2, UNUSED s8 arg3, s8 arg4) {
@@ -7544,6 +7520,8 @@ void func_8006E420(Player* player, s8 arg1, s8 arg2) {
     s16 temp_s0;
 
     if ((player->type & PLAYER_EXISTS) == PLAYER_EXISTS) {
+        CM_UpdateArcadeKartBoostSparkEmitters(player, arg1);
+        CM_UpdateArcadeKartDriftTireSparkEmitters(player, arg1);
         if ((player->type & PLAYER_HUMAN) == PLAYER_HUMAN) {
             func_8006D194(player, arg1, arg2);
         }

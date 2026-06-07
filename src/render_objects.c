@@ -2887,6 +2887,21 @@ static HudPadding get_arcadekart_hud_safe_zone_padding(HudRect viewRect) {
                               get_arcadekart_hud_view_y(viewRect, safeBottom));
 }
 
+static HudRect get_arcadekart_hud_safe_rect(HudRect viewRect) {
+    HudPadding padding = get_arcadekart_hud_safe_zone_padding(viewRect);
+    HudRect rect = hud_layout_rect(viewRect.x + padding.left, viewRect.y + padding.top,
+                                   viewRect.w - padding.left - padding.right,
+                                   viewRect.h - padding.top - padding.bottom);
+
+    if (rect.w < 0.0f) {
+        rect.w = 0.0f;
+    }
+    if (rect.h < 0.0f) {
+        rect.h = 0.0f;
+    }
+    return rect;
+}
+
 #define ARCADEKART_PLACE_NUMBER_WIDGET_WIDTH 128.0f
 #define ARCADEKART_PLACE_NUMBER_WIDGET_HEIGHT 64.0f
 #define ARCADEKART_PLACE_NUMBER_DRAW_X 29.0f
@@ -3651,13 +3666,30 @@ static f32 get_arcadekart_minimap_cluster_scale(s32 playerId) {
 static ArcadeKartMinimapLayout get_arcadekart_minimap_layout(s32 playerId) {
     ArcadeKartMinimapLayout layout;
     HudRect viewRect = get_arcadekart_hud_player_view_rect(playerId);
+    HudRect safeRect = get_arcadekart_hud_safe_rect(viewRect);
     f32 rightEdge;
     f32 centerX;
     f32 centerY = (f32) CM_GetProps()->Minimap.Pos[playerId].Y;
     f32 sourceWidth = (f32) CM_GetProps()->Minimap.Width;
     f32 sourceHeight = (f32) CM_GetProps()->Minimap.Height;
+    f32 fitScaleX;
+    f32 fitScaleY;
+    f32 fitScale;
+
+    if (sourceWidth < 1.0f) {
+        sourceWidth = 1.0f;
+    }
+    if (sourceHeight < 1.0f) {
+        sourceHeight = 1.0f;
+    }
 
     layout.scale = get_arcadekart_minimap_cluster_scale(playerId);
+    fitScaleX = (safeRect.w > 0.0f) ? (safeRect.w / sourceWidth) : layout.scale;
+    fitScaleY = (safeRect.h > 0.0f) ? (safeRect.h / sourceHeight) : layout.scale;
+    fitScale = (fitScaleX < fitScaleY) ? fitScaleX : fitScaleY;
+    if ((fitScale > 0.0f) && (layout.scale > fitScale)) {
+        layout.scale = fitScale;
+    }
     layout.rect.w = sourceWidth * layout.scale;
     layout.rect.h = sourceHeight * layout.scale;
 
@@ -3673,6 +3705,26 @@ static ArcadeKartMinimapLayout get_arcadekart_minimap_layout(s32 playerId) {
         layout.rect.x = centerX - (layout.rect.w * 0.5f);
     }
     layout.rect.y = centerY - (layout.rect.h * 0.5f);
+
+    if ((safeRect.w > 0.0f) && (layout.rect.x + layout.rect.w > safeRect.x + safeRect.w)) {
+        layout.rect.x = safeRect.x + safeRect.w - layout.rect.w;
+    }
+    if (layout.rect.x < safeRect.x) {
+        layout.rect.x = safeRect.x;
+    }
+    if ((safeRect.h > 0.0f) && (layout.rect.y + layout.rect.h > safeRect.y + safeRect.h)) {
+        layout.rect.y = safeRect.y + safeRect.h - layout.rect.h;
+    }
+    if (layout.rect.y < safeRect.y) {
+        layout.rect.y = safeRect.y;
+    }
+
+    if (playerId == 0) {
+        CVarSetFloat("gArcadeKart.DebugMinimapRight", layout.rect.x + layout.rect.w);
+        CVarSetFloat("gArcadeKart.DebugMinimapSafeRight", safeRect.x + safeRect.w);
+        CVarSetFloat("gArcadeKart.DebugMinimapScale", layout.scale);
+        CVarSetFloat("gArcadeKart.DebugMinimapWidth", layout.rect.w);
+    }
     return layout;
 }
 

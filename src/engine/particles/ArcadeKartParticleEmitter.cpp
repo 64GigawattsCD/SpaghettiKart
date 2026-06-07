@@ -1,6 +1,7 @@
 #include "ArcadeKartParticleEmitter.h"
 
 #include <algorithm>
+#include <cmath>
 
 extern "C" {
 #include "math_util.h"
@@ -24,6 +25,18 @@ static f32 lerp_f32(f32 start, f32 end, f32 amount) {
 
 static s16 lerp_s16(s16 start, s16 end, f32 amount) {
     return (s16) (lerp_f32((f32) start, (f32) end, amount));
+}
+
+static f32 clamp_unit(f32 value) {
+    return std::clamp(value, 0.0f, 1.0f);
+}
+
+static f32 shape_curve(f32 value, f32 power) {
+    return std::pow(clamp_unit(value), std::max(0.01f, power));
+}
+
+static f32 random_unit() {
+    return (f32) random_int(10001U) / 10000.0f;
 }
 
 static void transform_local_vector_yaw(const Vec3s rotation, const Vec3f local, Vec3f world) {
@@ -144,15 +157,27 @@ void ArcadeKartParticleEmitter::SpawnOne() {
     Vec3s emitterRotation;
     Vec3f worldVelocity;
     ArcadeKartParticle* particle = AllocateParticle();
+    uint8_t textureCount;
 
     GetLocationAndRotation(emitterPosition, emitterRotation);
     particle->Active = true;
     particle->AgeFrames = 0.0f;
     particle->LifetimeFrames = std::max(1.0f, Params.LifetimeFrames);
+    particle->SpawnId = NextSpawnId++;
     copy_vec3s(particle->Rotation, emitterRotation);
     copy_vec3f(particle->LocalPosition, Params.LocalOffset);
-    transform_local_vector_yaw(emitterRotation, Params.InitialVelocity, worldVelocity);
-    copy_vec3f(particle->Velocity, worldVelocity);
+    if (Params.RandomScaleMax > Params.RandomScaleMin) {
+        particle->ScaleMultiplier =
+            Params.RandomScaleMin + ((Params.RandomScaleMax - Params.RandomScaleMin) * random_unit());
+    } else {
+        particle->ScaleMultiplier = Params.RandomScaleMin;
+    }
+    if (Params.Space == ArcadeKartParticleSpace::Local) {
+        copy_vec3f(particle->Velocity, Params.InitialVelocity);
+    } else {
+        transform_local_vector_yaw(emitterRotation, Params.InitialVelocity, worldVelocity);
+        copy_vec3f(particle->Velocity, worldVelocity);
+    }
 
     if (Params.Space == ArcadeKartParticleSpace::Local) {
         transform_local_point_yaw(emitterPosition, emitterRotation, particle->LocalPosition, particle->Position);
@@ -160,8 +185,17 @@ void ArcadeKartParticleEmitter::SpawnOne() {
         transform_local_point_yaw(emitterPosition, emitterRotation, Params.LocalOffset, particle->Position);
     }
 
-    particle->Scale = Params.InitialScale;
+    particle->Scale = Params.InitialScale * particle->ScaleMultiplier;
+    particle->Red = Params.InitialRed;
+    particle->Green = Params.InitialGreen;
+    particle->Blue = Params.InitialBlue;
     particle->Alpha = Params.InitialAlpha;
+    textureCount = std::max<uint8_t>(1, Params.TextureCount);
+    particle->TextureIndex =
+        Params.RandomTexture ? (Params.TextureIndex + (uint8_t) random_int(textureCount)) : Params.TextureIndex;
+    particle->BillboardRoll =
+        Params.RandomBillboardRoll ? (s16) random_int(0xFFFFU) : Params.InitialBillboardRoll;
+    particle->FlipHorizontal = Params.RandomHorizontalFlip ? (random_int(2U) != 0) : false;
     InitializeParticle(*particle);
 }
 
@@ -207,6 +241,8 @@ void ArcadeKartParticleEmitter::Tick() {
 
     for (ArcadeKartParticle& particle : Particles) {
         f32 normalizedAge;
+        f32 colorAmount;
+        f32 alphaAmount;
 
         if (!particle.Active) {
             continue;
@@ -219,8 +255,15 @@ void ArcadeKartParticleEmitter::Tick() {
             particle.Active = false;
             continue;
         }
-        particle.Scale = lerp_f32(Params.InitialScale, Params.FinalScale, normalizedAge);
-        particle.Alpha = lerp_s16(Params.InitialAlpha, Params.FinalAlpha, normalizedAge);
+        particle.Scale = lerp_f32(Params.InitialScale, Params.FinalScale, normalizedAge) * particle.ScaleMultiplier;
+        colorAmount = shape_curve(normalizedAge, Params.ColorPower);
+        alphaAmount = shape_curve(normalizedAge, Params.AlphaPower);
+        if (Params.ColorOverLife) {
+            particle.Red = lerp_s16(Params.InitialRed, Params.FinalRed, colorAmount);
+            particle.Green = lerp_s16(Params.InitialGreen, Params.FinalGreen, colorAmount);
+            particle.Blue = lerp_s16(Params.InitialBlue, Params.FinalBlue, colorAmount);
+        }
+        particle.Alpha = lerp_s16(Params.InitialAlpha, Params.FinalAlpha, alphaAmount);
     }
 }
 
@@ -239,6 +282,10 @@ void ArcadeKartParticleEmitter::DrawParticle(s32 cameraId, const ArcadeKartParti
 
 const std::vector<ArcadeKartParticle>& ArcadeKartParticleEmitter::GetParticles() const {
     return Particles;
+}
+
+Player* ArcadeKartParticleEmitter::GetAttachedPlayer() const {
+    return AttachedPlayer;
 }
 
 bool ArcadeKartParticleEmitter::IsMod() {

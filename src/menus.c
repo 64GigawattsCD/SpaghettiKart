@@ -167,7 +167,7 @@ static bool sArcadeKartDebugQuickBootConsumed = false;
 
 static bool arcade_kart_should_debug_quick_boot_hud_race(void) {
     return !sArcadeKartDebugQuickBootConsumed &&
-           (CVarGetInteger(ARCADEKART_DEBUG_QUICK_BOOT_HUD_RACE_CVAR, true) != 0);
+           (CVarGetInteger(ARCADEKART_DEBUG_QUICK_BOOT_HUD_RACE_CVAR, false) != 0);
 }
 
 static u32 arcade_kart_get_debug_quick_boot_random_track_index(void) {
@@ -229,6 +229,8 @@ static void arcade_kart_debug_quick_boot_hud_race(void) {
     gPlayerCountSelection1 = 1;
     gScreenModeListIndex = 0;
     gScreenModeSelection = SCREEN_MODE_1P;
+    gDebugMenuSelection = DEBUG_MENU_OPTION_SELECTED;
+    D_8016556E = 0;
     kart_transmission_reset_modes_for_player_count(gPlayerCount);
 
     gCharacterSelections[PLAYER_ONE] = MARIO;
