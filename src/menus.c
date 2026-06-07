@@ -1,5 +1,6 @@
 #include <libultraship.h>
 #include <libultraship/bridge/audiobridge.h>
+#include <stdint.h>
 #include <macros.h>
 #include <defines.h>
 #include <common_structs.h>
@@ -23,6 +24,7 @@
 #include <sounds.h>
 #include "spawn_players.h"
 #include "kart_input.h"
+#include "kart_transmission.h"
 #include "port/Game.h"
 
 /** BSS **/
@@ -35,8 +37,9 @@ f32 gIntroModelPosX;
 f32 gIntroModelPosY;
 f32 gIntroModelPosZ;
 s32 gMenuFadeType;
-s8 gCharacterGridSelections[4];   // Map from each player to current grid position (1-4 top, 5-8 bottom)
-bool gCharacterGridIsSelected[4]; // Sets true if a character is selected for each player
+s8 gCharacterGridSelections[4];       // Map from each player to current grid position (1-4 top, 5-8 bottom)
+bool gCharacterGridIsSelected[4];     // Sets true once a player has readied their transmission.
+bool gCharacterGridCharacterLocked[4]; // Sets true once a player has locked their character.
 s8 gSubMenuSelection;             // Map Select states, Options and Ghost Data text selection
 s8 gMainMenuSelection;
 s8 gPlayerSelectMenuSelection; // grid screen state?
@@ -167,6 +170,49 @@ static bool arcade_kart_should_debug_quick_boot_hud_race(void) {
            (CVarGetInteger(ARCADEKART_DEBUG_QUICK_BOOT_HUD_RACE_CVAR, true) != 0);
 }
 
+static u32 arcade_kart_get_debug_quick_boot_random_track_index(void) {
+    u64 now = osGetTime();
+    u32 seed = (u32) (now ^ (now >> 32));
+
+    seed ^= (u32) (((uintptr_t) &now) >> 4);
+    seed ^= seed << 13;
+    seed ^= seed >> 17;
+    seed ^= seed << 5;
+    return seed % 16;
+}
+
+static void arcade_kart_set_debug_quick_boot_random_track(void) {
+    s32 randomTrackIndex = (s32) arcade_kart_get_debug_quick_boot_random_track_index();
+    s32 cup = randomTrackIndex / 4;
+    s32 course = randomTrackIndex % 4;
+
+    switch (cup) {
+        case MUSHROOM_CUP:
+            CM_SetCup(GetMushroomCup());
+            break;
+        case FLOWER_CUP:
+            CM_SetCup(GetFlowerCup());
+            break;
+        case STAR_CUP:
+            CM_SetCup(GetStarCup());
+            break;
+        case SPECIAL_CUP:
+        default:
+            CM_SetCup(GetSpecialCup());
+            break;
+    }
+
+    CM_SetCupIndex(cup);
+    gCupSelection = cup;
+    SetCupCursorPosition(course);
+    gCourseIndexInCup = course;
+    D_800DC540 = GetCupIndex();
+    gCurrentCourseId = gCupCourseOrder[gCupSelection][gCourseIndexInCup];
+    TrackBrowser_SetTrackFromCup();
+    printf("[ArcadeKart] Debug quick race selected %s (cup %d, course %d, track id %d)\n",
+           TrackBrowser_GetTrackName(), cup, course, gCurrentCourseId);
+}
+
 static void arcade_kart_debug_quick_boot_hud_race(void) {
     s32 i;
 
@@ -183,24 +229,20 @@ static void arcade_kart_debug_quick_boot_hud_race(void) {
     gPlayerCountSelection1 = 1;
     gScreenModeListIndex = 0;
     gScreenModeSelection = SCREEN_MODE_1P;
+    kart_transmission_reset_modes_for_player_count(gPlayerCount);
 
     gCharacterSelections[PLAYER_ONE] = MARIO;
     gCharacterGridSelections[PLAYER_ONE] = 1;
+    gCharacterGridCharacterLocked[PLAYER_ONE] = true;
     gCharacterGridIsSelected[PLAYER_ONE] = true;
     for (i = PLAYER_TWO; i < ARRAY_COUNT(gCharacterSelections); i++) {
         gCharacterSelections[i] = i;
         gCharacterGridSelections[i] = 0;
+        gCharacterGridCharacterLocked[i] = false;
         gCharacterGridIsSelected[i] = false;
     }
 
-    CM_SetCup(GetSpecialCup());
-    CM_SetCupIndex(SPECIAL_CUP);
-    gCupSelection = SPECIAL_CUP;
-    SetCupCursorPosition(TRACK_TWO);
-    gCourseIndexInCup = TRACK_TWO;
-    D_800DC540 = GetCupIndex();
-    gCurrentCourseId = gCupCourseOrder[gCupSelection][gCourseIndexInCup];
-    TrackBrowser_SetTrackFromCup();
+    arcade_kart_set_debug_quick_boot_random_track();
 
     for (i = 0; i < ARRAY_COUNT(gGPPointsByCharacterId); i++) {
         gGPPointsByCharacterId[i] = 0;
@@ -1617,6 +1659,14 @@ bool is_character_spot_free(s32 gridId) {
     return true;
 }
 
+static bool is_character_select_locked(u16 controllerIdx) {
+    if (controllerIdx >= ARRAY_COUNT(gCharacterGridCharacterLocked)) {
+        return false;
+    }
+
+    return gCharacterGridCharacterLocked[controllerIdx] || gCharacterGridIsSelected[controllerIdx];
+}
+
 // Grid positions are from right to left, then top to bottom
 // https://decomp.me/scratch/6R4jX
 #if 1
@@ -1651,6 +1701,10 @@ void player_select_menu_act(struct Controller* controller, u16 controllerIdx) {
                 if (btnAndStick & B_BUTTON) {
                     if (gCharacterGridIsSelected[controllerIdx]) {
                         gCharacterGridIsSelected[controllerIdx] = false;
+                        gCharacterGridCharacterLocked[controllerIdx] = true;
+                        play_sound2(SOUND_MENU_GO_BACK);
+                    } else if (gCharacterGridCharacterLocked[controllerIdx]) {
+                        gCharacterGridCharacterLocked[controllerIdx] = false;
                         play_sound2(SOUND_MENU_GO_BACK);
                     } else {
                         func_8009E208();
@@ -1658,10 +1712,28 @@ void player_select_menu_act(struct Controller* controller, u16 controllerIdx) {
                     }
                 }
                 // L800B3684
-                if ((btnAndStick & A_BUTTON) && (gCharacterGridIsSelected[controllerIdx] == 0)) {
-                    gCharacterGridIsSelected[controllerIdx] = true;
+                if ((btnAndStick & A_BUTTON) && !is_character_select_locked(controllerIdx)) {
+                    gCharacterGridCharacterLocked[controllerIdx] = true;
                     i = sCharacterGridOrder[gCharacterGridSelections[controllerIdx] - 1];
                     func_800C90F4(controllerIdx, 0x2900800e + (i << 4));
+                } else if ((btnAndStick & A_BUTTON) && gCharacterGridCharacterLocked[controllerIdx] &&
+                           (gCharacterGridIsSelected[controllerIdx] == 0)) {
+                    gCharacterGridIsSelected[controllerIdx] = true;
+                    play_sound2(SOUND_MENU_OK_CLICKED);
+                }
+                if (gCharacterGridCharacterLocked[controllerIdx] && (gCharacterGridIsSelected[controllerIdx] == 0)) {
+                    if (btnAndStick & CONT_LEFT) {
+                        if (kart_transmission_get_mode(controllerIdx) != KART_TRANSMISSION_AUTOMATIC) {
+                            kart_transmission_set_mode(controllerIdx, KART_TRANSMISSION_AUTOMATIC);
+                            play_sound2(0x49008000);
+                        }
+                    }
+                    if (btnAndStick & CONT_RIGHT) {
+                        if (kart_transmission_get_mode(controllerIdx) != KART_TRANSMISSION_MANUAL) {
+                            kart_transmission_set_mode(controllerIdx, KART_TRANSMISSION_MANUAL);
+                            play_sound2(0x49008000);
+                        }
+                    }
                 }
                 // L800B36F4
                 selected = false;
@@ -1680,7 +1752,7 @@ void player_select_menu_act(struct Controller* controller, u16 controllerIdx) {
                 }
 
                 // L800B3768
-                if (gCharacterGridIsSelected[controllerIdx] == 0) {
+                if (!is_character_select_locked(controllerIdx)) {
                     if ((btnAndStick & CONT_RIGHT) && (btnAndStick & CONT_DOWN)) {
                         if (savedSelection == 1 || savedSelection == 2 || savedSelection == 3) {
                             // L800B37B0
@@ -1788,6 +1860,7 @@ void player_select_menu_act(struct Controller* controller, u16 controllerIdx) {
                 if (btnAndStick & B_BUTTON) {
                     gPlayerSelectMenuSelection = PLAYER_SELECT_MENU_MAIN;
                     gCharacterGridIsSelected[controllerIdx] = false;
+                    gCharacterGridCharacterLocked[controllerIdx] = true;
                     play_sound2(SOUND_MENU_GO_BACK);
                     break;
                 }
@@ -2053,9 +2126,11 @@ void load_menu_states(s32 menuSelection) {
                             } else {
                                 gCharacterGridSelections[i] = 0;
                             }
+                            gCharacterGridCharacterLocked[i] = false;
                             gCharacterGridIsSelected[i] = false;
                             gCharacterSelections[i] = i;
                         }
+                        kart_transmission_reset_modes_for_player_count(gPlayerCount);
                         play_sound2(SOUND_MENU_SELECT_PLAYER);
                     } else {
                         func_800CA008(0, 0);
@@ -2065,7 +2140,9 @@ void load_menu_states(s32 menuSelection) {
                         play_sequence(MUSIC_SEQ_MAIN_MENU);
                         for (i = 0; i < ARRAY_COUNT(gCharacterGridIsSelected); i++) {
                             gCharacterGridIsSelected[i] = false;
+                            gCharacterGridCharacterLocked[i] = false;
                         }
+                        kart_transmission_reset_modes_for_player_count(gPlayerCount);
                     }
                     break;
                 }
@@ -2074,10 +2151,13 @@ void load_menu_states(s32 menuSelection) {
                     for (i = 0; i < ARRAY_COUNT(gCharacterGridIsSelected); i++) {
                         if (gPlayerCount > i) {
                             gCharacterGridIsSelected[i] = true;
+                            gCharacterGridCharacterLocked[i] = true;
                         } else {
                             gCharacterGridIsSelected[i] = false;
+                            gCharacterGridCharacterLocked[i] = false;
                         }
                     }
+                    kart_transmission_reset_modes_for_player_count(gPlayerCount);
                     break;
                 }
             }

@@ -229,6 +229,7 @@ extern s32 gMenuFadeType;
 
 extern s8 gCharacterGridSelections[];
 extern bool gCharacterGridIsSelected[];
+extern bool gCharacterGridCharacterLocked[];
 extern s8 gSubMenuSelection;
 extern s8 gMainMenuSelection;
 extern s8 gPlayerSelectMenuSelection;

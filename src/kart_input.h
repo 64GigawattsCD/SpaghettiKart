@@ -21,6 +21,7 @@
 #define KART_SHIFT_GEAR_UP_BUTTON 0x10000000
 #define KART_SHIFT_GEAR_DOWN_BUTTON 0x20000000
 #define KART_TOGGLE_HUD_BUTTON 0x40000000
+#define KART_CAPTURE_SCREENSHOT_BUTTON 0x80000000
 
 typedef enum {
     KART_INPUT_THROTTLE,
@@ -45,6 +46,7 @@ typedef enum {
     KART_INPUT_SHIFT_GEAR_UP,
     KART_INPUT_SHIFT_GEAR_DOWN,
     KART_INPUT_TOGGLE_HUD,
+    KART_INPUT_CAPTURE_SCREENSHOT,
 } KartInputCommand;
 
 f32 kart_input_get_command_value(const struct Controller* controller, KartInputCommand command);

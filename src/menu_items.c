@@ -24,6 +24,7 @@
 #include "render_objects.h"
 #include "replays.h"
 #include "kart_input.h"
+#include "kart_transmission.h"
 #include <assets/models/common_data.h>
 #include "textures.h"
 #include "math_util.h"
@@ -57,6 +58,7 @@
 const char* GetCupName(void);
 
 void guMtxCatL(Mtx* m, Mtx* n, Mtx* res);
+static void arcade_kart_render_transmission_mode_label(MenuItem* menuItem, s32 playerIndex);
 
 const char* sMenuTextureList[MENU_TEXTURE_BUFFER_MAX];
 u8* sTKMK00_LowResBuffer;
@@ -2220,6 +2222,17 @@ void print_text1_right(s32 column, s32 row, char* text, s32 tracking, f32 scaleX
 
 void print_text1_center_mode_2(s32 column, s32 row, char* text, s32 tracking, f32 scaleX, f32 scaleY) {
     print_text1(column, row, text, tracking, scaleX, scaleY, 4);
+}
+
+static void arcade_kart_render_transmission_mode_label(MenuItem* menuItem, s32 playerIndex) {
+    if ((playerIndex < 0) || (playerIndex >= gPlayerCount) || (gCharacterGridSelections[playerIndex] == 0) ||
+        (!gCharacterGridCharacterLocked[playerIndex] && !gCharacterGridIsSelected[playerIndex])) {
+        return;
+    }
+
+    set_text_color(kart_transmission_get_mode(playerIndex) == KART_TRANSMISSION_AUTOMATIC ? TEXT_GREEN : TEXT_YELLOW);
+    print_text1_center_mode_1(menuItem->column + 0x10, menuItem->row + 0x30,
+                              (char*) kart_transmission_get_mode_label(playerIndex), 0, 0.45f, 0.45f);
 }
 
 void print_text2(s32 column, s32 row, char* text, s32 tracking, f32 scaleX, f32 scaleY, s32 arg6) {
@@ -6597,7 +6610,7 @@ void render_menus(MenuItem* arg0) {
             case CHARACTER_SELECT_MENU_4P_CURSOR:
                 temp_a0 = arg0->type - CHARACTER_SELECT_MENU_1P_CURSOR;
                 if (gCharacterGridSelections[temp_a0]) {
-                    if (gCharacterGridIsSelected[temp_a0] == 0) {
+                    if ((gCharacterGridIsSelected[temp_a0] == 0) && (gCharacterGridCharacterLocked[temp_a0] == 0)) {
                         temp_t2 = 0x000000FF;
                     } else {
                         temp_t2 = gGlobalTimer % 16;
@@ -6609,6 +6622,7 @@ void render_menus(MenuItem* arg0) {
                         temp_t2 += 0xBF;
                     }
                     render_cursor_player(arg0, temp_a0, temp_t2);
+                    arcade_kart_render_transmission_mode_label(arg0, temp_a0);
                 }
                 break;
             case CHARACTER_SELECT_MENU_OK:
@@ -10494,7 +10508,8 @@ void func_800AA69C(MenuItem* arg0) {
     }
     switch (arg0->subState) {
         case 0:
-            if ((var_a0 != 0) && (gCharacterGridIsSelected[temp_v0] != 0)) {
+            if ((var_a0 != 0) &&
+                ((gCharacterGridIsSelected[temp_v0] != 0) || (gCharacterGridCharacterLocked[temp_v0] != 0))) {
                 arg0->subState = 1;
                 func_8009A594(arg0->D_8018DEE0_index, 0,
                               gCharacterCelebrateAnimation[temp_a0]);
@@ -10515,7 +10530,8 @@ void func_800AA69C(MenuItem* arg0) {
             if (D_8018DEE0[arg0->D_8018DEE0_index].sequenceIndex >= D_800E8440[temp_a0]) {
                 arg0->subState = 2;
                 func_8009A594(arg0->D_8018DEE0_index, 0, D_800E83A0[temp_a0]);
-            } else if ((var_a0 != 0) && (gCharacterGridIsSelected[temp_v0] == 0)) {
+            } else if ((var_a0 != 0) && (gCharacterGridIsSelected[temp_v0] == 0) &&
+                       (gCharacterGridCharacterLocked[temp_v0] == 0)) {
                 arg0->subState = 3;
                 func_8009A594(arg0->D_8018DEE0_index,
                               D_800E8460[temp_a0] - D_8018DEE0[arg0->D_8018DEE0_index].sequenceIndex,
@@ -10523,7 +10539,8 @@ void func_800AA69C(MenuItem* arg0) {
             }
             break;
         case 2:
-            if ((var_a0 != 0) && (gCharacterGridIsSelected[temp_v0] == 0)) {
+            if ((var_a0 != 0) && (gCharacterGridIsSelected[temp_v0] == 0) &&
+                (gCharacterGridCharacterLocked[temp_v0] == 0)) {
                 arg0->subState = 3;
                 func_8009A594(arg0->D_8018DEE0_index, 0, gCharacterDeselectAnimation[temp_a0]);
             }
@@ -10532,7 +10549,8 @@ void func_800AA69C(MenuItem* arg0) {
             if (D_8018DEE0[arg0->D_8018DEE0_index].sequenceIndex >= D_800E8460[temp_a0]) {
                 arg0->subState = 0;
                 func_8009A594(arg0->D_8018DEE0_index, 0, D_800E8360[temp_a0]);
-            } else if ((var_a0 != 0) && (gCharacterGridIsSelected[temp_v0] != 0)) {
+            } else if ((var_a0 != 0) &&
+                       ((gCharacterGridIsSelected[temp_v0] != 0) || (gCharacterGridCharacterLocked[temp_v0] != 0))) {
                 arg0->subState = 1;
                 func_8009A594(arg0->D_8018DEE0_index,
                               D_800E8460[temp_a0] - D_8018DEE0[arg0->D_8018DEE0_index].sequenceIndex,
@@ -10541,7 +10559,8 @@ void func_800AA69C(MenuItem* arg0) {
             break;
         case 4:
         case 5:
-            if ((var_a0 != 0) && (gCharacterGridIsSelected[temp_v0] != 0)) {
+            if ((var_a0 != 0) &&
+                ((gCharacterGridIsSelected[temp_v0] != 0) || (gCharacterGridCharacterLocked[temp_v0] != 0))) {
                 arg0->subState = 1;
                 func_8009A594(arg0->D_8018DEE0_index, 0,
                               gCharacterCelebrateAnimation[temp_a0]);

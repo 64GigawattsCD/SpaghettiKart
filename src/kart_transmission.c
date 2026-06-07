@@ -3,17 +3,20 @@
 #include <libultraship.h>
 #include <limits.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <defines.h>
 #include "kart_input.h"
 #include "kart_character_stats.h"
 #include "code_80057C60.h"
 #include "math_util.h"
+#include "main.h"
 #include "port/audio/HMAS.h"
 #include "audio/external.h"
 #include "sounds.h"
 
 #define KART_TRANSMISSION_PLAYER_COUNT 8
+#define KART_TRANSMISSION_MODE_CVAR_FORMAT "gArcadeKart.Transmission.Player%dMode"
 #define KART_SHIFT_GRIND_SOUND_COUNT 3
 #define KART_SHIFT_GRIND_SOUND_ID_BASE 7000
 #define KART_SHIFT_BAD_SOUND SOUND_ACTION_TYRE_SQUEAL
@@ -25,6 +28,7 @@
 #define KART_SHIFT_SEQUENTIAL_STICK_DEADZONE 0.25f
 
 static s8 sKartGear[KART_TRANSMISSION_PLAYER_COUNT];
+static KartTransmissionMode sKartTransmissionMode[KART_TRANSMISSION_PLAYER_COUNT];
 static bool sKartTransmissionInitialized[KART_TRANSMISSION_PLAYER_COUNT];
 static s16 sKartShiftBonusTimer[KART_TRANSMISSION_PLAYER_COUNT];
 static s16 sKartShiftPenaltyTimer[KART_TRANSMISSION_PLAYER_COUNT];
@@ -108,6 +112,18 @@ static s32 kart_transmission_clamp_player_index(s32 playerIndex) {
     return playerIndex;
 }
 
+static void kart_transmission_get_mode_cvar_key(s32 playerIndex, char* buffer, size_t bufferSize) {
+    snprintf(buffer, bufferSize, KART_TRANSMISSION_MODE_CVAR_FORMAT, playerIndex + 1);
+}
+
+static KartTransmissionMode kart_transmission_get_stored_mode(s32 playerIndex) {
+    char key[64];
+
+    kart_transmission_get_mode_cvar_key(playerIndex, key, sizeof(key));
+    return CVarGetInteger(key, KART_TRANSMISSION_AUTOMATIC) != 0 ? KART_TRANSMISSION_AUTOMATIC
+                                                                 : KART_TRANSMISSION_MANUAL;
+}
+
 static void kart_transmission_init_player(s32 playerIndex) {
     playerIndex = kart_transmission_clamp_player_index(playerIndex);
     if (sKartTransmissionInitialized[playerIndex]) {
@@ -115,6 +131,7 @@ static void kart_transmission_init_player(s32 playerIndex) {
     }
 
     sKartGear[playerIndex] = KART_GEAR_FIRST;
+    sKartTransmissionMode[playerIndex] = kart_transmission_get_stored_mode(playerIndex);
     sKartSequentialShiftDirection[playerIndex] = 0;
     sKartTransmissionInitialized[playerIndex] = true;
 }
@@ -131,12 +148,87 @@ static void kart_transmission_clear_shift_session(s32 playerIndex) {
     sKartSequentialShiftDirection[playerIndex] = 0;
 }
 
+void kart_transmission_set_mode(s32 playerIndex, KartTransmissionMode mode) {
+    playerIndex = kart_transmission_clamp_player_index(playerIndex);
+    kart_transmission_init_player(playerIndex);
+
+    if ((mode != KART_TRANSMISSION_AUTOMATIC) && (mode != KART_TRANSMISSION_MANUAL)) {
+        mode = KART_TRANSMISSION_AUTOMATIC;
+    }
+
+    sKartTransmissionMode[playerIndex] = mode;
+    sKartGear[playerIndex] = KART_GEAR_FIRST;
+    sKartClutchAmount[playerIndex] = 0.0f;
+    sKartPreviousClutchAmount[playerIndex] = 0.0f;
+    kart_transmission_clear_shift_session(playerIndex);
+}
+
+void kart_transmission_toggle_mode(s32 playerIndex) {
+    playerIndex = kart_transmission_clamp_player_index(playerIndex);
+    kart_transmission_init_player(playerIndex);
+    kart_transmission_set_mode(playerIndex, sKartTransmissionMode[playerIndex] == KART_TRANSMISSION_AUTOMATIC
+                                                ? KART_TRANSMISSION_MANUAL
+                                                : KART_TRANSMISSION_AUTOMATIC);
+}
+
+KartTransmissionMode kart_transmission_get_mode(s32 playerIndex) {
+    playerIndex = kart_transmission_clamp_player_index(playerIndex);
+    kart_transmission_init_player(playerIndex);
+    return sKartTransmissionMode[playerIndex];
+}
+
+const char* kart_transmission_get_mode_label(s32 playerIndex) {
+    return kart_transmission_get_mode(playerIndex) == KART_TRANSMISSION_AUTOMATIC ? "AUTO" : "MANUAL";
+}
+
+void kart_transmission_reset_modes_for_player_count(s32 playerCount) {
+    s32 i;
+
+    for (i = 0; i < KART_TRANSMISSION_PLAYER_COUNT; i++) {
+        sKartTransmissionInitialized[i] = false;
+        kart_transmission_init_player(i);
+        if (i >= playerCount) {
+            sKartTransmissionMode[i] = KART_TRANSMISSION_AUTOMATIC;
+        }
+        sKartGear[i] = KART_GEAR_FIRST;
+        sKartClutchAmount[i] = 0.0f;
+        sKartPreviousClutchAmount[i] = 0.0f;
+        kart_transmission_clear_shift_session(i);
+    }
+}
+
+static s32 kart_transmission_get_player_index_from_player(const Player* player) {
+    ptrdiff_t playerIndex;
+
+    if ((player == NULL) || (gPlayerOne == NULL)) {
+        return -1;
+    }
+
+    playerIndex = player - gPlayerOne;
+    if ((playerIndex < 0) || (playerIndex >= KART_TRANSMISSION_PLAYER_COUNT)) {
+        return -1;
+    }
+    return (s32) playerIndex;
+}
+
 bool kart_transmission_is_automatic(const Player* player) {
+    s32 playerIndex;
+
     if (player == NULL) {
         return false;
     }
 
-    return ((player->type & PLAYER_CPU) == PLAYER_CPU) || ((player->type & PLAYER_HUMAN) != PLAYER_HUMAN);
+    if (((player->type & PLAYER_CPU) == PLAYER_CPU) || ((player->type & PLAYER_HUMAN) != PLAYER_HUMAN)) {
+        return true;
+    }
+
+    playerIndex = kart_transmission_get_player_index_from_player(player);
+    if (playerIndex < 0) {
+        return false;
+    }
+
+    kart_transmission_init_player(playerIndex);
+    return sKartTransmissionMode[playerIndex] == KART_TRANSMISSION_AUTOMATIC;
 }
 
 static f32 kart_transmission_get_speed_ratio(const Player* player) {
@@ -668,6 +760,14 @@ void kart_transmission_update(Player* player, const struct Controller* controlle
 
     playerIndex = kart_transmission_clamp_player_index(playerIndex);
     kart_transmission_init_player(playerIndex);
+
+    if (kart_transmission_is_automatic(player)) {
+        kart_transmission_update_automatic_gear(player, playerIndex);
+        kart_transmission_clear_shift_session(playerIndex);
+        sKartClutchAmount[playerIndex] = 0.0f;
+        sKartPreviousClutchAmount[playerIndex] = 0.0f;
+        return;
+    }
 
     if (controller == NULL) {
         return;

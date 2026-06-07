@@ -48,6 +48,8 @@ static u32 kart_input_get_legacy_button(KartInputCommand command) {
             return KART_SHIFT_GEAR_DOWN_BUTTON;
         case KART_INPUT_TOGGLE_HUD:
             return KART_TOGGLE_HUD_BUTTON;
+        case KART_INPUT_CAPTURE_SCREENSHOT:
+            return KART_CAPTURE_SCREENSHOT_BUTTON;
     }
 
     return 0;

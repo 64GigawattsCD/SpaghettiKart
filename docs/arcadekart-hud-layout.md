@@ -7,7 +7,7 @@ This note records the intent and current shape of the ArcadeKart HUD layout pass
 - Keep the HUD recognizable as Mario Kart 64: original race timer, lap, placement, portrait, minimap, item, and speedometer/RPM art should stay visually native unless we intentionally replace a specific asset.
 - Treat each HUD feature as a movable cluster instead of hand-positioned one-off sprites. The major clusters are placement number, top-four portrait strip, timer/lap strip, lap-time list, item box, minimap/dots, and RPM meter.
 - Anchor clusters to a player-view safe zone, not to the raw screen, so 1P and split-screen layouts share the same mental model.
-- Apply scaling at cluster boundaries. Individual glyphs and textures should keep their native proportions inside the cluster so text does not become vertically squeezed or horizontally stretched.
+- Apply scaling at cluster boundaries using code-side constants. Individual glyphs and textures should keep their native proportions inside the cluster so text does not become vertically squeezed or horizontally stretched.
 - Keep post-process effects below the HUD. The HUD is meant to read clearly even when the game layer has barrel warp, motion blur, screen shake, or overscan.
 
 ## Layout Model
@@ -30,12 +30,13 @@ This note records the intent and current shape of the ArcadeKart HUD layout pass
 - Moved the top-four portrait stack to center-left, wrapped in a vertical box, and tuned spacing/padding independently from placement.
 - Preserved portrait and item opacity by fixing HUD framebuffer compositing and avoiding accidental alpha loss through the post-FX path.
 - Moved minimap and dots into a right-side cluster and updated racer dots to use character colors while retaining the original rainbow flash for first place.
+- One-player minimap placement is right-edge driven from a fixed HUD-reference inset. The active minimap image builds its own scaled rect, so larger track maps move their left edge inward while their right edge stays anchored.
 - Reworked the speedometer into an ArcadeKart RPM meter cluster anchored bottom-right:
   - Custom faceplate texture from the mod pack.
   - Needle driven by a normalized RPM function.
   - Gear and digital RPM readout overlaid on the meter face.
   - Orange/red shift feedback driven by transmission tuning.
-- Added per-cluster scale CVars, currently centered around the 0.8 scale pass for portrait strip, timer/lap strip, lap-time list, minimap/dots, and RPM meter.
+- Removed per-cluster HUD CVars after tuning stabilized. Current scale and placement values live as named constants, with `gArcadeKart.Hud.SafeZoneScale` left as the single global HUD edge-inset control.
 
 ## Current Visual Target
 
@@ -46,6 +47,10 @@ This note records the intent and current shape of the ArcadeKart HUD layout pass
 - Item box centered under the timer/lap cluster.
 - Minimap mid-right.
 - RPM meter bottom-right, aligned with the right-side HUD edge and fully inside the safe zone.
+- Minimap art dimensions must not push the RPM meter. The minimap/dots group and RPM meter/readout group are separately anchored from fixed right-side insets; saved placement CVars are intentionally not read for those two groups.
+- Gear and RPM readout overlays are positioned inside the fixed RPM widget canvas. Their right edge is center-relative to the widget's bottom-right body area, so `AUTO`/gear text width does not affect the main meter body or the minimap.
+- Right-side HUD clusters render into the ArcadeKart HUD framebuffer, so they must use unchanged 320x240 HUD coordinates. Do not send minimap/RPM quads through the old wide HUD helpers that call `OTRGetDimensionFromRightEdge`; that moves them outside the HUD layer before composition.
+- `gArcadeKart.Hud.SafeZoneScale` scales edge insets globally. It does not change individual cluster proportions or resurrect per-widget offsets.
 
 ## Guardrails
 

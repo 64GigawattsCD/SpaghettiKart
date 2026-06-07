@@ -189,6 +189,8 @@ void func_8006EF60(void) {
 }
 
 void func_8006F008(void) {
+    const s32 arcadeKartHudMinimapOnePlayerY = 112;
+
     xOrientation = 1.0f;
     if (gIsMirrorMode != 0) {
         xOrientation = -1.0f;
@@ -207,8 +209,7 @@ void func_8006F008(void) {
 
     switch (gPlayerCount) {
         case 1:
-            CM_GetProps()->Minimap.Pos[PLAYER_ONE].X = CVarGetInteger("gArcadeKart.Hud.MinimapOnePlayerX", 238);
-            CM_GetProps()->Minimap.Pos[PLAYER_ONE].Y = CVarGetInteger("gArcadeKart.Hud.MinimapY", 112);
+            CM_GetProps()->Minimap.Pos[PLAYER_ONE].Y = arcadeKartHudMinimapOnePlayerY;
             break;
         case 2:
             // Set X coord

@@ -14,6 +14,16 @@ typedef enum {
     KART_SHIFT_FEEDBACK_BAD,
 } KartShiftFeedback;
 
+typedef enum {
+    KART_TRANSMISSION_MANUAL,
+    KART_TRANSMISSION_AUTOMATIC,
+} KartTransmissionMode;
+
+void kart_transmission_reset_modes_for_player_count(s32 playerCount);
+void kart_transmission_set_mode(s32 playerIndex, KartTransmissionMode mode);
+void kart_transmission_toggle_mode(s32 playerIndex);
+KartTransmissionMode kart_transmission_get_mode(s32 playerIndex);
+const char* kart_transmission_get_mode_label(s32 playerIndex);
 void kart_transmission_update(Player* player, const struct Controller* controller, s32 playerIndex);
 f32 kart_transmission_get_drive_amount(const Player* player, s32 playerIndex, f32 throttleAmount);
 void kart_transmission_apply_speed_limits(Player* player, s32 playerIndex);

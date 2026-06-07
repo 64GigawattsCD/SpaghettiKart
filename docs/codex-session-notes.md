@@ -15,12 +15,13 @@
 ## HUD Layout
 
 - HUD positioning now uses an explicit layout safe zone: the root player view stays full-size for scale math, while selected canvas slots anchor inside `HudLayoutContext.safeRect`.
-- Scale controls belong at visible cluster boundaries: placement number, portrait strip, time/lap strip, lap-time list, minimap/dots, and RPM meter each have their own scale CVar. Leaf renderers must consume their arranged rects for the scale boxes to affect pixels.
+- HUD cluster scale and placement tuning is fixed in code now. The only live ArcadeKart HUD tuning CVar is `gArcadeKart.Hud.SafeZoneScale`, which globally scales edge insets.
 - RenderModernize HUD visual target as of 2026-06-01: placement high top-left, portrait strip below/left, time/lap centered high, vertical lap split list top-right, minimap mid-right, RPM meter bottom-right. Latest useful full capture: `C:\Users\Craig\OneDrive\Documents\mk64 Arcade\screenshots\render-modernize-layout\RenderModernize-layout-final-pass-20260601-152150.png`.
-- The one-player minimap currently uses explicit center CVars (`gArcadeKart.Hud.MinimapOnePlayerX`, `gArcadeKart.Hud.MinimapY`) so the RPM meter can align to the same right-side cluster while RenderModernize overscan is being tuned.
-- Portrait strip now uses safe-zone anchoring for center-left placement and has a new `gArcadeKart.Hud.PortraitStripCenterYOffset` control for quick visual nudging.
+- The one-player minimap and RPM meter are separate anchored groups now. The minimap constructs a scaled rect from the active track map, so larger map textures grow leftward. The RPM meter does not read minimap dimensions. Right-side minimap/RPM placement is fixed in code from HUD-reference insets now, so stale saved placement CVars do not move those groups.
+- Right-side ArcadeKart HUD elements render into the post-FX HUD framebuffer. Use unchanged 320x240 HUD coordinates there; old wide helpers/matrices that call `OTRGetDimensionFromRightEdge` push right-side sprites out of the HUD framebuffer.
+- Portrait strip uses safe-zone anchoring for center-left placement with code-side constants for scale, edge inset, spacing, and center offset.
 - HUD micro-pass completed: placement left/top offsets moved inward, portrait strip edge offset increased, map vertical/padding defaults moved inward slightly, and top/lap cluster defaults re-centered to reduce manual slider churn.
-- RenderModernize HUD cluster scale defaults are 0.8 for portrait strip, time/lap strip, lap-time list, minimap/dots, and RPM meter; each cluster keeps its existing safe-zone anchor while shrinking.
+- RenderModernize HUD cluster scale constants are 0.8 for portrait strip, time/lap strip, lap-time list, minimap/dots, and RPM meter; each cluster keeps its safe-zone-aware anchor while shrinking.
 
 ## HUD Timer/Lap
 
@@ -30,7 +31,9 @@
 
 ## Minimap
 
-- `draw_minimap_character` tints the neutral minimap progress dot from an explicit character palette; first place still uses `func_8004C450` for the existing rainbow flash.
+- `draw_minimap_character` has four explicit marker paths: normal dot, rainbow dot, normal human kart icon, and rainbow human kart icon. The first-place paths use the same scaled texture-rectangle geometry as the non-rainbow paths so markers stay aligned.
+- Live human minimap kart icons now use an isolated rotated path: a private centered 8x8 quad, `func_80042330_unchanged`, `D_0D007968` for tint-friendly minimap state, the RGBA16 kart texture, and an explicit `D_0D007EB8` restore. Do not go back to `func_80046AD4` / `common_vtx_player_minimap_icon`; that old path repeatedly caused a wide horizontal chunk of HUD/game rendering to disappear. The angle comes from `player->rotation[1]` plus a baked 180-degree flip. The marker draws a slightly larger black pass under the colored/rainbow pass so it keeps a black outline while tinted.
+- The race minimap now has a single layout helper for the texture, finish-line marker, and racer dots. Keep all minimap world-to-HUD transforms inside that rect so map art dimensions do not leak into other HUD groups.
 
 ## Controller Sequential Shift
 
@@ -41,7 +44,10 @@
 
 ## Transmission Mode
 
-- Manual/automatic selection should first land in the ArcadeKart options near clutch, shifter smoothing, and gear tuning as a `Transmission Mode` option. Longer term it belongs in race setup/character select as a driving preference; AI should remain automatic until AI manual-shift behavior is explicitly authored.
+- Manual/automatic is selectable per human player on character select with L/R. The small cursor label shows `MANUAL` or `AUTO`, and the toggle persists through `gArcadeKart.Transmission.PlayerNMode` defaults.
+- AI racers remain forced automatic in `kart_transmission_is_automatic` until explicit AI manual-shift behavior is authored.
+- The ArcadeKart options menu exposes simple per-player auto-transmission default checkboxes; normal race-flow selection remains on character select.
+- `gArcadeKart.DebugQuickBootHudRace` now skips straight into a 1P 50cc Mario GP race and chooses a random stock GP track each process launch. Normal character/transmission select stays unchanged when the debug quick boot is off.
 
 ## Render Modernize
 
@@ -49,7 +55,7 @@
 - The DX11 path uses HLSL pixel shaders in `Gui.cpp`: one for scene barrel/overscan/blur/shake, and one to composite the HUD framebuffer by keying the magenta clear color into alpha.
 - The HUD framebuffer does not carry useful alpha when sampled by ImGui; plain alpha blending turns its clear color opaque. Keep the keyed HUD shader unless the framebuffer backend starts preserving alpha. The HUD compositor must use the point-clamp sampler and neutral-edge de-spill so the magenta clear key does not bleed into white HUD glyphs, minimap edges, portrait edges, or the RPM meter.
 - Full-screen smoke capture after the HLSL pass: `artifacts/render-modernize-hlsl.png`.
-- HUD is composited at full player-view size over the post-processed scene. Do not scale the final HUD framebuffer; it double-shrinks the HUD and does not recover pixels that were already clipped in the HUD source. The RPM meter is anchored as a complete panel with `gArcadeKart.Hud.RpmMeterRightMargin` and `gArcadeKart.Hud.RpmMeterBottomMargin`, not by its visible gauge face, so its hidden texture bounds stay inside the source. The executable-side `build/x64/Debug/mods/zz-arcadekart-rpm-faceplate.o2r` must stay in sync with the root `mods` copy because the app loads mods relative to the executable directory.
+- HUD is composited at full player-view size over the post-processed scene. Do not scale the final HUD framebuffer; it double-shrinks the HUD and does not recover pixels that were already clipped in the HUD source. The RPM meter is anchored as a complete panel with fixed code-side right/bottom insets, not by its visible gauge face, so its hidden texture bounds stay inside the source. The executable-side `build/x64/Debug/mods/zz-arcadekart-rpm-faceplate.o2r` must stay in sync with the root `mods` copy because the app loads mods relative to the executable directory.
 - Saved transient framebuffer CVars can be stale during startup. `GetFramebufferTextureId` must return null for out-of-range ids, and the compositor clears `LayeredHudActive` when either scene or HUD framebuffer lookup fails.
 - Screen shake uses `gArcadeKart.PostFx.ShakeStrength` as the mushroom/top-speed-ish amount, then scales it by speed: `gArcadeKart.PostFx.ShakeIdleScale` defaults to 0.05 at idle and `gArcadeKart.PostFx.ShakeFullSpeedRatio` defaults to 1.0 for full shake.
 - Race menu directions no longer tune post-FX or wheel spring values. Post-FX tuning lives in menu CVars: normalized `gArcadeKart.PostFx.TestShakeSlider`/`TestWarpSlider`, raw-max remaps `TuningShakeInputMax`/`TuningWarpInputMax`, visual gains `TuningShakeStrength`/`TuningWarpStrength`, and response shaping via `SpeedMinRatio`/`SpeedMaxRatio` plus `ResponsePower`. Legacy debug lap skip is gated by default-off `gArcadeKart.DebugLegacyLapSkipEnabled`.
@@ -63,4 +69,10 @@
 
 - The active HD texture pack is `mods/mk64-reloaded-v2025.12.20-sk-hd.o2r` (`MK64-Reloaded-SK`). Track targeted overrides as a separate loose folder mod named `spiny-valley-porcupine-override`, currently containing `textures/tracks/yoshi_valley/yoshi_valley_data/d_course_yoshi_valley_hedgehog.png` and `textures/common_data/common_texture_speedometer.png`. Keep copies in both `E:\SpaghettiKart\mods\` and `E:\SpaghettiKart\build\x64\Debug\mods\` so the runtime loads it after Reloaded without modifying the large pack.
 - Yoshi Valley hedgehog sprite flipping is camera-space now: each hedgehog/camera pair tracks its previous projected X and uses the mirrored quad only when it moves camera-left.
-- World drift feedback text keeps a per-particle tire corner anchor; the current anchor has `unk_010 == 1` using the positive card half-width and `unk_010 == 0` using the negative half-width.
+- World drift feedback text keeps a per-particle side anchor in `unk_010`. The tire origin and rendered card corner are intentionally crossed so the word sits outward from the kart: left drift uses the back-right tire and right drift uses the back-left tire, while the drawn card aligns the opposite horizontal corner to that tire point. Debug red/blue markers share that same tire origin at spawn, with random jitter and the initial outward shove removed; lateral/backward movement still starts after age zero. The spawn gate is currently 8 logic ticks.
+- Drift words are rendered from the separate ArcadeKart feedback pool. The legacy human-drift particle slot now keeps calling `setup_tyre_particles`, so normal tire dust stays visible while word cards spawn.
+- World drift feedback words should only spawn while the player is actually drifting (`DRIFTING_EFFECT`, positive `driftDuration`, or positive `driftState`). Hard steering alone can still create baseline skid particles, but it must not create ArcadeKart `Slide` text.
+
+## Particle Modernization
+
+- `src/engine/particles/ArcadeKartParticleEmitter` now extends the existing C++ particle hook with parameterized emitters, player attachment, world/local space simulation, spawn-rate accumulation, bursts, lifetime, velocity, acceleration, alpha, and scale interpolation. It is dormant infrastructure; tire dust/exhaust/drift words still use their current paths until a specific migration pass.

@@ -123,6 +123,7 @@ GameEngine::GameEngine() {
             { BTN_CDOWN, { Ship::KbScancode::LUS_KB_G} },
             { BTN_CLEFT, { Ship::KbScancode::LUS_KB_F} },
             { KART_TOGGLE_HUD_BUTTON, { Ship::KbScancode::LUS_KB_H} },
+            { KART_CAPTURE_SCREENSHOT_BUTTON, { Ship::KbScancode::LUS_KB_F12} },
             { BTN_DUP, { Ship::KbScancode::LUS_KB_NUMPAD8} },
             { BTN_DDOWN, { Ship::KbScancode::LUS_KB_NUMPAD2} },
             { BTN_DLEFT, { Ship::KbScancode::LUS_KB_NUMPAD4} },
@@ -151,7 +152,8 @@ GameEngine::GameEngine() {
             { BTN_DLEFT, { SDL_CONTROLLER_BUTTON_DPAD_LEFT } },
             { BTN_DRIGHT, { SDL_CONTROLLER_BUTTON_DPAD_RIGHT } },
             { BTN_R, { SDL_CONTROLLER_BUTTON_LEFTSHOULDER } },
-            { BTN_Z, { SDL_CONTROLLER_BUTTON_RIGHTSHOULDER } }
+            { BTN_Z, { SDL_CONTROLLER_BUTTON_RIGHTSHOULDER } },
+            { KART_CAPTURE_SCREENSHOT_BUTTON, { SDL_CONTROLLER_BUTTON_BACK } }
         },
         // SDLButtonToAxisDirectionMappings - use built-in LUS defaults
         std::unordered_map<Ship::StickIndex, std::vector<std::pair<Ship::Direction, SDL_GameControllerButton>>>(),
@@ -190,6 +192,7 @@ GameEngine::GameEngine() {
                       { KART_SHIFT_GEAR_DOWN_BUTTON, "Shift Gear Down" },
                       { KART_TOGGLE_HUD_BUTTON, "Toggle HUD" },
                       { KART_TOGGLE_MUSIC_BUTTON, "Toggle Music" },
+                      { KART_CAPTURE_SCREENSHOT_BUTTON, "Capture Screenshot" },
                       { BTN_START, "Open Menu" },
                       { BTN_CLEFT, "Look Behind" },
                       { BTN_CRIGHT, "Legacy C-Right" },

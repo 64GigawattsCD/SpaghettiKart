@@ -39,6 +39,7 @@
 #include "data/some_data.h"
 #include <assets/textures/some_data.h>
 #include "port/Game.h"
+#include "port/ScreenshotCapture.h"
 #include "engine/Matrix.h"
 #include "engine/editor/Editor.h"
 #include "port/interpolation/FrameInterpolation.h"
@@ -48,11 +49,11 @@
 #define MAKE_RGB(r, g, b) (((r) << 0x10) | ((g) << 0x08) | (b << 0x00))
 #define ARCADEKART_WORLD_DRIFT_FEEDBACK_BACKWARD_SPEED 4.5f
 #define ARCADEKART_WORLD_DRIFT_FEEDBACK_LATERAL_SPEED 5.0f
-#define ARCADEKART_WORLD_DRIFT_FEEDBACK_SPAWN_OUTWARD_OFFSET 1.25f
 #define ARCADEKART_WORLD_DRIFT_FEEDBACK_RISE_SPEED 0.675f
-#define ARCADEKART_WORLD_DRIFT_FEEDBACK_SPAWN_INTERVAL 6
-#define ARCADEKART_WORLD_DRIFT_FEEDBACK_POSITION_JITTER 0.2f
+#define ARCADEKART_WORLD_DRIFT_FEEDBACK_SPAWN_INTERVAL 8
 #define ARCADEKART_WORLD_DRIFT_FEEDBACK_POOL_COUNT 24
+#define ARCADEKART_WORLD_DRIFT_FEEDBACK_BACK_LEFT_BOTTOM_LEFT 0
+#define ARCADEKART_WORLD_DRIFT_FEEDBACK_BACK_RIGHT_BOTTOM_RIGHT 1
 
 static void arcadekart_prepare_world_drift_feedback_particle(Player* player, UnkPlayerStruct258* particle);
 static void arcadekart_init_world_drift_feedback_word_textures(void);
@@ -60,6 +61,35 @@ static void render_arcadekart_world_drift_particle_feedback(Player* player, s8 p
                                                            s8 screenId);
 static void arcadekart_update_world_drift_feedback_pool(Player* player, s8 playerId);
 static void arcadekart_render_world_drift_feedback_pool(Player* player, s8 playerId, s8 screenId);
+
+static void arcadekart_capture_screenshot_if_requested(void) {
+    if (kart_input_was_command_pressed(gControllerOne, KART_INPUT_CAPTURE_SCREENSHOT) ||
+        kart_input_was_command_pressed(gControllerTwo, KART_INPUT_CAPTURE_SCREENSHOT) ||
+        kart_input_was_command_pressed(gControllerThree, KART_INPUT_CAPTURE_SCREENSHOT) ||
+        kart_input_was_command_pressed(gControllerFour, KART_INPUT_CAPTURE_SCREENSHOT)) {
+        ArcadeKart_CaptureWindowScreenshot();
+    }
+}
+
+static s8 arcadekart_get_world_drift_feedback_anchor(Player* player) {
+    if ((player != NULL) && (player->unk_0C0 < 0)) {
+        return ARCADEKART_WORLD_DRIFT_FEEDBACK_BACK_LEFT_BOTTOM_LEFT;
+    }
+    return ARCADEKART_WORLD_DRIFT_FEEDBACK_BACK_RIGHT_BOTTOM_RIGHT;
+}
+
+static s32 arcadekart_world_drift_feedback_anchor_is_left_drift(s8 anchor) {
+    return anchor == ARCADEKART_WORLD_DRIFT_FEEDBACK_BACK_LEFT_BOTTOM_LEFT;
+}
+
+static s32 arcadekart_world_drift_feedback_anchor_tire_index(s8 anchor) {
+    return (anchor == ARCADEKART_WORLD_DRIFT_FEEDBACK_BACK_LEFT_BOTTOM_LEFT) ? BACK_RIGHT : BACK_LEFT;
+}
+
+static s32 arcadekart_world_drift_feedback_is_drifting(Player* player) {
+    return (((player->effects & DRIFTING_EFFECT) == DRIFTING_EFFECT) || (player->driftDuration > 0) ||
+            (player->driftState > 0));
+}
 
 s32 D_80165590;
 s32 D_80165594;
@@ -1319,6 +1349,8 @@ void func_8005A380(void) {
 
 void func_8005A3C0(void) {
     bool b = false;
+    arcadekart_capture_screenshot_if_requested();
+
     if (kart_input_was_command_pressed(gControllerOne, KART_INPUT_TOGGLE_MUSIC)) {
         D_800DC5A8++;
         if (D_800DC5A8 >= 3) {
@@ -2603,16 +2635,12 @@ s32 set_particle_colour_randomly_varried(UnkPlayerStruct258* arg0, s32 arg1, s16
 void set_drift_particles(Player* player, s16 arg1, UNUSED s32 arg2, UNUSED s8 arg3, UNUSED s8 arg4) {
     s32 temp_lo;
     s32 shouldForceDirectDriftParticle;
+    s8 anchor = arcadekart_get_world_drift_feedback_anchor(player);
+    s32 tireIndex = arcadekart_world_drift_feedback_anchor_tire_index(anchor);
 
-    if (player->unk_0C0 >= 0) {
-        set_particle_position_and_rotation(player, &player->particlePool1[arg1], player->tyres[BACK_RIGHT].pos[0],
-                      player->tyres[BACK_RIGHT].baseHeight + 2.0f, player->tyres[BACK_RIGHT].pos[2],
-                      player->tyres[BACK_RIGHT].surfaceType, 0);
-    } else {
-        set_particle_position_and_rotation(player, &player->particlePool1[arg1], player->tyres[BACK_LEFT].pos[0],
-                      player->tyres[BACK_LEFT].baseHeight + 2.0f, player->tyres[BACK_LEFT].pos[2],
-                      player->tyres[BACK_LEFT].surfaceType, 1);
-    }
+    set_particle_position_and_rotation(player, &player->particlePool1[arg1], player->tyres[tireIndex].pos[0],
+                                       player->tyres[tireIndex].baseHeight + 2.0f, player->tyres[tireIndex].pos[2],
+                                       player->tyres[tireIndex].surfaceType, anchor);
 
     temp_lo = player->unk_0C0 / 182;
     shouldForceDirectDriftParticle = (((player->effects & DRIFTING_EFFECT) == DRIFTING_EFFECT) &&
@@ -4132,20 +4160,15 @@ void func_80063408(Player* player, s16 arg1, UNUSED s8 arg2, UNUSED s8 arg3) {
     f32 backwardDistance;
     f32 lateralDistance;
     s16 lateralYaw;
+    s32 tireIndex;
 
-    if (player->particlePool1[arg1].unk_010 == 1) {
-        baseX = player->tyres[BACK_LEFT].pos[0];
-        baseZ = player->tyres[BACK_LEFT].pos[2];
-    } else {
-        baseX = player->tyres[BACK_RIGHT].pos[0];
-        baseZ = player->tyres[BACK_RIGHT].pos[2];
-    }
+    tireIndex = arcadekart_world_drift_feedback_anchor_tire_index(player->particlePool1[arg1].unk_010);
+    baseX = player->tyres[tireIndex].pos[0];
+    baseZ = player->tyres[tireIndex].pos[2];
 
     backwardDistance = (f32) player->particlePool1[arg1].unk_01E * -ARCADEKART_WORLD_DRIFT_FEEDBACK_BACKWARD_SPEED;
-    lateralDistance = ARCADEKART_WORLD_DRIFT_FEEDBACK_SPAWN_OUTWARD_OFFSET +
-                      ((f32) player->particlePool1[arg1].unk_01E *
-                       ARCADEKART_WORLD_DRIFT_FEEDBACK_LATERAL_SPEED);
-    if (player->unk_0C0 < 0) {
+    lateralDistance = (f32) player->particlePool1[arg1].unk_01E * ARCADEKART_WORLD_DRIFT_FEEDBACK_LATERAL_SPEED;
+    if (arcadekart_world_drift_feedback_anchor_is_left_drift(player->particlePool1[arg1].unk_010)) {
         lateralDistance = -lateralDistance;
     }
     lateralYaw = player->particlePool1[arg1].unk_020 + 0x4000;
@@ -4775,6 +4798,13 @@ typedef enum {
 #define ARCADEKART_WORLD_DRIFT_FEEDBACK_CARD_HALF_WIDTH 32
 #define ARCADEKART_WORLD_DRIFT_FEEDBACK_CARD_HALF_HEIGHT 8
 #define ARCADEKART_WORLD_DRIFT_FEEDBACK_CARD_SCALE 0.36f
+#define ARCADEKART_WORLD_DRIFT_DEBUG_MARKER_SCALE 0.28f
+
+static f32 arcadekart_world_drift_feedback_aligned_corner_x(s8 anchor) {
+    return (anchor == ARCADEKART_WORLD_DRIFT_FEEDBACK_BACK_RIGHT_BOTTOM_RIGHT)
+               ? -ARCADEKART_WORLD_DRIFT_FEEDBACK_CARD_HALF_WIDTH
+               : ARCADEKART_WORLD_DRIFT_FEEDBACK_CARD_HALF_WIDTH;
+}
 
 static s8 sArcadeKartWorldDriftFeedbackSpawnToggle[ARCADEKART_WORLD_DRIFT_FEEDBACK_PLAYER_COUNT];
 static s8 sArcadeKartWorldDriftFeedbackLastStage[ARCADEKART_WORLD_DRIFT_FEEDBACK_PLAYER_COUNT];
@@ -4878,6 +4908,9 @@ static s8 get_arcadekart_world_drift_feedback_stage(Player* player) {
     if ((player->type & PLAYER_HUMAN) != PLAYER_HUMAN) {
         return ARCADEKART_WORLD_DRIFT_FEEDBACK_NONE;
     }
+    if (!arcadekart_world_drift_feedback_is_drifting(player)) {
+        return ARCADEKART_WORLD_DRIFT_FEEDBACK_NONE;
+    }
     if (player->driftState <= 0) {
         return ARCADEKART_WORLD_DRIFT_FEEDBACK_SLIDE;
     }
@@ -4887,12 +4920,8 @@ static s8 get_arcadekart_world_drift_feedback_stage(Player* player) {
     return ARCADEKART_WORLD_DRIFT_FEEDBACK_TURBO;
 }
 
-static f32 get_arcadekart_world_drift_feedback_position_jitter(void) {
-    return (((f32) random_int(401U) - 200.0f) / 200.0f) * ARCADEKART_WORLD_DRIFT_FEEDBACK_POSITION_JITTER;
-}
-
 static s16 get_arcadekart_world_drift_feedback_alpha(s16 age) {
-    static const s16 alphaByAge[] = { 128, 255, 204, 153, 102, 77, 51, 26, 0 };
+    static const s16 alphaByAge[] = { 224, 255, 255, 232, 208, 176, 144, 112, 80 };
     s32 index = age;
 
     if (index < 0) {
@@ -4939,12 +4968,11 @@ static s32 arcadekart_world_drift_feedback_should_spawn(Player* player, s32 play
         return false;
     }
 
-    if (((player->effects & DRIFTING_EFFECT) == DRIFTING_EFFECT) || (player->driftDuration > 0) ||
-        (player->driftState > 0)) {
+    if (arcadekart_world_drift_feedback_is_drifting(player)) {
         return true;
     }
 
-    return (driftInputActive && (absYaw >= 2)) || ((absYaw >= 7) && (speedKmh > 20.0f));
+    return false;
 }
 
 static f32 get_arcadekart_world_feedback_text_width(const char* text) {
@@ -5169,6 +5197,48 @@ static void render_arcadekart_world_feedback_cell(Player* player, s8 playerId, s
     gMatrixEffectCount += 1;
 }
 
+static void get_arcadekart_world_drift_feedback_tire_debug_pos(Player* player, s8 anchor, Vec3f pos) {
+    s32 tireIndex = arcadekart_world_drift_feedback_anchor_tire_index(anchor);
+
+    pos[0] = player->tyres[tireIndex].pos[0];
+    pos[1] = player->tyres[tireIndex].baseHeight + 2.0f;
+    pos[2] = player->tyres[tireIndex].pos[2];
+}
+
+static void get_arcadekart_world_drift_feedback_spawn_debug_pos(Player* player, UNUSED s8 screenId, s8 anchor,
+                                                               Vec3f pos) {
+    get_arcadekart_world_drift_feedback_tire_debug_pos(player, anchor, pos);
+}
+
+static void render_arcadekart_world_debug_marker(Player* player, s8 playerId, s8 screenId, s32 markerIndex,
+                                                 Vec3f pos, s32 rgb) {
+    render_arcadekart_world_feedback_cell(player, playerId, screenId, markerIndex, pos, 0.0f, 0.0f,
+                                          ARCADEKART_WORLD_DRIFT_DEBUG_MARKER_SCALE, rgb, 0xE0,
+                                          0xD00000 | (uintptr_t) (markerIndex & 0xFF));
+}
+
+static void render_arcadekart_world_drift_feedback_debug_markers(Player* player, s8 playerId, s8 screenId) {
+    Vec3f tirePos;
+    Vec3f spawnPos;
+    s8 anchor;
+
+    if (CVarGetInteger("gArcadeKart.DebugDriftFxWorldMarkers", 1) == 0) {
+        return;
+    }
+    if ((player->type & PLAYER_HUMAN) != PLAYER_HUMAN) {
+        return;
+    }
+    if (!arcadekart_world_drift_feedback_is_drifting(player)) {
+        return;
+    }
+
+    anchor = arcadekart_get_world_drift_feedback_anchor(player);
+    get_arcadekart_world_drift_feedback_tire_debug_pos(player, anchor, tirePos);
+    get_arcadekart_world_drift_feedback_spawn_debug_pos(player, screenId, anchor, spawnPos);
+    render_arcadekart_world_debug_marker(player, playerId, screenId, 0, tirePos, 0xFF2020);
+    render_arcadekart_world_debug_marker(player, playerId, screenId, 1, spawnPos, 0x208CFF);
+}
+
 static void render_arcadekart_world_feedback_glyph(Player* player, s8 playerId, s8 screenId, s32 instanceIndex,
                                                    Vec3f anchor, char letter, s32 letterIndex, f32 originX,
                                                    f32 originY, f32 scale, s32 rgb, s16 alpha, s32 pass) {
@@ -5262,10 +5332,9 @@ static void arcadekart_prepare_world_drift_feedback_particle(Player* player, Unk
 
     sArcadeKartWorldDriftFeedbackSpawnToggle[playerIndex] = 1;
     sArcadeKartWorldDriftFeedbackLastStage[playerIndex] = stage;
-    particle->unk_018 = get_arcadekart_world_drift_feedback_position_jitter();
-    particle->unk_024 = get_arcadekart_world_drift_feedback_position_jitter();
-    particle->unk_028 = get_arcadekart_world_drift_feedback_position_jitter();
-    particle->pos[1] += particle->unk_018;
+    particle->unk_018 = 0.0f;
+    particle->unk_024 = 0.0f;
+    particle->unk_028 = 0.0f;
     particle->unk_044 = 1;
     sArcadeKartWorldDriftFeedbackPrepareCount++;
     CVarSetInteger("gArcadeKart.DebugDriftFxPrepareCount", sArcadeKartWorldDriftFeedbackPrepareCount);
@@ -5281,23 +5350,19 @@ static void arcadekart_update_world_drift_feedback_particle(Player* player, UnkP
     f32 backwardDistance;
     f32 lateralDistance;
     s16 lateralYaw;
+    s32 tireIndex;
 
     if (particle->isAlive != 1) {
         return;
     }
 
-    if (particle->unk_010 == 1) {
-        baseX = player->tyres[BACK_LEFT].pos[0];
-        baseZ = player->tyres[BACK_LEFT].pos[2];
-    } else {
-        baseX = player->tyres[BACK_RIGHT].pos[0];
-        baseZ = player->tyres[BACK_RIGHT].pos[2];
-    }
+    tireIndex = arcadekart_world_drift_feedback_anchor_tire_index(particle->unk_010);
+    baseX = player->tyres[tireIndex].pos[0];
+    baseZ = player->tyres[tireIndex].pos[2];
 
     backwardDistance = (f32) particle->unk_01E * -ARCADEKART_WORLD_DRIFT_FEEDBACK_BACKWARD_SPEED;
-    lateralDistance = ARCADEKART_WORLD_DRIFT_FEEDBACK_SPAWN_OUTWARD_OFFSET +
-                      ((f32) particle->unk_01E * ARCADEKART_WORLD_DRIFT_FEEDBACK_LATERAL_SPEED);
-    if (player->unk_0C0 < 0) {
+    lateralDistance = (f32) particle->unk_01E * ARCADEKART_WORLD_DRIFT_FEEDBACK_LATERAL_SPEED;
+    if (arcadekart_world_drift_feedback_anchor_is_left_drift(particle->unk_010)) {
         lateralDistance = -lateralDistance;
     }
     lateralYaw = particle->unk_020 + 0x4000;
@@ -5330,6 +5395,8 @@ static void arcadekart_spawn_world_drift_feedback_particle(Player* player, s32 p
     s32 oldestIndex = 0;
     s32 oldestAge = -1;
     s8 stage;
+    s8 anchor;
+    s32 tireIndex;
     s32 i;
 
     stage = get_arcadekart_world_drift_feedback_stage(player);
@@ -5354,15 +5421,11 @@ static void arcadekart_spawn_world_drift_feedback_particle(Player* player, s32 p
     }
 
     particle = &sArcadeKartWorldDriftFeedbackParticles[playerIndex][particleIndex];
-    if (player->unk_0C0 >= 0) {
-        set_particle_position_and_rotation(player, particle, player->tyres[BACK_RIGHT].pos[0],
-                                           player->tyres[BACK_RIGHT].baseHeight + 2.0f,
-                                           player->tyres[BACK_RIGHT].pos[2], player->tyres[BACK_RIGHT].surfaceType, 0);
-    } else {
-        set_particle_position_and_rotation(player, particle, player->tyres[BACK_LEFT].pos[0],
-                                           player->tyres[BACK_LEFT].baseHeight + 2.0f, player->tyres[BACK_LEFT].pos[2],
-                                           player->tyres[BACK_LEFT].surfaceType, 1);
-    }
+    anchor = arcadekart_get_world_drift_feedback_anchor(player);
+    tireIndex = arcadekart_world_drift_feedback_anchor_tire_index(anchor);
+    set_particle_position_and_rotation(player, particle, player->tyres[tireIndex].pos[0],
+                                       player->tyres[tireIndex].baseHeight + 2.0f, player->tyres[tireIndex].pos[2],
+                                       player->tyres[tireIndex].surfaceType, anchor);
 
     init_particle_player(particle, DRIFT_PARTICLE, 0.35f);
     set_particle_colour(particle, 0xFFFFFF, 0x70);
@@ -5473,8 +5536,7 @@ static void render_arcadekart_world_drift_particle_feedback_instance(Player* pla
     rot[1] = player->unk_048[screenId];
     rot[2] = 0;
     worldScale = scale * player->size;
-    cornerX = (particle->unk_010 == 1) ? ARCADEKART_WORLD_DRIFT_FEEDBACK_CARD_HALF_WIDTH
-                                       : -ARCADEKART_WORLD_DRIFT_FEEDBACK_CARD_HALF_WIDTH;
+    cornerX = arcadekart_world_drift_feedback_aligned_corner_x(particle->unk_010);
     cornerY = -ARCADEKART_WORLD_DRIFT_FEEDBACK_CARD_HALF_HEIGHT;
     anchor[0] -= coss(rot[1]) * cornerX * worldScale;
     anchor[1] -= cornerY * worldScale;
@@ -5533,6 +5595,8 @@ static void arcadekart_render_world_drift_feedback_pool(Player* player, s8 playe
     if ((gActiveScreenMode == SCREEN_MODE_3P_4P_SPLITSCREEN) && (screenId != playerId)) {
         return;
     }
+
+    render_arcadekart_world_drift_feedback_debug_markers(player, playerId, screenId);
 
     for (i = 0; i < ARCADEKART_WORLD_DRIFT_FEEDBACK_POOL_COUNT; i++) {
         render_arcadekart_world_drift_particle_feedback_instance(
@@ -6949,7 +7013,7 @@ void func_8006C6AC(Player* player, s16 particleIndex, s8 arg2, s8 arg3) {
         } else if (!(player->effects & 8) && !(player->effects & 2)) {
             if (((player->effects & DRIFTING_EFFECT) == DRIFTING_EFFECT) &&
                 ((player->type & PLAYER_HUMAN) == PLAYER_HUMAN)) {
-                check_drift_particles_setup_valid(player, particleIndex, sp28, arg2_copy, arg3);
+                setup_tyre_particles(player, particleIndex, sp28, arg2_copy, arg3);
             } else if (((f64) (gPlayerWaterLevel[arg2_copy] - player->tyres[BACK_RIGHT].baseHeight) >= 3.5) ||
                        ((f64) (gPlayerWaterLevel[arg2_copy] - player->tyres[BACK_LEFT].baseHeight) >= 3.5)) {
                 func_8005EA94(player, particleIndex, sp28, arg2_copy, arg3);

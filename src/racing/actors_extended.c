@@ -18,12 +18,18 @@
 #include "kart_input.h"
 #include "port/Game.h"
 
+#define KART_ITEM_DIRECTION_NONE 0
 #define KART_ITEM_DIRECTION_FORWARD 1
 #define KART_ITEM_DIRECTION_BACKWARD -1
+#define KART_ITEM_DIRECTION_NEUTRAL 2
+#define KART_ITEM_FORWARD_AXIS_THRESHOLD 0.25f
+#define KART_ITEM_BACKWARD_AXIS_THRESHOLD -0.25f
 
 static s8 sKartItemUseDirection[NUM_PLAYERS];
 
 static s8 get_player_item_direction_from_pressed_commands(struct Controller* controller);
+static s8 get_player_item_direction_from_axis(struct Controller* controller);
+static s8 kart_item_direction_or_default(s8 direction, s8 defaultDirection);
 static void consume_item_command_press(struct Controller* controller);
 
 void copy_collision(Collision* src, Collision* dest) {
@@ -310,6 +316,7 @@ void update_actor_banana_bunch(struct BananaBunchParent* banana_bunch) {
                 if (itemDirection != 0) {
                     consume_item_command_press(controller);
                     func_800C9060(owner - gPlayerOne, SOUND_ARG_LOAD(0x19, 0x00, 0x80, 0x12));
+                    itemDirection = kart_item_direction_or_default(itemDirection, KART_ITEM_DIRECTION_BACKWARD);
                     if (itemDirection == KART_ITEM_DIRECTION_FORWARD) {
                         func_802B0788(85, banana_bunch, owner);
                     } else {
@@ -912,10 +919,9 @@ static s8 get_player_item_direction_from_pressed_commands(struct Controller* con
         return KART_ITEM_DIRECTION_FORWARD;
     }
     if (kart_input_was_command_pressed(controller, KART_INPUT_USE_ITEM)) {
-        return (kart_input_get_forward_backward_axis(controller) < -0.25f) ? KART_ITEM_DIRECTION_BACKWARD
-                                                                          : KART_ITEM_DIRECTION_FORWARD;
+        return get_player_item_direction_from_axis(controller);
     }
-    return 0;
+    return KART_ITEM_DIRECTION_NONE;
 }
 
 static s8 get_player_item_direction_from_released_commands(struct Controller* controller, s32 playerId) {
@@ -926,13 +932,28 @@ static s8 get_player_item_direction_from_released_commands(struct Controller* co
         return KART_ITEM_DIRECTION_FORWARD;
     }
     if (kart_input_was_command_released(controller, KART_INPUT_USE_ITEM)) {
-        if (sKartItemUseDirection[playerId] != 0) {
+        if (sKartItemUseDirection[playerId] != KART_ITEM_DIRECTION_NONE) {
             return sKartItemUseDirection[playerId];
         }
-        return (kart_input_get_forward_backward_axis(controller) < -0.25f) ? KART_ITEM_DIRECTION_BACKWARD
-                                                                          : KART_ITEM_DIRECTION_FORWARD;
+        return get_player_item_direction_from_axis(controller);
     }
-    return 0;
+    return KART_ITEM_DIRECTION_NONE;
+}
+
+static s8 get_player_item_direction_from_axis(struct Controller* controller) {
+    f32 forwardBackward = kart_input_get_forward_backward_axis(controller);
+
+    if (forwardBackward <= KART_ITEM_BACKWARD_AXIS_THRESHOLD) {
+        return KART_ITEM_DIRECTION_BACKWARD;
+    }
+    if (forwardBackward >= KART_ITEM_FORWARD_AXIS_THRESHOLD) {
+        return KART_ITEM_DIRECTION_FORWARD;
+    }
+    return KART_ITEM_DIRECTION_NEUTRAL;
+}
+
+static s8 kart_item_direction_or_default(s8 direction, s8 defaultDirection) {
+    return (direction == KART_ITEM_DIRECTION_NEUTRAL) ? defaultDirection : direction;
 }
 
 static void consume_item_command_press(struct Controller* controller) {
@@ -949,9 +970,9 @@ static void consume_item_command_release(struct Controller* controller) {
 
 s8 consume_item_release_direction(struct Controller* controller, s32 playerId) {
     s8 direction = get_player_item_direction_from_released_commands(controller, playerId);
-    if (direction != 0) {
+    if (direction != KART_ITEM_DIRECTION_NONE) {
         consume_item_command_release(controller);
-        sKartItemUseDirection[playerId] = 0;
+        sKartItemUseDirection[playerId] = KART_ITEM_DIRECTION_NONE;
     }
     return direction;
 }
@@ -1036,7 +1057,7 @@ void check_player_use_item(void) {
             if (((player->type & PLAYER_HUMAN) != 0) && (player->currentItemCopy != ITEM_NONE) &&
                 ((player->type & PLAYER_START_SEQUENCE) == 0)) {
                 s8 itemDirection = get_player_item_direction_from_pressed_commands(controller);
-                if (itemDirection != 0) {
+                if (itemDirection != KART_ITEM_DIRECTION_NONE) {
                     sKartItemUseDirection[player - gPlayerOne] = itemDirection;
                     consume_item_command_press(controller);
                     player_use_item(player);

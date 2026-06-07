@@ -59,6 +59,7 @@ void update_actor_green_shell(struct ShellActor* shell) {
                 controller = &gControllers[shell->playerId];
                 s8 itemDirection = consume_item_release_direction(controller, shell->playerId);
                 if (itemDirection != 0) {
+                    itemDirection = kart_item_direction_or_default(itemDirection, KART_ITEM_DIRECTION_FORWARD);
                     if (itemDirection == KART_ITEM_DIRECTION_BACKWARD) {
                         var_f2 = 8.0f;
                         if (player->speed > 8.0f) {

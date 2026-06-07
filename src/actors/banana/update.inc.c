@@ -58,6 +58,7 @@ void update_actor_banana(struct BananaActor* banana) {
                 }
                 s8 itemDirection = consume_item_release_direction(controller, banana->playerId);
                 if (itemDirection != 0) {
+                    itemDirection = kart_item_direction_or_default(itemDirection, KART_ITEM_DIRECTION_BACKWARD);
                     banana->state = 1;
                     banana->unk_04 = 0x00B4;
                     player->triggers &= ~DRAG_ITEM_EFFECT;

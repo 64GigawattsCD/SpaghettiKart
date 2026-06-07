@@ -6,7 +6,7 @@ This file is the running list for intentional input and binding changes on the A
 
 - Replaced direct N64 button language in gameplay with bindable command names where the branch has touched input: Throttle, Brake, Jump, Drift, Use Item, Use Item Forward, Use Item Backward, Menu Confirm, Menu Cancel, Open Menu, Clutch, gear commands, Shift Gear Up, Shift Gear Down, Toggle Music, and Toggle HUD.
 - Jump and Drift are separate commands. Binding both to one physical button preserves the original hop-then-drift flow; binding Drift alone allows drift without the hop.
-- Use Item defaults to the forward item command unless the forward/back axis is below `-0.25`, in which case it uses Use Item Backward.
+- Use Item now resolves to three states from the forward/back axis: Forward at `>= 0.25`, Backward at `<= -0.25`, and Neutral in between. Neutral lets the item choose its natural default direction; bananas and banana bunch drops default backward, shells default forward.
 - Steering is treated as an axis, with wheel steering auto-fed into player 1.
 
 ## Keyboard Defaults
@@ -25,6 +25,7 @@ This file is the running list for intentional input and binding changes on the A
 - Gears: 1-6 select gears 1-6, 7 selects reverse, 0 selects neutral.
 - Toggle Music: M.
 - Toggle HUD: H.
+- Capture Screenshot: F12.
 - Menu directions: numpad 8/2/4/6.
 
 ## Controller Defaults
@@ -40,6 +41,8 @@ This file is the running list for intentional input and binding changes on the A
 - Clutch: right stick click.
 - Shift Gear Up/Down: right stick up/down, accepted only while Clutch is held.
 - Right stick right is no longer a Toggle HUD default.
+- Capture Screenshot: Select/Back/View.
+- On character select, L/R toggles that player's transmission mode between Manual and Auto.
 
 ## Wheel Defaults
 
@@ -60,4 +63,6 @@ This file is the running list for intentional input and binding changes on the A
 ## Notes
 
 - Toggle HUD now uses `KART_TOGGLE_HUD_BUTTON` instead of legacy `BTN_CRIGHT`, so old C-right or right-stick-right bindings do not toggle the HUD.
-- Race-time post-FX tuning uses Menu Left/Right for screen shake strength and Menu Up/Down for fisheye/barrel warp intensity. In slider-only tuning mode, those two values directly drive the visual effect. Wheel spring tuning no longer consumes Menu Up/Down/Left/Right, and legacy debug lap skip is default-off.
+- Transmission mode is per human player. AI racers are forced automatic for now.
+- Race-time post-FX tuning moved back to menu CVars; Menu Up/Down/Left/Right are no longer consumed by post-FX or wheel spring tuning, and legacy debug lap skip is default-off.
+- Capture Screenshot writes full-window PNGs into `C:\Users\Craig\OneDrive\Documents\mk64 Arcade\screenshots`.

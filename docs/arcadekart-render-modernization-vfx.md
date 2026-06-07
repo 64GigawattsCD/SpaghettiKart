@@ -37,7 +37,9 @@ This note records the intent and current shape of the render-modernization and p
 - Restored boing/landing-style feedback separately from drift-start behavior.
 - ArcadeKart drift text feedback now precomposes `SLIDE`, `DRIFT!`, and two-line `TURBO DRIFT!!` IA masks into cached word textures once, then renders each active world-space particle as outline/fill word cards instead of per-cell billboards.
 - Player visual particles live in four small `UnkPlayerStruct258` pools on `Player` and are mostly scripted billboards with age/scale/alpha fields rather than a reusable velocity/collision solver. The heavier `gObjectList` object path and actor path do have velocity, surface height, and terrain contact helpers that can be borrowed if a future effect needs true ballistic motion or contact response.
-- Current drift text motion uses age-based kart-relative backward/lateral/rise offsets, swapped rear tire anchoring, stable per-particle position jitter up to `0.2` world units per axis, and a 6-frame spawn gate. A test with restored larger source glyphs still produced no visible drift words, so the disappearance is not explained by cached glyph source size alone.
+- Current drift text motion uses age-based kart-relative backward/lateral/rise offsets and an 8-frame spawn gate. The tire side and card-corner side are intentionally crossed so the visible word sits outward from the tire instead of underneath the kart. The side choice is stored per particle so it does not flip during the particle lifetime.
+- Drift text uses the separate ArcadeKart feedback pool. The legacy drifting branch should continue to call normal tire particle setup so tire dust remains visible under the word trail.
+- Added a dormant `ArcadeKartParticleEmitter` base on top of the existing `World::TickParticles` / `World::DrawParticles` hook. It supports world-space or local-space simulation, player attachment, fixed world transforms, spawn rate accumulation, bursts, max count recycling, lifetime, velocity, acceleration, alpha, and scale interpolation. Existing effects have not been migrated yet.
 
 ## Current Effect Drivers
 
