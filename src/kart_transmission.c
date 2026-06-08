@@ -50,6 +50,8 @@ static KartShiftFeedback sKartShiftFeedback[KART_TRANSMISSION_PLAYER_COUNT];
 static bool sKartShiftGrindSoundsLoaded;
 static s8 sKartLastShiftGrindSoundIndex = -1;
 
+extern void CM_BurstArcadeKartBoostSparks(Player* player, s8 playerId, s16 count);
+
 static const f32 sGearMinSpeed[KART_GEAR_TOP + 1] = { 0.0f, 0.0f, 0.06f, 0.16f, 0.30f, 0.46f, 0.62f };
 static const f32 sGearMaxSpeed[KART_GEAR_TOP + 1] = { 0.0f, 0.30f, 0.48f, 0.66f, 0.84f, 1.00f, 1.14f };
 static const f32 sAutomaticUpshiftSpeed[KART_GEAR_TOP + 1] = { 0.0f, 0.25f, 0.43f, 0.61f, 0.79f, 0.96f, 1.20f };
@@ -376,6 +378,7 @@ static f32 kart_transmission_get_clutch_drive_ratio(const Player* player, s32 pl
 
 static void kart_transmission_spawn_good_shift_sparks(Player* player) {
     s32 i;
+    s16 boostSparkCount;
 
     if (player == NULL) {
         return;
@@ -397,6 +400,9 @@ static void kart_transmission_spawn_good_shift_sparks(Player* player) {
         init_particle_player(&player->particlePool1[i], POOL_1_PARTICLE_TYPE_8, 0.70f);
         set_particle_colour(&player->particlePool1[i], 0xFF9600, 0xFF);
     }
+
+    boostSparkCount = (s16) kart_transmission_get_cvarf("gArcadeKart.ShiftGoodBoostSparkBurstCount", 5.0f);
+    CM_BurstArcadeKartBoostSparks(player, (s8) (player - gPlayers), boostSparkCount);
 }
 
 static void kart_transmission_apply_shift_feedback(Player* player, s32 playerIndex, KartShiftFeedback feedback) {

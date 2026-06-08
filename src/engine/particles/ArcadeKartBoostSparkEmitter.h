@@ -9,6 +9,7 @@ public:
     void ConfigureForPlayer(Player* player, bool active);
 
 protected:
+    virtual void InitializeParticle(ArcadeKartParticle& particle) override;
     virtual void DrawParticle(s32 cameraId, const ArcadeKartParticle& particle) override;
 
 private:

@@ -3251,23 +3251,10 @@ static u16 get_arcadekart_rpm_needle_rotation(s32 playerIdx) {
     return (u16) (startUnits + (normalizedRpm * sweepUnits));
 }
 
-static s32 get_arcadekart_rpm_shift_ideal(s32 playerIdx) {
-    f32 rpm = kart_transmission_get_engine_rpm(&gPlayers[playerIdx], playerIdx);
-
-    return (rpm >= kart_transmission_get_shift_ideal_rpm_min(&gPlayers[playerIdx])) &&
-           (rpm <= kart_transmission_get_shift_ideal_rpm_max(&gPlayers[playerIdx]));
-}
-
 static s32 get_arcadekart_rpm_shift_ready(s32 playerIdx) {
     f32 rpm = kart_transmission_get_engine_rpm(&gPlayers[playerIdx], playerIdx);
 
     return rpm >= kart_transmission_get_shift_ideal_rpm_min(&gPlayers[playerIdx]);
-}
-
-static s32 get_arcadekart_rpm_shift_over(s32 playerIdx) {
-    f32 rpm = kart_transmission_get_engine_rpm(&gPlayers[playerIdx], playerIdx);
-
-    return rpm > kart_transmission_get_shift_ideal_rpm_max(&gPlayers[playerIdx]);
 }
 
 static void render_arcadekart_rpm_faceplate(s32 playerIdx, const ArcadeKartRpmMeterCanvas* canvas) {
@@ -3275,11 +3262,7 @@ static void render_arcadekart_rpm_faceplate(s32 playerIdx, const ArcadeKartRpmMe
     s32 meterGreen = 0xFF;
     s32 meterBlue = 0xFF;
 
-    if (get_arcadekart_rpm_shift_over(playerIdx)) {
-        meterRed = 0xFF;
-        meterGreen = 0x20;
-        meterBlue = 0x18;
-    } else if (get_arcadekart_rpm_shift_ideal(playerIdx) && ((gGlobalTimer & 4) != 0)) {
+    if (get_arcadekart_rpm_shift_ready(playerIdx) && ((gGlobalTimer & 4) != 0)) {
         meterRed = 0xFF;
         meterGreen = 0x8C;
         meterBlue = 0x00;
@@ -3301,9 +3284,7 @@ static void render_arcadekart_rpm_needle(s32 playerIdx, const ArcadeKartRpmMeter
         if (!get_arcadekart_rpm_shift_ready(playerIdx)) {
             return;
         }
-        needleScale = (get_arcadekart_rpm_shift_over(playerIdx) ? (((gGlobalTimer & 4) != 0) ? 0.92f : 0.86f)
-                                                                : 0.84f) *
-                      canvas->canvasScale;
+        needleScale = 0.84f * canvas->canvasScale;
     }
 
     arcadekart_rpm_meter_canvas_to_screen(canvas, ARCADEKART_RPM_METER_NEEDLE_OFFSET_X,

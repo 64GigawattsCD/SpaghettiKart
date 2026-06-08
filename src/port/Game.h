@@ -99,7 +99,9 @@ void Editor_CleanWorld();
 
 void CM_TickParticles(void);
 void CM_DrawParticles(s32 cameraId);
+void CM_DrawArcadeKartLateParticles(s32 cameraId, s32 screenId);
 void CM_UpdateArcadeKartBoostSparkEmitters(Player* player, s8 playerId);
+void CM_BurstArcadeKartBoostSparks(Player* player, s8 playerId, s16 count);
 void CM_ClearArcadeKartBoostSparkEmitters(void);
 void CM_UpdateArcadeKartDriftTireSparkEmitters(Player* player, s8 playerId);
 void CM_ClearArcadeKartDriftTireSparkEmitters(void);
