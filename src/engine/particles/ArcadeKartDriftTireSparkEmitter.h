@@ -14,6 +14,7 @@ public:
     explicit ArcadeKartDriftTireSparkEmitter(Player* player, s8 playerId, s8 tireIndex);
 
     void ConfigureForPlayer(Player* player, bool active, s8 driftStage);
+    void DrawForScreen(s32 cameraId, s32 screenId);
     virtual bool DrawsInWorldParticlePass() override;
 
 protected:
@@ -28,4 +29,5 @@ private:
     s8 PlayerId = 0;
     s8 TireIndex = 0;
     s8 DriftStage = ARCADEKART_DRIFT_TIRE_SPARK_STAGE_NONE;
+    s32 DrawScreenId = 0;
 };

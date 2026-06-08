@@ -390,7 +390,7 @@ void render_players(Camera* camera, s32 screenIdx) {
         render_kart_particles(gPlayerSeven, PLAYER_SEVEN, screenIdx);
         render_kart_particles(gPlayerEight, PLAYER_EIGHT, screenIdx);
     }
-    CM_DrawArcadeKartLateParticles(camera->cameraId);
+    CM_DrawArcadeKartLateParticles(camera->cameraId, screenIdx);
     gPlayersToRenderCount = 0;
 }
 

@@ -566,7 +566,7 @@ void CM_DrawParticles(s32 cameraId) {
     }
 }
 
-void CM_DrawArcadeKartLateParticles(s32 cameraId) {
+void CM_DrawArcadeKartLateParticles(s32 cameraId, s32 screenId) {
     if (!GetWorld()->GetTrack()) {
         return;
     }
@@ -576,7 +576,7 @@ void CM_DrawArcadeKartLateParticles(s32 cameraId) {
             ArcadeKartDriftTireSparkEmitter* emitter = sArcadeKartDriftTireSparkEmitters[playerId][sideIndex];
 
             if (emitter != nullptr) {
-                emitter->Draw(cameraId);
+                emitter->DrawForScreen(cameraId, screenId);
             }
         }
     }

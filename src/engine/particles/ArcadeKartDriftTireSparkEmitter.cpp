@@ -38,6 +38,13 @@ extern "C" {
 #define ARCADEKART_DRIFT_TIRE_SPARK_LOCAL_VELOCITY_Y_MAX 0.92f
 #define ARCADEKART_DRIFT_TIRE_SPARK_LOCAL_BACKWARD_VELOCITY_MIN 0.78f
 #define ARCADEKART_DRIFT_TIRE_SPARK_LOCAL_BACKWARD_VELOCITY_MAX 1.45f
+#define ARCADEKART_DRIFT_TIRE_VISUAL_ANCHOR_BLEND 0.75f
+#define ARCADEKART_DRIFT_TIRE_VISUAL_LOCAL_X 5.35f
+#define ARCADEKART_DRIFT_TIRE_VISUAL_LOCAL_Y 2.4f
+#define ARCADEKART_DRIFT_TIRE_VISUAL_LOCAL_Z 0.0f
+#define ARCADEKART_DRIFT_TIRE_KART_BILLBOARD_LOCAL_Y 1.5f
+#define ARCADEKART_DRIFT_TIRE_KART_BILLBOARD_Y_OFFSET -2.0f
+#define ARCADEKART_DRIFT_TIRE_SLIP_YAW_SCALE 0.5f
 
 static Vtx sArcadeKartDriftTireZapCoreLeftVtx[] = {
     { { { -2, 2, 0 }, 0, { 0, 0 }, { 255, 255, 255, 255 } } },
@@ -83,6 +90,111 @@ static void offset_point_by_local_motion(const Vec3f origin, s16 yaw, f32 localX
     out[0] = origin[0] + (localX * coss(yaw)) + (localZ * sins(yaw));
     out[1] = origin[1] + localY;
     out[2] = origin[2] + (localZ * coss(yaw)) - (localX * sins(yaw));
+}
+
+static void copy_vec3f(Vec3f out, const Vec3f in) {
+    out[0] = in[0];
+    out[1] = in[1];
+    out[2] = in[2];
+}
+
+static void get_physical_tire_anchor(Player* player, s8 tireIndex, Vec3f out) {
+    out[0] = player->tyres[tireIndex].pos[0];
+    out[1] = player->tyres[tireIndex].baseHeight + ARCADEKART_DRIFT_TIRE_SPARK_HEIGHT_OFFSET;
+    out[2] = player->tyres[tireIndex].pos[2];
+}
+
+static void get_kart_card_origin_and_rotation(Player* player, s32 screenId, Vec3f origin, Vec3s rotation) {
+    f32 originOffsetX;
+    f32 originOffsetY;
+    f32 originOffsetZ;
+    s16 thing;
+    s16 tiltAmount;
+
+    if ((player->kartProps & UNUSED_0x2000) != 0) {
+        rotation[0] = 0;
+        rotation[1] = player->unk_048[screenId];
+        rotation[2] = 0;
+        func_80062B18(&originOffsetX, &originOffsetY, &originOffsetZ, 0.0f,
+                      ARCADEKART_DRIFT_TIRE_KART_BILLBOARD_LOCAL_Y, 0.0f, -player->unk_048[screenId],
+                      player->unk_050[screenId]);
+        origin[1] = (player->pos[1] - player->boundingBoxSize) + originOffsetY +
+                    ARCADEKART_DRIFT_TIRE_KART_BILLBOARD_Y_OFFSET;
+    } else {
+        thing = (u16) (player->unk_048[screenId] + player->rotation[1] + player->unk_0C0);
+        tiltAmount = player->unk_0CC[screenId] * sins(thing);
+        rotation[0] = ((player->effects & 8) == 8) ? (cameras[screenId].rot[0] - 0x4000)
+                                                    : (s16) ((f32) -tiltAmount * 0.8f);
+        rotation[1] = player->unk_048[screenId];
+        rotation[2] = player->unk_050[screenId];
+        if ((player->effects & HIT_EFFECT) == HIT_EFFECT) {
+            func_80062B18(&originOffsetX, &originOffsetY, &originOffsetZ, 0.0f, 8.0f, 0.0f, -player->unk_048[screenId],
+                          player->unk_050[screenId]);
+            origin[1] = (player->pos[1] - player->boundingBoxSize) + player->hopVerticalOffset;
+        } else {
+            func_80062B18(&originOffsetX, &originOffsetY, &originOffsetZ, 0.0f,
+                          ARCADEKART_DRIFT_TIRE_KART_BILLBOARD_LOCAL_Y, 0.0f, -player->unk_048[screenId],
+                          player->unk_050[screenId]);
+            origin[1] = (player->pos[1] - player->boundingBoxSize) + player->hopVerticalOffset + originOffsetY +
+                        ARCADEKART_DRIFT_TIRE_KART_BILLBOARD_Y_OFFSET;
+        }
+    }
+
+    origin[0] = player->pos[0] + originOffsetX;
+    origin[2] = player->pos[2] + originOffsetZ;
+}
+
+static void transform_kart_card_local(Player* player, s32 screenId, f32 localX, f32 localY, f32 localZ, Vec3f out) {
+    Vec3f origin;
+    Vec3s rotation;
+    f32 sinX;
+    f32 cosX;
+    f32 sinY;
+    f32 cosY;
+    f32 sinZ;
+    f32 cosZ;
+    f32 scale = gCharacterSize[player->characterId] * player->size;
+
+    get_kart_card_origin_and_rotation(player, screenId, origin, rotation);
+    sinX = sins(rotation[0]);
+    cosX = coss(rotation[0]);
+    sinY = sins(rotation[1]);
+    cosY = coss(rotation[1]);
+    sinZ = sins(rotation[2]);
+    cosZ = coss(rotation[2]);
+
+    out[0] = origin[0] +
+             scale * ((localX * ((cosY * cosZ) + ((sinX * sinY) * sinZ))) +
+                      (localY * ((-cosY * sinZ) + ((sinX * sinY) * cosZ))) + (localZ * (cosX * sinY)));
+    out[1] = origin[1] + scale * ((localX * (cosX * sinZ)) + (localY * (cosX * cosZ)) + (localZ * -sinX));
+    out[2] = origin[2] +
+             scale * ((localX * ((-sinY * cosZ) + ((sinX * cosY) * sinZ))) +
+                      (localY * ((sinY * sinZ) + ((sinX * cosY) * cosZ))) + (localZ * (cosX * cosY)));
+}
+
+static void get_visual_tire_anchor(Player* player, s8 tireIndex, s32 screenId, Vec3f out) {
+    f32 side = (tireIndex == BACK_LEFT) ? 1.0f : -1.0f;
+
+    transform_kart_card_local(player, screenId, side * ARCADEKART_DRIFT_TIRE_VISUAL_LOCAL_X,
+                              ARCADEKART_DRIFT_TIRE_VISUAL_LOCAL_Y, ARCADEKART_DRIFT_TIRE_VISUAL_LOCAL_Z, out);
+}
+
+static void get_visual_anchor_delta(Player* player, s8 tireIndex, s32 screenId, Vec3f out) {
+    Vec3f physicalAnchor;
+    Vec3f visualAnchor;
+
+    if ((player == nullptr) || (screenId < 0) || (screenId >= 4)) {
+        out[0] = 0.0f;
+        out[1] = 0.0f;
+        out[2] = 0.0f;
+        return;
+    }
+
+    get_physical_tire_anchor(player, tireIndex, physicalAnchor);
+    get_visual_tire_anchor(player, tireIndex, screenId, visualAnchor);
+    out[0] = (visualAnchor[0] - physicalAnchor[0]) * ARCADEKART_DRIFT_TIRE_VISUAL_ANCHOR_BLEND;
+    out[1] = (visualAnchor[1] - physicalAnchor[1]) * ARCADEKART_DRIFT_TIRE_VISUAL_ANCHOR_BLEND;
+    out[2] = (visualAnchor[2] - physicalAnchor[2]) * ARCADEKART_DRIFT_TIRE_VISUAL_ANCHOR_BLEND;
 }
 
 static s32 get_rainbow_tint(void) {
@@ -166,6 +278,11 @@ bool ArcadeKartDriftTireSparkEmitter::DrawsInWorldParticlePass() {
     return false;
 }
 
+void ArcadeKartDriftTireSparkEmitter::DrawForScreen(s32 cameraId, s32 screenId) {
+    DrawScreenId = screenId;
+    Draw(cameraId);
+}
+
 void ArcadeKartDriftTireSparkEmitter::GetLocationAndRotation(Vec3f location, Vec3s rotation) const {
     Player* player = GetAttachedPlayer();
 
@@ -174,11 +291,9 @@ void ArcadeKartDriftTireSparkEmitter::GetLocationAndRotation(Vec3f location, Vec
         return;
     }
 
-    location[0] = player->tyres[TireIndex].pos[0];
-    location[1] = player->tyres[TireIndex].baseHeight + ARCADEKART_DRIFT_TIRE_SPARK_HEIGHT_OFFSET;
-    location[2] = player->tyres[TireIndex].pos[2];
+    get_physical_tire_anchor(player, TireIndex, location);
     rotation[0] = 0;
-    rotation[1] = player->rotation[1] + player->unk_0C0;
+    rotation[1] = player->rotation[1] + (s16) ((f32) player->unk_0C0 * ARCADEKART_DRIFT_TIRE_SLIP_YAW_SCALE);
     rotation[2] = 0;
 }
 
@@ -222,10 +337,13 @@ void ArcadeKartDriftTireSparkEmitter::DrawZapCore(s32 cameraId, const ArcadeKart
         particle.FlipHorizontal ? sArcadeKartDriftTireZapCoreLeftFlippedVtx : sArcadeKartDriftTireZapCoreLeftVtx;
     Vtx* rightVtx =
         particle.FlipHorizontal ? sArcadeKartDriftTireZapCoreRightFlippedVtx : sArcadeKartDriftTireZapCoreRightVtx;
+    Vec3f visualAnchorDelta;
 
-    renderPosition[0] = particle.Position[0];
-    renderPosition[1] = particle.Position[1];
-    renderPosition[2] = particle.Position[2];
+    copy_vec3f(renderPosition, particle.Position);
+    get_visual_anchor_delta(GetAttachedPlayer(), TireIndex, DrawScreenId, visualAnchorDelta);
+    renderPosition[0] += visualAnchorDelta[0];
+    renderPosition[1] += visualAnchorDelta[1];
+    renderPosition[2] += visualAnchorDelta[2];
     get_stage_tint(DriftStage, &tintRed, &tintGreen, &tintBlue);
 
     rotation[0] = 0;
@@ -260,6 +378,7 @@ void ArcadeKartDriftTireSparkEmitter::DrawZapCore(s32 cameraId, const ArcadeKart
 }
 
 void ArcadeKartDriftTireSparkEmitter::DrawExhaustSparkCopy(s32 cameraId, const ArcadeKartParticle& particle) {
+    Vec3f particlePosition;
     Vec3f sparkPosition;
     Vec3s rotation;
     s16 tintRed;
@@ -269,8 +388,15 @@ void ArcadeKartDriftTireSparkEmitter::DrawExhaustSparkCopy(s32 cameraId, const A
     f32 side = (TireIndex == BACK_LEFT) ? -1.0f : 1.0f;
     f32 ageMotion = ageAmount * ageAmount;
     f32 wobble = ((f32) ((particle.SpawnId % 3) - 1)) * 0.25f * ageAmount;
+    Vec3f visualAnchorDelta;
 
-    offset_point_by_local_motion(particle.Position, particle.Rotation[1],
+    copy_vec3f(particlePosition, particle.Position);
+    get_visual_anchor_delta(GetAttachedPlayer(), TireIndex, DrawScreenId, visualAnchorDelta);
+    particlePosition[0] += visualAnchorDelta[0];
+    particlePosition[1] += visualAnchorDelta[1];
+    particlePosition[2] += visualAnchorDelta[2];
+
+    offset_point_by_local_motion(particlePosition, particle.Rotation[1],
                                  (side * ARCADEKART_DRIFT_TIRE_SPARK_SIDE_MOTION * ageMotion) + wobble +
                                      (particle.Velocity[0] * particle.AgeFrames),
                                  ARCADEKART_DRIFT_TIRE_SPARK_LIFT_MOTION * ageAmount +
