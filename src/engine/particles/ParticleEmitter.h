@@ -17,6 +17,7 @@ public:
 
     virtual void Tick();
     virtual void Draw(s32 cameraId);
+    virtual bool DrawsInWorldParticlePass();
     virtual bool IsMod();
 };
 

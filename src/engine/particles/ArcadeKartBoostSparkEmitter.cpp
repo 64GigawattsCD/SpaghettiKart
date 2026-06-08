@@ -9,23 +9,39 @@ extern "C" {
 #include "code_80057C60.h"
 #include "defines.h"
 #include "main.h"
+#include "math_util.h"
 #include "math_util_2.h"
 #include "render_objects.h"
 #include "render_player.h"
 }
 
-#define ARCADEKART_BOOST_SPARK_MAX_PARTICLES 24
-#define ARCADEKART_BOOST_SPARK_SPAWN_RATE 10.0f
+#define ARCADEKART_BOOST_SPARK_MAX_PARTICLES 40
+#define ARCADEKART_BOOST_SPARK_SPAWN_RATE 18.0f
 #define ARCADEKART_BOOST_SPARK_LIFETIME_FRAMES 18.0f
 #define ARCADEKART_BOOST_SPARK_SIDE_OFFSET 1.458f
 #define ARCADEKART_BOOST_SPARK_LOCAL_Y 5.2f
 #define ARCADEKART_BOOST_SPARK_LOCAL_Z -6.7f
-#define ARCADEKART_BOOST_SPARK_LOCAL_VELOCITY_Y 0.24f
-#define ARCADEKART_BOOST_SPARK_LOCAL_VELOCITY_Z -0.55f
+#define ARCADEKART_BOOST_SPARK_LOCAL_VELOCITY_X_RANGE 0.52f
+#define ARCADEKART_BOOST_SPARK_LOCAL_VELOCITY_Y_MIN 0.38f
+#define ARCADEKART_BOOST_SPARK_LOCAL_VELOCITY_Y_MAX 0.92f
+#define ARCADEKART_BOOST_SPARK_LOCAL_BACKWARD_VELOCITY_MIN 0.78f
+#define ARCADEKART_BOOST_SPARK_LOCAL_BACKWARD_VELOCITY_MAX 1.45f
 #define ARCADEKART_BOOST_SPARK_INITIAL_SCALE 1.19f
 #define ARCADEKART_BOOST_SPARK_FINAL_SCALE 0.38f
 #define ARCADEKART_BOOST_SPARK_ALPHA_POWER 2.8f
 #define ARCADEKART_BOOST_SPARK_COLOR_POWER 1.0f
+
+static f32 random_unit(void) {
+    return (f32) random_int(10001U) / 10000.0f;
+}
+
+static f32 random_centered_unit(void) {
+    return (random_unit() * 2.0f) - 1.0f;
+}
+
+static f32 random_range(f32 min, f32 max) {
+    return min + ((max - min) * random_unit());
+}
 
 static ArcadeKartParticleParams make_boost_spark_params(s8 side) {
     ArcadeKartParticleParams params;
@@ -40,8 +56,8 @@ static ArcadeKartParticleParams make_boost_spark_params(s8 side) {
     params.LocalOffset[1] = ARCADEKART_BOOST_SPARK_LOCAL_Y;
     params.LocalOffset[2] = ARCADEKART_BOOST_SPARK_LOCAL_Z;
     params.InitialVelocity[0] = 0.0f;
-    params.InitialVelocity[1] = ARCADEKART_BOOST_SPARK_LOCAL_VELOCITY_Y;
-    params.InitialVelocity[2] = ARCADEKART_BOOST_SPARK_LOCAL_VELOCITY_Z;
+    params.InitialVelocity[1] = 0.0f;
+    params.InitialVelocity[2] = 0.0f;
     params.Acceleration[0] = 0.0f;
     params.Acceleration[1] = 0.0f;
     params.Acceleration[2] = 0.0f;
@@ -75,6 +91,18 @@ void ArcadeKartBoostSparkEmitter::ConfigureForPlayer(Player* player, bool active
                    ARCADEKART_BOOST_SPARK_LOCAL_Y - player->boundingBoxSize,
                    ARCADEKART_BOOST_SPARK_LOCAL_Z);
     SetActive(active);
+}
+
+void ArcadeKartBoostSparkEmitter::InitializeParticle(ArcadeKartParticle& particle) {
+    f32 upwardBias = 1.0f - (random_unit() * random_unit());
+
+    particle.Velocity[0] = random_centered_unit() * ARCADEKART_BOOST_SPARK_LOCAL_VELOCITY_X_RANGE;
+    particle.Velocity[1] = ARCADEKART_BOOST_SPARK_LOCAL_VELOCITY_Y_MIN +
+                           ((ARCADEKART_BOOST_SPARK_LOCAL_VELOCITY_Y_MAX -
+                             ARCADEKART_BOOST_SPARK_LOCAL_VELOCITY_Y_MIN) *
+                            upwardBias);
+    particle.Velocity[2] = -random_range(ARCADEKART_BOOST_SPARK_LOCAL_BACKWARD_VELOCITY_MIN,
+                                         ARCADEKART_BOOST_SPARK_LOCAL_BACKWARD_VELOCITY_MAX);
 }
 
 void ArcadeKartBoostSparkEmitter::DrawParticle(s32 cameraId, const ArcadeKartParticle& particle) {

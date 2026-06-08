@@ -235,7 +235,9 @@ void World::TickParticles() {
 
 void World::DrawParticles(s32 cameraId) {
     for (const auto& emitter : Emitters) {
-        emitter->Draw(cameraId);
+        if (emitter->DrawsInWorldParticlePass()) {
+            emitter->Draw(cameraId);
+        }
     }
 }
 
