@@ -50,6 +50,8 @@ static u32 kart_input_get_legacy_button(KartInputCommand command) {
             return KART_TOGGLE_HUD_BUTTON;
         case KART_INPUT_CAPTURE_SCREENSHOT:
             return KART_CAPTURE_SCREENSHOT_BUTTON;
+        case KART_INPUT_TOGGLE_FIRST_PERSON:
+            return KART_TOGGLE_FIRST_PERSON_BUTTON;
     }
 
     return 0;
@@ -146,6 +148,32 @@ f32 kart_input_get_forward_backward_axis(const struct Controller* controller) {
         return -1.0f;
     }
     return axis;
+}
+
+static f32 kart_input_clamp_axis(f32 axis) {
+    if (axis > 1.0f) {
+        return 1.0f;
+    }
+    if (axis < -1.0f) {
+        return -1.0f;
+    }
+    return axis;
+}
+
+f32 kart_input_get_look_up_axis(const struct Controller* controller) {
+    if (controller == NULL) {
+        return 0.0f;
+    }
+
+    return kart_input_clamp_axis(controller->rightRawStickY / 85.0f);
+}
+
+f32 kart_input_get_look_right_axis(const struct Controller* controller) {
+    if (controller == NULL) {
+        return 0.0f;
+    }
+
+    return kart_input_clamp_axis(controller->rightRawStickX / 85.0f);
 }
 
 u16 kart_input_get_menu_pressed(const struct Controller* controller) {

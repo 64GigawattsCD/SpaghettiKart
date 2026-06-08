@@ -79,6 +79,162 @@ bool CreateDirectoryRecursive(std::string const& dirName, std::error_code& err) 
     return true;
 }
 
+static void MigrateFirstPersonViewInputMappings() {
+    auto cvars = Ship::Context::GetInstance()->GetConsoleVariables();
+    bool changed = false;
+
+    for (uint8_t portIndex = 0; portIndex < 4; portIndex++) {
+        const std::string hasConfigKey = StringHelper::Sprintf("gControllers.Port%d.HasConfig", portIndex + 1);
+        const std::string mappingIdsKey =
+            StringHelper::Sprintf("gControllers.Port%d.Buttons.First Person ViewButtonMappingIds", portIndex + 1);
+        const std::string sdlMappingId = StringHelper::Sprintf("P%d-B%d-SDLB%d", portIndex,
+                                                               KART_TOGGLE_FIRST_PERSON_BUTTON,
+                                                               SDL_CONTROLLER_BUTTON_X);
+        const std::string keyboardMappingId = StringHelper::Sprintf("P%d-B%d-KB%d", portIndex,
+                                                                    KART_TOGGLE_FIRST_PERSON_BUTTON,
+                                                                    Ship::KbScancode::LUS_KB_I);
+        const std::string sdlMappingKey = "gControllers.ButtonMappings." + sdlMappingId;
+        const std::string keyboardMappingKey = "gControllers.ButtonMappings." + keyboardMappingId;
+
+        if (!cvars->GetInteger(hasConfigKey.c_str(), false) ||
+            cvars->GetString(mappingIdsKey.c_str(), "")[0] != '\0') {
+            continue;
+        }
+
+        cvars->SetString(mappingIdsKey.c_str(), (sdlMappingId + "," + keyboardMappingId + ",").c_str());
+        cvars->SetString((sdlMappingKey + ".ButtonMappingClass").c_str(), "SDLButtonToButtonMapping");
+        cvars->SetInteger((sdlMappingKey + ".Bitmask").c_str(), KART_TOGGLE_FIRST_PERSON_BUTTON);
+        cvars->SetInteger((sdlMappingKey + ".SDLControllerButton").c_str(), SDL_CONTROLLER_BUTTON_X);
+        cvars->SetString((keyboardMappingKey + ".ButtonMappingClass").c_str(), "KeyboardKeyToButtonMapping");
+        cvars->SetInteger((keyboardMappingKey + ".Bitmask").c_str(), KART_TOGGLE_FIRST_PERSON_BUTTON);
+        cvars->SetInteger((keyboardMappingKey + ".KeyboardScancode").c_str(), Ship::KbScancode::LUS_KB_I);
+        changed = true;
+    }
+
+    if (changed) {
+        cvars->Save();
+    }
+}
+
+static void RemoveMappingIdFromButton(const std::shared_ptr<Ship::ConsoleVariable>& cvars, const std::string& mappingIdsKey,
+                                      const std::string& mappingId) {
+    const std::string currentValue = cvars->GetString(mappingIdsKey.c_str(), "");
+    std::string nextValue;
+    bool changed = false;
+
+    for (const std::string& id : StringHelper::Split(currentValue, ",")) {
+        if (id.empty()) {
+            continue;
+        }
+        if (id == mappingId) {
+            changed = true;
+            continue;
+        }
+        nextValue += id + ",";
+    }
+
+    if (!changed) {
+        return;
+    }
+    if (nextValue.empty()) {
+        cvars->ClearVariable(mappingIdsKey.c_str());
+    } else {
+        cvars->SetString(mappingIdsKey.c_str(), nextValue.c_str());
+    }
+}
+
+static void ClearButtonMapping(const std::shared_ptr<Ship::ConsoleVariable>& cvars, const std::string& mappingId) {
+    const std::string mappingKey = "gControllers.ButtonMappings." + mappingId;
+
+    cvars->ClearVariable((mappingKey + ".ButtonMappingClass").c_str());
+    cvars->ClearVariable((mappingKey + ".Bitmask").c_str());
+    cvars->ClearVariable((mappingKey + ".SDLControllerAxis").c_str());
+    cvars->ClearVariable((mappingKey + ".AxisDirection").c_str());
+}
+
+static void ClearSDLButtonMapping(const std::shared_ptr<Ship::ConsoleVariable>& cvars, const std::string& mappingId) {
+    const std::string mappingKey = "gControllers.ButtonMappings." + mappingId;
+
+    cvars->ClearVariable((mappingKey + ".ButtonMappingClass").c_str());
+    cvars->ClearVariable((mappingKey + ".Bitmask").c_str());
+    cvars->ClearVariable((mappingKey + ".SDLControllerButton").c_str());
+}
+
+static void MigrateRightStickShiftInputMappings() {
+    auto cvars = Ship::Context::GetInstance()->GetConsoleVariables();
+    bool changed = false;
+
+    for (uint8_t portIndex = 0; portIndex < 4; portIndex++) {
+        const std::string shiftUpIdsKey =
+            StringHelper::Sprintf("gControllers.Port%d.Buttons.Shift Gear UpButtonMappingIds", portIndex + 1);
+        const std::string shiftDownIdsKey =
+            StringHelper::Sprintf("gControllers.Port%d.Buttons.Shift Gear DownButtonMappingIds", portIndex + 1);
+        const std::string shiftUpMappingId =
+            StringHelper::Sprintf("P%d-B%d-SDLA%d-ADN", portIndex, KART_SHIFT_GEAR_UP_BUTTON,
+                                  SDL_CONTROLLER_AXIS_RIGHTY);
+        const std::string shiftDownMappingId =
+            StringHelper::Sprintf("P%d-B%d-SDLA%d-ADP", portIndex, KART_SHIFT_GEAR_DOWN_BUTTON,
+                                  SDL_CONTROLLER_AXIS_RIGHTY);
+        const std::string beforeUp = cvars->GetString(shiftUpIdsKey.c_str(), "");
+        const std::string beforeDown = cvars->GetString(shiftDownIdsKey.c_str(), "");
+
+        RemoveMappingIdFromButton(cvars, shiftUpIdsKey, shiftUpMappingId);
+        RemoveMappingIdFromButton(cvars, shiftDownIdsKey, shiftDownMappingId);
+        ClearButtonMapping(cvars, shiftUpMappingId);
+        ClearButtonMapping(cvars, shiftDownMappingId);
+
+        changed = changed || (beforeUp != cvars->GetString(shiftUpIdsKey.c_str(), "")) ||
+                  (beforeDown != cvars->GetString(shiftDownIdsKey.c_str(), ""));
+    }
+
+    if (changed) {
+        cvars->Save();
+    }
+}
+
+static void MigrateRightStickClickInputMappings() {
+    auto cvars = Ship::Context::GetInstance()->GetConsoleVariables();
+    bool changed = false;
+
+    for (uint8_t portIndex = 0; portIndex < 4; portIndex++) {
+        const std::string hasConfigKey = StringHelper::Sprintf("gControllers.Port%d.HasConfig", portIndex + 1);
+        const std::string clutchIdsKey =
+            StringHelper::Sprintf("gControllers.Port%d.Buttons.ClutchButtonMappingIds", portIndex + 1);
+        const std::string lookBehindIdsKey =
+            StringHelper::Sprintf("gControllers.Port%d.Buttons.Look BehindButtonMappingIds", portIndex + 1);
+        const std::string clutchRightStickMappingId =
+            StringHelper::Sprintf("P%d-B%d-SDLB%d", portIndex, KART_CLUTCH_BUTTON, SDL_CONTROLLER_BUTTON_RIGHTSTICK);
+        const std::string lookBehindRightStickMappingId =
+            StringHelper::Sprintf("P%d-B%d-SDLB%d", portIndex, BTN_CLEFT, SDL_CONTROLLER_BUTTON_RIGHTSTICK);
+        const std::string lookBehindMappingKey = "gControllers.ButtonMappings." + lookBehindRightStickMappingId;
+        const std::string beforeClutch = cvars->GetString(clutchIdsKey.c_str(), "");
+        const std::string beforeLookBehind = cvars->GetString(lookBehindIdsKey.c_str(), "");
+
+        if (!cvars->GetInteger(hasConfigKey.c_str(), false)) {
+            continue;
+        }
+
+        RemoveMappingIdFromButton(cvars, clutchIdsKey, clutchRightStickMappingId);
+        ClearSDLButtonMapping(cvars, clutchRightStickMappingId);
+
+        if (beforeLookBehind.find(lookBehindRightStickMappingId) == std::string::npos) {
+            cvars->SetString(lookBehindIdsKey.c_str(),
+                             (beforeLookBehind + lookBehindRightStickMappingId + ",").c_str());
+            cvars->SetString((lookBehindMappingKey + ".ButtonMappingClass").c_str(), "SDLButtonToButtonMapping");
+            cvars->SetInteger((lookBehindMappingKey + ".Bitmask").c_str(), BTN_CLEFT);
+            cvars->SetInteger((lookBehindMappingKey + ".SDLControllerButton").c_str(),
+                              SDL_CONTROLLER_BUTTON_RIGHTSTICK);
+        }
+
+        changed = changed || (beforeClutch != cvars->GetString(clutchIdsKey.c_str(), "")) ||
+                  (beforeLookBehind != cvars->GetString(lookBehindIdsKey.c_str(), ""));
+    }
+
+    if (changed) {
+        cvars->Save();
+    }
+}
+
 GameEngine::GameEngine() {
     // Initialize context properties early to recognize paths properly for non-portable builds
     this->context = Ship::Context::CreateUninitializedInstance("Spaghetti Kart", "spaghettify", "spaghettify.cfg.json");
@@ -95,6 +251,9 @@ GameEngine::GameEngine() {
     this->context->InitConfiguration();    // without this line InitConsoleVariables fails at Config::Reload()
     this->context->InitConsoleVariables(); // without this line the controldeck constructor failes in
                                            // ShipDeviceIndexMappingManager::UpdateControllerNamesFromConfig()
+    MigrateFirstPersonViewInputMappings();
+    MigrateRightStickShiftInputMappings();
+    MigrateRightStickClickInputMappings();
 
     auto defaultMappings = std::make_shared<Ship::ControllerDefaultMappings>(
         // KeyboardKeyToButtonMappings
@@ -122,6 +281,7 @@ GameEngine::GameEngine() {
             { BTN_CUP, { Ship::KbScancode::LUS_KB_T} },
             { BTN_CDOWN, { Ship::KbScancode::LUS_KB_G} },
             { BTN_CLEFT, { Ship::KbScancode::LUS_KB_F} },
+            { KART_TOGGLE_FIRST_PERSON_BUTTON, { Ship::KbScancode::LUS_KB_I} },
             { KART_TOGGLE_HUD_BUTTON, { Ship::KbScancode::LUS_KB_H} },
             { KART_CAPTURE_SCREENSHOT_BUTTON, { Ship::KbScancode::LUS_KB_F12} },
             { BTN_DUP, { Ship::KbScancode::LUS_KB_NUMPAD8} },
@@ -144,9 +304,9 @@ GameEngine::GameEngine() {
             { KART_MENU_CONFIRM_BUTTON, { SDL_CONTROLLER_BUTTON_A, SDL_CONTROLLER_BUTTON_START } },
             { KART_MENU_CANCEL_BUTTON, { SDL_CONTROLLER_BUTTON_B } },
             { BTN_START, { SDL_CONTROLLER_BUTTON_START } },
-            { BTN_CLEFT, { SDL_CONTROLLER_BUTTON_Y } },
+            { BTN_CLEFT, { SDL_CONTROLLER_BUTTON_Y, SDL_CONTROLLER_BUTTON_RIGHTSTICK } },
+            { KART_TOGGLE_FIRST_PERSON_BUTTON, { SDL_CONTROLLER_BUTTON_X } },
             { BTN_CDOWN, { SDL_CONTROLLER_BUTTON_B } },
-            { KART_CLUTCH_BUTTON, { SDL_CONTROLLER_BUTTON_RIGHTSTICK } },
             { BTN_DUP, { SDL_CONTROLLER_BUTTON_DPAD_UP } },
             { BTN_DDOWN, { SDL_CONTROLLER_BUTTON_DPAD_DOWN } },
             { BTN_DLEFT, { SDL_CONTROLLER_BUTTON_DPAD_LEFT } },
@@ -160,10 +320,7 @@ GameEngine::GameEngine() {
         // SDLAxisDirectionToButtonMappings
         std::unordered_map<CONTROLLERBUTTONS_T, std::vector<std::pair<SDL_GameControllerAxis, int32_t>>>{
             { BTN_A, { { SDL_CONTROLLER_AXIS_TRIGGERRIGHT, 1 } } },
-            { BTN_B, { { SDL_CONTROLLER_AXIS_TRIGGERLEFT, 1 } } },
-            { BTN_CUP, { { SDL_CONTROLLER_AXIS_RIGHTY, -1 } } },
-            { KART_SHIFT_GEAR_UP_BUTTON, { { SDL_CONTROLLER_AXIS_RIGHTY, -1 } } },
-            { KART_SHIFT_GEAR_DOWN_BUTTON, { { SDL_CONTROLLER_AXIS_RIGHTY, 1 } } }
+            { BTN_B, { { SDL_CONTROLLER_AXIS_TRIGGERLEFT, 1 } } }
         },
         // SDLAxisDirectionToAxisDirectionMappings - use built-in LUS defaults
         std::unordered_map<Ship::StickIndex, std::vector<std::pair<Ship::Direction, std::pair<SDL_GameControllerAxis, int32_t>>>>()
@@ -195,7 +352,7 @@ GameEngine::GameEngine() {
                       { KART_CAPTURE_SCREENSHOT_BUTTON, "Capture Screenshot" },
                       { BTN_START, "Open Menu" },
                       { BTN_CLEFT, "Look Behind" },
-                      { BTN_CRIGHT, "Legacy C-Right" },
+                      { KART_TOGGLE_FIRST_PERSON_BUTTON, "First Person View" },
                       { BTN_CUP, "Ceremony Debug Select Luigi" },
                       { BTN_CDOWN, "Ceremony Debug Select DK" },
                       { BTN_DLEFT, "Menu Left" },

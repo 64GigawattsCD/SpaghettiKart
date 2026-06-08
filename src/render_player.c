@@ -192,6 +192,10 @@ void init_render_player(Player* player, Camera* camera, s8 playerId, s8 screenId
     s32 temp_v0;
     s32 temp_v0_2;
 
+    if ((playerId == screenId) && CM_IsFirstPersonViewEnabled(screenId)) {
+        return;
+    }
+
     if ((player->type & PLAYER_EXISTS) == PLAYER_EXISTS) {
         func_8001F9E4(player, camera, screenId);
         temp_v0 = UNK_002_UNKNOWN_0x2 << (screenId << 2);
@@ -333,6 +337,10 @@ void load_kart_texture_and_render_kart_particles(s32 screenIdx) {
 }
 
 void try_rendering_player(Player* player, s8 playerId, s8 screenIdx) {
+
+    if ((playerId == screenIdx) && CM_IsFirstPersonViewEnabled(screenIdx)) {
+        return;
+    }
 
     if (((player->type & PLAYER_EXISTS) == PLAYER_EXISTS) && ((player->type & PLAYER_UNKNOWN_0x40) == 0)) {
         if ((player->unk_002 & 2 << (screenIdx * 4)) == 2 << (screenIdx * 4)) {

@@ -22,6 +22,7 @@
 #define KART_SHIFT_GEAR_DOWN_BUTTON 0x20000000
 #define KART_TOGGLE_HUD_BUTTON 0x40000000
 #define KART_CAPTURE_SCREENSHOT_BUTTON 0x80000000
+#define KART_TOGGLE_FIRST_PERSON_BUTTON R_CBUTTONS
 
 typedef enum {
     KART_INPUT_THROTTLE,
@@ -47,6 +48,7 @@ typedef enum {
     KART_INPUT_SHIFT_GEAR_DOWN,
     KART_INPUT_TOGGLE_HUD,
     KART_INPUT_CAPTURE_SCREENSHOT,
+    KART_INPUT_TOGGLE_FIRST_PERSON,
 } KartInputCommand;
 
 f32 kart_input_get_command_value(const struct Controller* controller, KartInputCommand command);
@@ -56,6 +58,8 @@ bool kart_input_was_command_released(const struct Controller* controller, KartIn
 void kart_input_consume_command_press(struct Controller* controller, KartInputCommand command);
 void kart_input_consume_command_release(struct Controller* controller, KartInputCommand command);
 f32 kart_input_get_forward_backward_axis(const struct Controller* controller);
+f32 kart_input_get_look_up_axis(const struct Controller* controller);
+f32 kart_input_get_look_right_axis(const struct Controller* controller);
 u16 kart_input_get_menu_pressed(const struct Controller* controller);
 
 #endif

@@ -1194,6 +1194,8 @@ void spawn_players_and_cameras(void) {
     Player* player = &gPlayers[0];
     Camera* camera;
 
+    CM_ResetFirstPersonViews();
+
     // Load textures for balloons and kart shadows
     func_8005D290();
     // Spawn players

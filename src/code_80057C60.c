@@ -2415,6 +2415,7 @@ void func_8005CB60(s32 playerId, s32 lapCount) {
                         D_8018D204 = (s32) 1;
                     }
                     playerHUD[playerId].raceCompleteBool = 1;
+                    CM_DisableFirstPersonView(playerId);
                     if (D_8018D114 == 2) {
                         D_80165800[playerId] = 0;
                     }

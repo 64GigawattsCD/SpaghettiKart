@@ -17,6 +17,7 @@
 #include "code_80005FD0.h"
 #include "main.h"
 #include "spawn_players.h"
+#include "kart_input.h"
 #include "enhancements/freecam/freecam_engine.h"
 #include "enhancements/freecam/freecam.h"
 #include "port/interpolation/FrameInterpolation.h"
@@ -34,6 +35,22 @@ Camera* camera4 = &cameras[3];
 Camera* gFreecamCamera = &cameras[4];
 
 static f32 sArcadeKartPostFxPlayerScale[NUM_PLAYERS];
+static s8 sFirstPersonViewEnabled[NUM_PLAYERS];
+static f32 sFirstPersonLookYaw[NUM_PLAYERS];
+static f32 sFirstPersonLookPitch[NUM_PLAYERS];
+
+#define FIRST_PERSON_EYE_RIGHT 0.0f
+#define FIRST_PERSON_EYE_UP 5.5f
+#define FIRST_PERSON_EYE_FORWARD 0.0f
+#define FIRST_PERSON_LOOK_RIGHT 0.0f
+#define FIRST_PERSON_LOOK_UP 1.5f
+#define FIRST_PERSON_LOOK_FORWARD 140.0f
+#define FIRST_PERSON_LOOK_YAW_MAX_RADIANS 2.96705973f
+#define FIRST_PERSON_LOOK_PITCH_MAX_RADIANS 0.43633232f
+#define FIRST_PERSON_LOOK_REAR_RADIANS 3.14159265f
+#define FIRST_PERSON_LOOK_LERP 0.22f
+#define FIRST_PERSON_PI 3.14159265f
+#define FIRST_PERSON_TWO_PI 6.28318531f
 
 static s32 is_arcadekart_race_speed_fx_active(void) {
     return (gGamestate == RACING) &&
@@ -77,6 +94,138 @@ static f32 clamp_arcadekart_camera_value(f32 value, f32 minValue, f32 maxValue) 
         return maxValue;
     }
     return value;
+}
+
+s32 CM_IsFirstPersonViewEnabled(s32 playerIndex) {
+    if ((playerIndex < 0) || (playerIndex >= NUM_PLAYERS)) {
+        return 0;
+    }
+    return sFirstPersonViewEnabled[playerIndex] != 0;
+}
+
+void CM_DisableFirstPersonView(s32 playerIndex) {
+    if ((playerIndex < 0) || (playerIndex >= NUM_PLAYERS)) {
+        return;
+    }
+    sFirstPersonViewEnabled[playerIndex] = 0;
+    sFirstPersonLookYaw[playerIndex] = 0.0f;
+    sFirstPersonLookPitch[playerIndex] = 0.0f;
+}
+
+void CM_ResetFirstPersonViews(void) {
+    s32 i;
+
+    for (i = 0; i < NUM_PLAYERS; i++) {
+        sFirstPersonViewEnabled[i] = 0;
+        sFirstPersonLookYaw[i] = 0.0f;
+        sFirstPersonLookPitch[i] = 0.0f;
+    }
+}
+
+static void update_first_person_view_toggle(s32 playerIndex) {
+    struct Controller* controller;
+
+    if ((playerIndex < 0) || (playerIndex >= 4) || (gGamestate != RACING)) {
+        return;
+    }
+
+    controller = &gControllers[playerIndex];
+    if (kart_input_was_command_pressed(controller, KART_INPUT_TOGGLE_FIRST_PERSON)) {
+        sFirstPersonViewEnabled[playerIndex] = !sFirstPersonViewEnabled[playerIndex];
+        sFirstPersonLookYaw[playerIndex] = 0.0f;
+        sFirstPersonLookPitch[playerIndex] = 0.0f;
+        kart_input_consume_command_press(controller, KART_INPUT_TOGGLE_FIRST_PERSON);
+    }
+}
+
+static f32 lerp_first_person_angle(f32 current, f32 target) {
+    f32 delta = target - current;
+
+    while (delta > FIRST_PERSON_PI) {
+        delta -= FIRST_PERSON_TWO_PI;
+    }
+    while (delta < -FIRST_PERSON_PI) {
+        delta += FIRST_PERSON_TWO_PI;
+    }
+
+    return current + (delta * FIRST_PERSON_LOOK_LERP);
+}
+
+static void apply_first_person_view_camera(Camera* camera, Player* player, s32 playerIndex) {
+    Mat3 orientation;
+    Vec3f localEye;
+    Vec3f localLook;
+    struct Controller* controller;
+    f32 targetYaw;
+    f32 targetPitch;
+    f32 lookYaw;
+    f32 lookPitch;
+    f32 lookForward;
+    f32 eyeX;
+    f32 eyeY;
+    f32 eyeZ;
+    f32 lookX;
+    f32 lookY;
+    f32 lookZ;
+    f32 dx;
+    f32 dy;
+    f32 dz;
+
+    if ((camera == NULL) || (player == NULL)) {
+        return;
+    }
+
+    localEye[0] = FIRST_PERSON_EYE_RIGHT;
+    localEye[1] = FIRST_PERSON_EYE_UP;
+    localEye[2] = FIRST_PERSON_EYE_FORWARD;
+
+    controller = &gControllers[playerIndex];
+    if ((controller->button & L_CBUTTONS) != 0) {
+        targetYaw = FIRST_PERSON_LOOK_REAR_RADIANS;
+        targetPitch = 0.0f;
+    } else {
+        targetYaw = -kart_input_get_look_right_axis(controller) * FIRST_PERSON_LOOK_YAW_MAX_RADIANS;
+        targetPitch = kart_input_get_look_up_axis(controller) * FIRST_PERSON_LOOK_PITCH_MAX_RADIANS;
+    }
+    sFirstPersonLookYaw[playerIndex] = lerp_first_person_angle(sFirstPersonLookYaw[playerIndex], targetYaw);
+    sFirstPersonLookPitch[playerIndex] =
+        sFirstPersonLookPitch[playerIndex] + ((targetPitch - sFirstPersonLookPitch[playerIndex]) * FIRST_PERSON_LOOK_LERP);
+    lookYaw = sFirstPersonLookYaw[playerIndex];
+    lookPitch = sFirstPersonLookPitch[playerIndex];
+
+    lookForward = cosf(lookPitch) * FIRST_PERSON_LOOK_FORWARD;
+    localLook[0] = FIRST_PERSON_LOOK_RIGHT + (sinf(lookYaw) * lookForward);
+    localLook[1] = localEye[1] + FIRST_PERSON_LOOK_UP + (sinf(lookPitch) * FIRST_PERSON_LOOK_FORWARD);
+    localLook[2] = cosf(lookYaw) * lookForward;
+
+    calculate_orientation_matrix(orientation, 0, 1, 0, player->rotation[1]);
+    mtxf_translate_vec3f_mat3(localEye, orientation);
+    mtxf_translate_vec3f_mat3(localLook, orientation);
+
+    eyeX = player->pos[0] + localEye[0];
+    eyeY = player->pos[1] + localEye[1];
+    eyeZ = player->pos[2] + localEye[2];
+    lookX = player->pos[0] + localLook[0];
+    lookY = player->pos[1] + localLook[1];
+    lookZ = player->pos[2] + localLook[2];
+
+    camera->unk_B0 = 0;
+    camera->unk_2C = player->rotation[1];
+    camera->unk_AC = player->rotation[1];
+    camera->pos[0] = eyeX;
+    camera->pos[1] = eyeY;
+    camera->pos[2] = eyeZ;
+    camera->lookAt[0] = lookX;
+    camera->lookAt[1] = lookY;
+    camera->lookAt[2] = lookZ;
+
+    dx = camera->lookAt[0] - camera->pos[0];
+    dy = camera->lookAt[1] - camera->pos[1];
+    dz = camera->lookAt[2] - camera->pos[2];
+    camera->rot[1] = atan2s(dx, dz);
+    camera->rot[0] = atan2s(sqrtf((dx * dx) + (dz * dz)), dy);
+    camera->rot[2] = 0;
+
 }
 
 static f32 normalize_arcadekart_camera_range(f32 value, f32 minValue, f32 maxValue) {
@@ -1261,6 +1410,8 @@ void func_8001EA0C(Camera* camera, Player* player, s8 arg2) {
 void func_8001EE98(Player* player, Camera* camera, s8 index) {
     s32 cameraIndex = camera->cameraId;
 
+    update_first_person_view_toggle(index);
+
     switch (gModeSelection) {
         case GRAND_PRIX:
             // clang-format off
@@ -1340,6 +1491,11 @@ void func_8001EE98(Player* player, Camera* camera, s8 index) {
                 func_8001EA0C(camera, player, index);
                 break;
         }
+    }
+
+    if ((gIsGamePaused == 0) && CM_IsFirstPersonViewEnabled(index) && (camera->mode != 3) && (gDemoMode != 1) &&
+        ((player->type & PLAYER_CINEMATIC_MODE) != PLAYER_CINEMATIC_MODE)) {
+        apply_first_person_view_camera(camera, player, index);
     }
 }
 

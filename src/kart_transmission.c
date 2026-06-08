@@ -25,7 +25,6 @@
 #define KART_SHIFT_IDEAL_RPM_MIN_DEFAULT 3800.0f
 #define KART_SHIFT_IDEAL_RPM_MAX_DEFAULT 7200.0f
 #define KART_SHIFT_OVER_RPM_DEFAULT 8000.0f
-#define KART_SHIFT_SEQUENTIAL_STICK_DEADZONE 0.25f
 
 static s8 sKartGear[KART_TRANSMISSION_PLAYER_COUNT];
 static KartTransmissionMode sKartTransmissionMode[KART_TRANSMISSION_PLAYER_COUNT];
@@ -65,7 +64,6 @@ static bool kart_transmission_is_drive_gear(s32 gear) {
 
 static s8 kart_transmission_get_requested_sequential_direction(const struct Controller* controller, s32 playerIndex) {
     s32 direction = 0;
-    f32 rightStickAxis;
     bool upPressed;
     bool downPressed;
 
@@ -73,22 +71,17 @@ static s8 kart_transmission_get_requested_sequential_direction(const struct Cont
         return 0;
     }
 
-    rightStickAxis = ((f32) controller->rightRawStickY) / 32767.0f;
-    if (rightStickAxis > KART_SHIFT_SEQUENTIAL_STICK_DEADZONE) {
-        direction = -1;
-    } else if (rightStickAxis < -KART_SHIFT_SEQUENTIAL_STICK_DEADZONE) {
-        direction = 1;
-    } else {
-        upPressed = kart_input_is_command_active(controller, KART_INPUT_SHIFT_GEAR_UP);
-        downPressed = kart_input_is_command_active(controller, KART_INPUT_SHIFT_GEAR_DOWN);
+    upPressed = ((controller->buttonPressed & U_JPAD) != 0) ||
+                kart_input_is_command_active(controller, KART_INPUT_SHIFT_GEAR_UP);
+    downPressed = ((controller->buttonPressed & D_JPAD) != 0) ||
+                  kart_input_is_command_active(controller, KART_INPUT_SHIFT_GEAR_DOWN);
 
-        if (upPressed && !downPressed) {
-            direction = 1;
-        } else if (downPressed && !upPressed) {
-            direction = -1;
-        } else if (upPressed && downPressed) {
-            direction = 0;
-        }
+    if (upPressed && !downPressed) {
+        direction = 1;
+    } else if (downPressed && !upPressed) {
+        direction = -1;
+    } else if (upPressed && downPressed) {
+        direction = 0;
     }
 
     if (direction == 0) {
@@ -780,6 +773,9 @@ void kart_transmission_update(Player* player, const struct Controller* controlle
     }
 
     clutchAmount = kart_input_get_command_value(controller, KART_INPUT_CLUTCH);
+    if ((controller->button & (U_JPAD | D_JPAD)) != 0) {
+        clutchAmount = 1.0f;
+    }
     clutchReleased = (sKartPreviousClutchAmount[playerIndex] >
                       kart_transmission_get_cvarf("gArcadeKart.ShiftClutchReleaseThreshold", 0.25f)) &&
                      (clutchAmount <= kart_transmission_get_cvarf("gArcadeKart.ShiftClutchReleaseThreshold", 0.25f));
