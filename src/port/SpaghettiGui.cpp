@@ -314,7 +314,7 @@ namespace Ship {
     }
 
     static void DrawKartDebugTelemetry() {
-        if (CVarGetInteger("gArcadeKart.DebugTelemetry.Enabled", 1) == 0) {
+        if (CVarGetInteger("gArcadeKart.DebugTelemetry.Enabled", 0) == 0) {
             return;
         }
 
