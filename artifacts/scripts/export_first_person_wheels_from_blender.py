@@ -11,21 +11,39 @@ wheel_specs = [
     ("export_rear_wheel_combined", "Rear", "sFirstPersonKartRearWheel"),
 ]
 
+wheel_material_groups = [
+    ("tire", "mk64_tire_black", "Tire"),
+    ("hub", "mk64_hub_yellow", "Hub"),
+]
+
 precision = 8.0
 scale_macro = 0.125
 
-def material_color(obj, material_index):
+def material_group(obj, material_index):
     if material_index < len(obj.data.materials):
         mat = obj.data.materials[material_index]
         if mat is not None:
-            r, g, b, a = mat.diffuse_color
-            return (
-                int(max(0.0, min(1.0, r)) * 255.0),
-                int(max(0.0, min(1.0, g)) * 255.0),
-                int(max(0.0, min(1.0, b)) * 255.0),
-                int(max(0.0, min(1.0, a)) * 255.0),
-            )
-    return (24, 24, 28, 255)
+            name = mat.name.lower()
+            if "hub" in name or "yellow" in name:
+                return "hub"
+    return "tire"
+
+def write_display_list(f, symbol, tri_count):
+    tri_base = 0
+    while tri_base < tri_count:
+        chunk = min(10, tri_count - tri_base)
+        vb = tri_base * 3
+        f.write(f"    gsSPVertex({symbol}Vtx + {vb}, {chunk * 3}, 0),\n")
+        local = 0
+        while local + 1 < chunk:
+            a0 = local * 3
+            a1 = (local + 1) * 3
+            f.write(f"    gsSP2Triangles({a0}, {a0 + 1}, {a0 + 2}, 0, {a1}, {a1 + 1}, {a1 + 2}, 0),\n")
+            local += 2
+        if local < chunk:
+            a0 = local * 3
+            f.write(f"    gsSP1Triangle({a0}, {a0 + 1}, {a0 + 2}, 0),\n")
+        tri_base += chunk
 
 def export_object(obj_name, label, symbol):
     obj = bpy.data.objects.get(obj_name)
@@ -58,13 +76,13 @@ def export_object(obj_name, label, symbol):
     mesh = triangulated.data
 
     origin = obj.matrix_world.translation
-    vertices = []
-    tri_count = 0
+    vertices = {group[0]: [] for group in wheel_material_groups}
+    tri_count = {group[0]: 0 for group in wheel_material_groups}
     for poly in mesh.polygons:
         if len(poly.vertices) != 3:
             continue
-        tri_count += 1
-        color = material_color(obj, poly.material_index)
+        group = material_group(obj, poly.material_index)
+        tri_count[group] += 1
         for vertex_index in poly.vertices:
             co = mesh.vertices[vertex_index].co - origin
             # Blender scene uses X = axle/right, Y = kart forward, Z = up.
@@ -72,7 +90,7 @@ def export_object(obj_name, label, symbol):
             x = int(round(co.x * precision))
             y = int(round(co.z * precision))
             z = int(round(co.y * precision))
-            vertices.append((x, y, z, *color))
+            vertices[group].append((x, y, z, 255, 255, 255, 255))
 
     bpy.data.objects.remove(triangulated, do_unlink=True)
 
@@ -92,38 +110,35 @@ with open(out, "w", encoding="utf-8", newline="\n") as f:
     f.write("/* Wheel meshes are centered on their Blender object origins. */\n\n")
     f.write(f"#define FP_MESHY_KART_WHEEL_SCALE {scale_macro}f\n\n")
     for export in exports:
-        f.write(f"#define FP_MESHY_KART_{export['label'].upper()}_WHEEL_TRIANGLE_COUNT {export['tri_count']}\n")
+        total_tri_count = sum(export["tri_count"].values())
+        f.write(f"#define FP_MESHY_KART_{export['label'].upper()}_WHEEL_TRIANGLE_COUNT {total_tri_count}\n")
+        for group, _, label in wheel_material_groups:
+            f.write(
+                f"#define FP_MESHY_KART_{export['label'].upper()}_WHEEL_{label.upper()}_TRIANGLE_COUNT "
+                f"{export['tri_count'][group]}\n"
+            )
     f.write("\n")
 
     for export in exports:
-        symbol = export["symbol"]
-        f.write(f"static Vtx {symbol}Vtx[] = {{\n")
-        for x, y, z, r, g, b, a in export["vertices"]:
-            f.write(
-                f"    {{{{ {{ {x}, {y}, {z} }}, 0, {{ 0, 0 }}, "
-                f"{{ 0x{r:02X}, 0x{g:02X}, 0x{b:02X}, 0x{a:02X} }} }}}},\n"
-            )
-        f.write("};\n\n")
+        for group, suffix, label in wheel_material_groups:
+            symbol = f"{export['symbol']}{label}"
+            f.write(f"static Vtx {symbol}Vtx[] = {{\n")
+            for x, y, z, r, g, b, a in export["vertices"][group]:
+                f.write(
+                    f"    {{{{ {{ {x}, {y}, {z} }}, 0, {{ 0, 0 }}, "
+                    f"{{ 0x{r:02X}, 0x{g:02X}, 0x{b:02X}, 0x{a:02X} }} }}}},\n"
+                )
+            f.write("};\n\n")
 
-        f.write(f"static Gfx {symbol}Dl[] = {{\n")
-        tri_base = 0
-        while tri_base < export["tri_count"]:
-            chunk = min(10, export["tri_count"] - tri_base)
-            vb = tri_base * 3
-            f.write(f"    gsSPVertex({symbol}Vtx + {vb}, {chunk * 3}, 0),\n")
-            local = 0
-            while local + 1 < chunk:
-                a0 = local * 3
-                a1 = (local + 1) * 3
-                f.write(f"    gsSP2Triangles({a0}, {a0 + 1}, {a0 + 2}, 0, {a1}, {a1 + 1}, {a1 + 2}, 0),\n")
-                local += 2
-            if local < chunk:
-                a0 = local * 3
-                f.write(f"    gsSP1Triangle({a0}, {a0 + 1}, {a0 + 2}, 0),\n")
-            tri_base += chunk
-        f.write("    gsSPEndDisplayList(),\n")
-        f.write("};\n\n")
+            f.write(f"static Gfx {symbol}Dl[] = {{\n")
+            write_display_list(f, symbol, export["tri_count"][group])
+            f.write("    gsSPEndDisplayList(),\n")
+            f.write("};\n\n")
 
 for export in exports:
-    print(f"{export['label']} wheel: {export['obj_name']} tris={export['tri_count']} verts={len(export['vertices'])}")
+    total_tri_count = sum(export["tri_count"].values())
+    total_vertices = sum(len(vertices) for vertices in export["vertices"].values())
+    print(f"{export['label']} wheel: {export['obj_name']} tris={total_tri_count} verts={total_vertices}")
+    for group, _, label in wheel_material_groups:
+        print(f"  {label}: tris={export['tri_count'][group]} verts={len(export['vertices'][group])}")
 print(f"Wrote {out}")

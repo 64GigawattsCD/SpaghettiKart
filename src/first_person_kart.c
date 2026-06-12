@@ -16,6 +16,27 @@
 #define FIRST_PERSON_KART_WHEEL_STEER_MAX 0x1000
 #define FIRST_PERSON_KART_VECTOR_EPSILON 0.0001f
 
+#define FIRST_PERSON_KART_COLOR_RECOLOR_R 0xD8
+#define FIRST_PERSON_KART_COLOR_RECOLOR_G 0x08
+#define FIRST_PERSON_KART_COLOR_RECOLOR_B 0x05
+#define FIRST_PERSON_KART_COLOR_SILVER_R 0xB8
+#define FIRST_PERSON_KART_COLOR_SILVER_G 0xB8
+#define FIRST_PERSON_KART_COLOR_SILVER_B 0xAE
+#define FIRST_PERSON_KART_COLOR_DARK_R 0x14
+#define FIRST_PERSON_KART_COLOR_DARK_G 0x14
+#define FIRST_PERSON_KART_COLOR_DARK_B 0x16
+#define FIRST_PERSON_KART_COLOR_BLUE_R 0x30
+#define FIRST_PERSON_KART_COLOR_BLUE_G 0x54
+#define FIRST_PERSON_KART_COLOR_BLUE_B 0xD0
+#define FIRST_PERSON_KART_COLOR_HUB_R 0xFF
+#define FIRST_PERSON_KART_COLOR_HUB_G 0xC6
+#define FIRST_PERSON_KART_COLOR_HUB_B 0x10
+
+static void render_first_person_kart_primitive_dl(Gfx* dl, u8 red, u8 green, u8 blue) {
+    gDPSetPrimColor(gDisplayListHead++, 0, 0, red, green, blue, 0xFF);
+    gSPDisplayList(gDisplayListHead++, dl);
+}
+
 static void set_first_person_kart_basis_mtx(Mat4 dest, const Vec3f pos, const Vec3f right, const Vec3f up,
                                             const Vec3f forward) {
     dest[0][0] = right[0];
@@ -58,7 +79,7 @@ static void set_first_person_kart_visual_tyre_pos(Vec3f dest, const Player* play
 }
 
 static void render_first_person_kart_wheel_mesh(const Vec3f pos, const Vec3f bodyRight, const Vec3f bodyUp,
-                                                const Vec3f bodyForward, s16 steerYaw, Gfx* wheelDl) {
+                                                const Vec3f bodyForward, s16 steerYaw, Gfx* tireDl, Gfx* hubDl) {
     Mat4 wheelMtx;
     Vec3f wheelRight;
     Vec3f wheelForward;
@@ -73,7 +94,10 @@ static void render_first_person_kart_wheel_mesh(const Vec3f pos, const Vec3f bod
     set_first_person_kart_basis_mtx(wheelMtx, pos, wheelRight, bodyUp, wheelForward);
     mtxf_scale(wheelMtx, FP_MESHY_KART_WHEEL_SCALE);
     if (render_set_position(wheelMtx, 0) != 0) {
-        gSPDisplayList(gDisplayListHead++, wheelDl);
+        render_first_person_kart_primitive_dl(tireDl, FIRST_PERSON_KART_COLOR_DARK_R, FIRST_PERSON_KART_COLOR_DARK_G,
+                                              FIRST_PERSON_KART_COLOR_DARK_B);
+        render_first_person_kart_primitive_dl(hubDl, FIRST_PERSON_KART_COLOR_HUB_R, FIRST_PERSON_KART_COLOR_HUB_G,
+                                              FIRST_PERSON_KART_COLOR_HUB_B);
     }
 }
 
@@ -91,11 +115,13 @@ static void render_first_person_kart_wheels(Player* player, s16 bodyYaw, s32 scr
     set_first_person_kart_visual_tyre_pos(backRight, player, BACK_RIGHT, bodyYaw);
 
     render_first_person_kart_wheel_mesh(frontLeft, bodyRight, bodyUp, bodyForward, steerYaw,
-                                        sFirstPersonKartFrontWheelDl);
+                                        sFirstPersonKartFrontWheelTireDl, sFirstPersonKartFrontWheelHubDl);
     render_first_person_kart_wheel_mesh(frontRight, bodyRight, bodyUp, bodyForward, steerYaw,
-                                        sFirstPersonKartFrontWheelDl);
-    render_first_person_kart_wheel_mesh(backLeft, bodyRight, bodyUp, bodyForward, 0, sFirstPersonKartRearWheelDl);
-    render_first_person_kart_wheel_mesh(backRight, bodyRight, bodyUp, bodyForward, 0, sFirstPersonKartRearWheelDl);
+                                        sFirstPersonKartFrontWheelTireDl, sFirstPersonKartFrontWheelHubDl);
+    render_first_person_kart_wheel_mesh(backLeft, bodyRight, bodyUp, bodyForward, 0, sFirstPersonKartRearWheelTireDl,
+                                        sFirstPersonKartRearWheelHubDl);
+    render_first_person_kart_wheel_mesh(backRight, bodyRight, bodyUp, bodyForward, 0, sFirstPersonKartRearWheelTireDl,
+                                        sFirstPersonKartRearWheelHubDl);
 }
 
 static f32 first_person_kart_vec3f_dot(const Vec3f a, const Vec3f b) {
@@ -297,7 +323,7 @@ void render_first_person_kart(Camera* camera, s32 screenIdx) {
     }
 
     gSPTexture(gDisplayListHead++, 0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF);
-    gDPSetCombineMode(gDisplayListHead++, G_CC_SHADE, G_CC_SHADE);
+    gDPSetCombineMode(gDisplayListHead++, G_CC_PRIMITIVE, G_CC_PRIMITIVE);
     gDPSetRenderMode(gDisplayListHead++, G_RM_AA_ZB_OPA_SURF, G_RM_AA_ZB_OPA_SURF2);
     gSPClearGeometryMode(gDisplayListHead++, G_LIGHTING | G_CULL_BOTH);
     gSPSetGeometryMode(gDisplayListHead++, G_ZBUFFER | G_SHADE);
@@ -305,7 +331,14 @@ void render_first_person_kart(Camera* camera, s32 screenIdx) {
     mtxf_first_person_kart_body_from_orientation(meshMtx, pose.pos, pose.right, pose.up, pose.forward);
     mtxf_scale(meshMtx, FP_MESHY_KART_BODY_SCALE);
     if (render_set_position(meshMtx, 0) != 0) {
-        gSPDisplayList(gDisplayListHead++, sMeshyKartBodyDl);
+        render_first_person_kart_primitive_dl(sMeshyKartBodyDarkDl, FIRST_PERSON_KART_COLOR_DARK_R,
+                                              FIRST_PERSON_KART_COLOR_DARK_G, FIRST_PERSON_KART_COLOR_DARK_B);
+        render_first_person_kart_primitive_dl(sMeshyKartBodySilverDl, FIRST_PERSON_KART_COLOR_SILVER_R,
+                                              FIRST_PERSON_KART_COLOR_SILVER_G, FIRST_PERSON_KART_COLOR_SILVER_B);
+        render_first_person_kart_primitive_dl(sMeshyKartBodyBlueDl, FIRST_PERSON_KART_COLOR_BLUE_R,
+                                              FIRST_PERSON_KART_COLOR_BLUE_G, FIRST_PERSON_KART_COLOR_BLUE_B);
+        render_first_person_kart_primitive_dl(sMeshyKartBodyRecolorDl, FIRST_PERSON_KART_COLOR_RECOLOR_R,
+                                              FIRST_PERSON_KART_COLOR_RECOLOR_G, FIRST_PERSON_KART_COLOR_RECOLOR_B);
     }
 
     render_first_person_kart_wheels(player, pose.bodyYaw, screenIdx, pose.right, pose.up, pose.forward);
