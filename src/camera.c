@@ -17,6 +17,7 @@
 #include "code_80005FD0.h"
 #include "main.h"
 #include "spawn_players.h"
+#include "first_person_kart.h"
 #include "kart_input.h"
 #include "enhancements/freecam/freecam_engine.h"
 #include "enhancements/freecam/freecam.h"
@@ -40,7 +41,7 @@ static f32 sFirstPersonLookYaw[NUM_PLAYERS];
 static f32 sFirstPersonLookPitch[NUM_PLAYERS];
 
 #define FIRST_PERSON_EYE_RIGHT 0.0f
-#define FIRST_PERSON_EYE_UP 5.5f
+#define FIRST_PERSON_EYE_UP 4.75f
 #define FIRST_PERSON_EYE_FORWARD 0.0f
 #define FIRST_PERSON_LOOK_RIGHT 0.0f
 #define FIRST_PERSON_LOOK_UP 1.5f
@@ -152,15 +153,15 @@ static f32 lerp_first_person_angle(f32 current, f32 target) {
 }
 
 static void apply_first_person_view_camera(Camera* camera, Player* player, s32 playerIndex) {
-    Mat3 orientation;
-    Vec3f localEye;
-    Vec3f localLook;
+    FirstPersonKartBodyPose pose;
     struct Controller* controller;
     f32 targetYaw;
     f32 targetPitch;
     f32 lookYaw;
     f32 lookPitch;
     f32 lookForward;
+    f32 lookRight;
+    f32 lookUp;
     f32 eyeX;
     f32 eyeY;
     f32 eyeZ;
@@ -175,9 +176,9 @@ static void apply_first_person_view_camera(Camera* camera, Player* player, s32 p
         return;
     }
 
-    localEye[0] = FIRST_PERSON_EYE_RIGHT;
-    localEye[1] = FIRST_PERSON_EYE_UP;
-    localEye[2] = FIRST_PERSON_EYE_FORWARD;
+    if (get_first_person_kart_body_pose(&pose, player) == 0) {
+        return;
+    }
 
     controller = &gControllers[playerIndex];
     if ((controller->button & L_CBUTTONS) != 0) {
@@ -194,20 +195,22 @@ static void apply_first_person_view_camera(Camera* camera, Player* player, s32 p
     lookPitch = sFirstPersonLookPitch[playerIndex];
 
     lookForward = cosf(lookPitch) * FIRST_PERSON_LOOK_FORWARD;
-    localLook[0] = FIRST_PERSON_LOOK_RIGHT + (sinf(lookYaw) * lookForward);
-    localLook[1] = localEye[1] + FIRST_PERSON_LOOK_UP + (sinf(lookPitch) * FIRST_PERSON_LOOK_FORWARD);
-    localLook[2] = cosf(lookYaw) * lookForward;
+    lookRight = FIRST_PERSON_LOOK_RIGHT + (sinf(lookYaw) * lookForward);
+    lookUp = FIRST_PERSON_LOOK_UP + (sinf(lookPitch) * FIRST_PERSON_LOOK_FORWARD);
 
-    calculate_orientation_matrix(orientation, 0, 1, 0, player->rotation[1]);
-    mtxf_translate_vec3f_mat3(localEye, orientation);
-    mtxf_translate_vec3f_mat3(localLook, orientation);
+    eyeX = pose.pos[0] + (pose.right[0] * FIRST_PERSON_EYE_RIGHT) + (pose.up[0] * FIRST_PERSON_EYE_UP) +
+           (pose.forward[0] * FIRST_PERSON_EYE_FORWARD);
+    eyeY = pose.pos[1] + (pose.right[1] * FIRST_PERSON_EYE_RIGHT) + (pose.up[1] * FIRST_PERSON_EYE_UP) +
+           (pose.forward[1] * FIRST_PERSON_EYE_FORWARD);
+    eyeZ = pose.pos[2] + (pose.right[2] * FIRST_PERSON_EYE_RIGHT) + (pose.up[2] * FIRST_PERSON_EYE_UP) +
+           (pose.forward[2] * FIRST_PERSON_EYE_FORWARD);
 
-    eyeX = player->pos[0] + localEye[0];
-    eyeY = player->pos[1] + localEye[1];
-    eyeZ = player->pos[2] + localEye[2];
-    lookX = player->pos[0] + localLook[0];
-    lookY = player->pos[1] + localLook[1];
-    lookZ = player->pos[2] + localLook[2];
+    lookX = eyeX + (pose.right[0] * lookRight) + (pose.up[0] * lookUp) +
+            (pose.forward[0] * (cosf(lookYaw) * lookForward));
+    lookY = eyeY + (pose.right[1] * lookRight) + (pose.up[1] * lookUp) +
+            (pose.forward[1] * (cosf(lookYaw) * lookForward));
+    lookZ = eyeZ + (pose.right[2] * lookRight) + (pose.up[2] * lookUp) +
+            (pose.forward[2] * (cosf(lookYaw) * lookForward));
 
     camera->unk_B0 = 0;
     camera->unk_2C = player->rotation[1];

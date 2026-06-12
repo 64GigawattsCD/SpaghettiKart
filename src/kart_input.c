@@ -160,12 +160,31 @@ static f32 kart_input_clamp_axis(f32 axis) {
     return axis;
 }
 
+static f32 kart_input_apply_look_deadzone(f32 axis) {
+    const f32 deadzone = 0.12f;
+    f32 magnitude;
+
+    if (axis < 0.0f) {
+        magnitude = -axis;
+        if (magnitude < deadzone) {
+            return 0.0f;
+        }
+        return -((magnitude - deadzone) / (1.0f - deadzone));
+    }
+
+    magnitude = axis;
+    if (magnitude < deadzone) {
+        return 0.0f;
+    }
+    return (magnitude - deadzone) / (1.0f - deadzone);
+}
+
 f32 kart_input_get_look_up_axis(const struct Controller* controller) {
     if (controller == NULL) {
         return 0.0f;
     }
 
-    return kart_input_clamp_axis(controller->rightRawStickY / 85.0f);
+    return kart_input_apply_look_deadzone(kart_input_clamp_axis(controller->rightRawStickY / 85.0f));
 }
 
 f32 kart_input_get_look_right_axis(const struct Controller* controller) {
@@ -173,7 +192,7 @@ f32 kart_input_get_look_right_axis(const struct Controller* controller) {
         return 0.0f;
     }
 
-    return kart_input_clamp_axis(controller->rightRawStickX / 85.0f);
+    return kart_input_apply_look_deadzone(kart_input_clamp_axis(controller->rightRawStickX / 85.0f));
 }
 
 u16 kart_input_get_menu_pressed(const struct Controller* controller) {

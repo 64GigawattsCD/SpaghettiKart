@@ -13,6 +13,7 @@
 #include "render_player.h"
 #include "code_80057C60.h"
 #include "framebuffer_effects.h"
+#include "first_person_kart.h"
 #include "menu_items.h"
 #include "actors.h"
 #include "render_courses.h"
@@ -726,6 +727,7 @@ void render_screens(ScreenContext* screen, s32 mode, s32 someId, s32 playerId) {
     if (CVarGetInteger("gDrawPlayers", true) == true) {
         if (CM_IsTourEnabled() == false) {
             render_players(camera, screenId);
+            render_first_person_kart(camera, screenId);
         }
     }
 

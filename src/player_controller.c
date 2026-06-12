@@ -354,7 +354,8 @@ void func_80028864(Player* player, Camera* camera, s8 playerId, s8 screenId) {
                 sp1E = check_player_camera_collision_rubberbanding(player, camera4, (f32) D_8016557C, 0.0f);
                 break;
         }
-        if ((sp1E == 1) || ((player->type & PLAYER_INVISIBLE_OR_BOMB) == PLAYER_INVISIBLE_OR_BOMB) ||
+        if ((sp1E == 1) || ((player->type & PLAYER_HUMAN) == PLAYER_HUMAN) ||
+            ((player->type & PLAYER_INVISIBLE_OR_BOMB) == PLAYER_INVISIBLE_OR_BOMB) ||
             (gModeSelection == BATTLE) || ((player->lakituProps & HELD_BY_LAKITU) != 0) || (player->lakituProps & LAKITU_SCENE) ||
             //! @todo make a proper match
             ((*(D_801633F8 + (playerId))) == ((s16) 1U))) {
@@ -684,7 +685,7 @@ void func_80029B4C(Player* player, UNUSED f32 arg1, f32 arg2, UNUSED f32 arg3) {
     player->tyres[FRONT_RIGHT].pos[1] = player->pos[1] + sp8C[1];
     player->tyres[FRONT_RIGHT].pos[2] = player->pos[2] + sp8C[2];
     player_terrain_collision(player, &player->tyres[FRONT_RIGHT], sp80[0], sp80[1], sp80[2]);
-    sp8C[0] = var_f12 - 2.6;
+    sp8C[0] = var_f12 - 3.6;
     sp8C[1] = -player->boundingBoxSize;
     sp8C[2] = (-var_f12) + 4.0f;
     mtxf_translate_vec3f_mat3(sp8C, sp5C);
@@ -695,7 +696,7 @@ void func_80029B4C(Player* player, UNUSED f32 arg1, f32 arg2, UNUSED f32 arg3) {
     player->tyres[BACK_LEFT].pos[1] = player->pos[1] + sp8C[1];
     player->tyres[BACK_LEFT].pos[2] = player->pos[2] + sp8C[2];
     player_terrain_collision(player, &player->tyres[BACK_LEFT], sp80[0], sp80[1], sp80[2]);
-    sp8C[0] = (-var_f12) + 2.6;
+    sp8C[0] = (-var_f12) + 3.6;
     sp8C[1] = -player->boundingBoxSize;
     sp8C[2] = (-var_f12) + 4.0f;
     mtxf_translate_vec3f_mat3(sp8C, sp5C);
