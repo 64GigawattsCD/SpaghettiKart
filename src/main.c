@@ -796,7 +796,13 @@ void race_logic_loop(void) {
 
     func_802A4300();
     func_800591B4();
+    if ((gIsGamePaused != 0) && FB_ArcadeKartPostFxShouldLayerHud()) {
+        FB_ArcadeKartPostFxBeginScene(&gDisplayListHead);
+    }
     func_80093E20();
+    if ((gIsGamePaused != 0) && FB_ArcadeKartPostFxShouldLayerHud()) {
+        FB_ArcadeKartPostFxEndScene(&gDisplayListHead);
+    }
 #if DVDL
     display_dvdl();
 #endif

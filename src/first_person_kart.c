@@ -292,12 +292,12 @@ static void mtxf_first_person_kart_body_from_orientation(Mat4 dest, const Vec3f 
     Vec3f meshRight;
     Vec3f meshForward;
 
-    meshRight[0] = -forward[0];
-    meshRight[1] = -forward[1];
-    meshRight[2] = -forward[2];
-    meshForward[0] = right[0];
-    meshForward[1] = right[1];
-    meshForward[2] = right[2];
+    meshRight[0] = right[0];
+    meshRight[1] = right[1];
+    meshRight[2] = right[2];
+    meshForward[0] = forward[0];
+    meshForward[1] = forward[1];
+    meshForward[2] = forward[2];
 
     set_first_person_kart_basis_mtx(dest, pos, meshRight, up, meshForward);
 }

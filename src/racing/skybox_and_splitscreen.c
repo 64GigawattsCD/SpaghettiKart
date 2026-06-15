@@ -636,9 +636,10 @@ void render_screens(ScreenContext* screen, s32 mode, s32 someId, s32 playerId) {
         case RENDER_SCREEN_MODE_3P_4P_PLAYER_FOUR: // Blank screen
             if (gPlayerCountSelection1 == 3) {
                 s32 arcadeKartHudLayerActive = 0;
+                s32 shouldDrawHud = (CVarGetInteger("gDrawHUD", true) == true) && (D_800DC5B8 != 0);
                 race_blank_viewport(screen);
                 arcade_kart_begin_scene_layer(&arcadeKartSceneLayerActive);
-                if (D_800DC5B8 != 0) {
+                if (shouldDrawHud) {
                     if (FB_ArcadeKartPostFxShouldLayerHud()) {
                         FB_ArcadeKartPostFxBeginHud(&gDisplayListHead);
                         arcadeKartHudLayerActive = 1;
@@ -750,7 +751,8 @@ void render_screens(ScreenContext* screen, s32 mode, s32 someId, s32 playerId) {
     }
     render_player_snow_effect(camera);
     s32 arcadeKartHudLayerActive = 0;
-    if ((CVarGetInteger("gDrawHUD", true) == true) && (D_800DC5B8 != 0) && FB_ArcadeKartPostFxShouldLayerHud()) {
+    s32 shouldDrawHud = (CVarGetInteger("gDrawHUD", true) == true) && (D_800DC5B8 != 0);
+    if (shouldDrawHud && FB_ArcadeKartPostFxShouldLayerHud()) {
         FB_ArcadeKartPostFxBeginHud(&gDisplayListHead);
         arcadeKartHudLayerActive = 1;
     }
@@ -760,10 +762,8 @@ void render_screens(ScreenContext* screen, s32 mode, s32 someId, s32 playerId) {
     }
     func_80093A5C(mode); // Perhaps pause render?
 
-    if (CVarGetInteger("gDrawHUD", true) == true) {
-        if (D_800DC5B8 != 0) {
-            render_hud(mode);
-        }
+    if (shouldDrawHud) {
+        render_hud(mode);
     }
     if (arcadeKartHudLayerActive != 0) {
         FB_ArcadeKartPostFxEndHud(&gDisplayListHead);
