@@ -7,7 +7,7 @@
 #include "menu_items.h"
 #include "memory.h"
 #include "main.h"
-#include "math_util.h"
+#include "racing/math_util.h"
 #include <stdlib.h>
 
 Lights1 D_800E8680 = gdSPDefLights1(31, 31, 31, 255, 255, 255, 40, 40, 20);
@@ -83,7 +83,7 @@ void func_800AF9E4(Vtx* arg0, s32 arg1, s32 arg2, s32 arg3, s16 arg4, s16 arg5, 
 
     gDPSetPrimColor(gDisplayListHead++, 0, 0, r, g, b, 255);
     gDPPipeSync(gDisplayListHead++);
-    gSPVertex(gDisplayListHead++, VIRTUAL_TO_PHYSICAL2(arg0), 4, 0);
+    gSPVertex(gDisplayListHead++, (uintptr_t) VIRTUAL_TO_PHYSICAL2(arg0), 4, 0);
     gSP1Triangle(gDisplayListHead++, 1, 2, 0, 0);
     gSP1Triangle(gDisplayListHead++, 3, 2, 1, 0);
 }

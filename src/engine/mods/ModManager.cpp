@@ -5,6 +5,7 @@
 #include "port/Engine.h"
 #include "semver.hpp"
 #include "utils/StringHelper.h"
+#include <cstdlib>
 #include <memory>
 #include <optional>
 #include <string>
@@ -51,14 +52,19 @@ void UnloadMods() {
     Mods.clear();
 }
 
+// These bail-outs all run during InitModsSystem(), i.e. before the game world is set up.
+// Use _Exit instead of exit so the global `static World sWorldInstance` destructor does not
+// run: its CleanWorld() dereferences Sky::Instance and other singletons that are still null
+// at this point, which segfaults — a crash report on what should be a clean quit (e.g. when
+// the user declines the first-run "Generate one now?" prompt).
 void GenerateAssetsMods() {
     if (GameEngine::ShowYesNoBox("No O2R Files", "No O2R files found. Generate one now?") == IDYES) {
         if (!GameEngine::GenAssetFile()) {
             GameEngine::ShowMessage("Error", "An error occured, no O2R file was generated.\n\nExiting...");
-            exit(1);
+            _Exit(1);
         }
     } else {
-        exit(1);
+        _Exit(1);
     }
 }
 
@@ -241,7 +247,7 @@ void FindAndLoadMods() {
                                     " is missing a mods.toml file. The Mod are likely incompatible.\n\n"
                                     "Do you want to continue loading the mods?";
             if (GameEngine::ShowYesNoBox("Missing mods.toml", msg.c_str()) == IDNO) {
-                exit(1);
+                _Exit(1);
             }
             metadata.name = std::filesystem::path(path).stem().string();
             semver::parse("0.0.0", metadata.version);
@@ -260,7 +266,7 @@ void DetectCyclicDependencies() {
         }
         msg += "\nPlease resolve these cyclic dependencies before continuing.\n";
         GameEngine::ShowMessage("Cyclic Dependency Issues", msg.c_str());
-        exit(1);
+        _Exit(1);
     }
 }
 
@@ -281,7 +287,7 @@ void DetectOutdatedDependencies() {
     if (exitDueToErrors) {
         allDepIssues += "\nPlease resolve these dependency issues before continuing.\n";
         GameEngine::ShowMessage("Dependency Issues", allDepIssues.c_str());
-        exit(1);
+        _Exit(1);
     }
 }
 

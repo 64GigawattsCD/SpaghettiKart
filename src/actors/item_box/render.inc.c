@@ -1,4 +1,4 @@
-#include <actors.h>
+#include <racing/actors.h>
 #include <main.h>
 #include <macros.h>
 #include "port/interpolation/FrameInterpolation.h"
@@ -28,7 +28,7 @@ void render_actor_item_box(Camera* camera, struct ItemBox* item_box) {
     f32 someMultiplier;
 
     size_t actorIdx = CM_FindActorIndex((struct Actor*)item_box);
-    if (-1 == actorIdx) {
+    if (-1 == (s32) actorIdx) {
         printf("[render_actor_item_box] Could not find item box for FI, skipping!\n");
         return;
     }

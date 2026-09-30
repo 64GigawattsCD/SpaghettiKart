@@ -2,7 +2,7 @@
 #define ENGINE_TRACK_H
 
 #include <libultraship/libultraship.h>
-#include "CoreMath.h"
+#include "engine/CoreMath.h"
 
 #ifdef __cplusplus
 #include "engine/SpawnParams.h"
@@ -17,7 +17,7 @@ extern "C" {
 #include "camera.h"
 #include "data/some_data.h"
 #include "bomb_kart.h"
-#include "path_spawn_metadata.h"
+#include "data/path_spawn_metadata.h"
 #include "waypoints.h"
 #include "sounds.h"
 #include "common_structs.h"
@@ -79,7 +79,10 @@ bool IsTriangleWindingInverted();
  * This work is done in render_track_sections()
  */
 typedef struct {
-    uint64_t crc;
+    union {
+        uint64_t crc;
+        void* model;
+    };
     u8 surfaceType; // Determines what kind of surface the player drives on (ex. dirt, asphalt, etc.)
     u8 sectionId;
     u16 clip; // enum in CustomTrack.h
@@ -117,9 +120,9 @@ typedef struct Properties {
 #ifdef __cplusplus
     nlohmann::json to_json() const {
         nlohmann::json j;
-        j["Name"] = Name ? Name : "";
-        j["DebugName"] = DebugName ? DebugName : "";
-        j["TrackLength"] = TrackLength ? TrackLength : "";
+        j["Name"] = Name;
+        j["DebugName"] = DebugName;
+        j["TrackLength"] = TrackLength;
         //j["AIBehaviour"] = AIBehaviour ? AIBehaviour : "";
         j["LakituTowType"] = LakituTowType;
         j["AIMaximumSeparation"] = AIMaximumSeparation;
@@ -363,7 +366,7 @@ public:
     virtual void Draw(ScreenContext*);
     virtual void DrawCredits();
     virtual void Waypoints(Player* player, int8_t playerId);
-    virtual f32 GetWaterLevel(FVector pos, Collision* collision);
+    virtual f32 GetWaterLevel(FVector pos, struct Collision* collision);
     virtual void Tick();
     // Draw transparent models (water, signs, arrows, etc.) 
     virtual void DrawTransparency(ScreenContext* screen, uint16_t pathCounter, uint16_t cameraRot,

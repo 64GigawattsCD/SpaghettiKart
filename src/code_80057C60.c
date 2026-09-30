@@ -12,11 +12,11 @@
 #include "camera.h"
 #include "code_80057C60.h"
 #include "main.h"
-#include "actors.h"
+#include "racing/actors.h"
 #include "code_800029B0.h"
 #include "racing/memory.h"
 #include <defines.h>
-#include "math_util.h"
+#include "racing/math_util.h"
 #include "math_util_2.h"
 #include "code_80005FD0.h"
 #include "render_player.h"
@@ -26,7 +26,7 @@
 #include "code_80086E70.h"
 #include "effects.h"
 #include <assets/models/data_800E8700.h>
-#include "skybox_and_splitscreen.h"
+#include "racing/skybox_and_splitscreen.h"
 #include <assets/models/common_data.h>
 #include "audio/external.h"
 #include "kart_input.h"
@@ -344,7 +344,7 @@ const char** gLakituTexturePtr;
  */
 s32 indexObjectList4[32];
 //! Array of (4) Collisions?
-Collision D_8018C0B0[4];
+struct Collision D_8018C0B0[4];
 /**
  * List of object list indices used for:
  *   Moles in Moo Moo Farm
@@ -353,7 +353,7 @@ Collision D_8018C0B0[4];
  *   Potentially other things
  */
 s32 gObjectParticle1[gObjectParticle2_SIZE];
-Collision D_8018C3B0;
+struct Collision D_8018C3B0;
 /**
  * List of object list indices used for:
  * - Bats in Banshee's Boardwalk (but only 1 player mode?)
@@ -362,14 +362,14 @@ Collision D_8018C3B0;
  */
 s32 gObjectParticle2[gObjectParticle2_SIZE];
 // Maybe some unused Collision?
-UNUSED Collision D_8018C5F0;
+UNUSED struct Collision D_8018C5F0;
 /**
  * List of object list indices used for:
  * - Train index 1 smoke in Kalimari Desert
  * - Ferry index 1 smoke in DK Jungle
  */
 s32 gObjectParticle3[gObjectParticle3_SIZE];
-Collision D_8018C830;
+struct Collision D_8018C830;
 /**
  * List of object list indices. Used both for the fires in the DK Jungle cave
  * and, seemingly for the trail that shells leave behind them.
@@ -964,15 +964,16 @@ void render_hud_lap_3p_4p(s32 playerId) {
         if (D_801657F8 && gIsHUDVisible) {
             // draw_hud_2d_texture_32x8(playerHUD[playerId].lapX, playerHUD[playerId].lapY, (u8*)
             // common_texture_hud_lap);
-            draw_hud_2d_texture(playerHUD[playerId].lapX, playerHUD[playerId].lapY, 32, 8, common_texture_hud_lap);
+            draw_hud_2d_texture(playerHUD[playerId].lapX, playerHUD[playerId].lapY, 32, 8,
+                                (u8*) common_texture_hud_lap);
             draw_lap_count(playerHUD[playerId].lapX - 12, playerHUD[playerId].lapY + 4,
                            playerHUD[playerId].alsoLapCount);
         }
         if (gHUDModes == 2) {
             if (playerHUD[playerId].unk_74 && D_80165608) {
                 func_80047910(playerHUD[playerId].unk_6C, playerHUD[playerId].unk_6E, 0, 1.0f,
-                              (u8*) common_tlut_portrait_bomb_kart_and_question_mark, common_texture_portrait_bomb_kart,
-                              D_0D005AE0, 0x20, 0x20, 0x20, 0x20);
+                              (u8*) common_tlut_portrait_bomb_kart_and_question_mark,
+                              (u8*) common_texture_portrait_bomb_kart, D_0D005AE0, 0x20, 0x20, 0x20, 0x20);
             }
         }
     }
@@ -1291,7 +1292,7 @@ void func_8005A070(void) {
         }
     }
     func_8008C204();
-    func_8008C1E0(&D_80165678, (s32) &D_801655F0);
+    func_8008C1E0(&D_80165678, (s32) (uintptr_t) &D_801655F0);
 }
 
 void func_8005A14C(s32 playerId) {
@@ -2546,34 +2547,34 @@ void func_8005D1F4(s32 cameraId) {
 
 // Appears to load GP Mode race staging balloons and kart shadows.
 void func_8005D290(void) {
-    D_8018D420 = gTexture69B03C;
-    D_8018D424 = gTexture69B140;
-    D_8018D478 = gTexture69C1E8;
-    D_8018D480 = gTextureSpeechBubble;
-    D_8018D484 = gTextureMusicNote;
-    D_8018D48C = gTextureSmokePuff;
+    D_8018D420 = (u8*) gTexture69B03C;
+    D_8018D424 = (u8*) gTexture69B140;
+    D_8018D478 = (u8*) gTexture69C1E8;
+    D_8018D480 = (u8*) gTextureSpeechBubble;
+    D_8018D484 = (u8*) gTextureMusicNote;
+    D_8018D48C = (u8*) gTextureSmokePuff;
     D_8018D490 = D_8018D48C;
-    D_8018D4BC = gTextureBalloon1;
-    D_8018D4C0 = gTextureBalloon2;
-    D_8018D49C = gTexture69C9C4;
-    D_8018D4A0 = gTextureBoingExclamation;
-    D_8018D438 = gTexture69CB84;
-    D_8018D43C = gTexture69CCEC;
-    D_8018D440 = gTexture69CEB8;
-    D_8018D444 = gTexture69D148;
-    D_8018D448 = gTexture69D4E0;
-    D_8018D44C = gTexture69D8FC;
-    D_8018D450 = gTexture69DCB4;
-    D_8018D454 = gTexture69DFA0;
-    D_8018D458 = gTexture69E25C;
-    D_8018D45C = gTexture69E518;
-    D_8018D460 = gTexture69E7A8;
-    D_8018D464 = gTexture69EA18;
-    D_8018D468 = gTexture69EC54;
-    D_8018D46C = gTexture69EE38;
-    D_8018D470 = gTexture69EFE0;
-    gTextureLoadedLightningBolt0 = gTextureLightningBolt0;
-    gTextureLoadedLightningBolt1 = gTextureLightningBolt1;
+    D_8018D4BC = (u8*) gTextureBalloon1;
+    D_8018D4C0 = (u8*) gTextureBalloon2;
+    D_8018D49C = (u8*) gTexture69C9C4;
+    D_8018D4A0 = (u8*) gTextureBoingExclamation;
+    D_8018D438 = (u8*) gTexture69CB84;
+    D_8018D43C = (u8*) gTexture69CCEC;
+    D_8018D440 = (u8*) gTexture69CEB8;
+    D_8018D444 = (u8*) gTexture69D148;
+    D_8018D448 = (u8*) gTexture69D4E0;
+    D_8018D44C = (u8*) gTexture69D8FC;
+    D_8018D450 = (u8*) gTexture69DCB4;
+    D_8018D454 = (u8*) gTexture69DFA0;
+    D_8018D458 = (u8*) gTexture69E25C;
+    D_8018D45C = (u8*) gTexture69E518;
+    D_8018D460 = (u8*) gTexture69E7A8;
+    D_8018D464 = (u8*) gTexture69EA18;
+    D_8018D468 = (u8*) gTexture69EC54;
+    D_8018D46C = (u8*) gTexture69EE38;
+    D_8018D470 = (u8*) gTexture69EFE0;
+    gTextureLoadedLightningBolt0 = (u8*) gTextureLightningBolt0;
+    gTextureLoadedLightningBolt1 = (u8*) gTextureLightningBolt1;
 }
 
 void reset_player_particle_pool(Player* player) {
@@ -2613,21 +2614,21 @@ void set_particle_position_and_rotation(Player* player, UnkPlayerStruct258* arg1
     arg1->unk_010 = arg6;
 }
 
-s32 init_particle_player(UnkPlayerStruct258* arg0, s8 type, f32 arg2) {
+void init_particle_player(UnkPlayerStruct258* arg0, s8 type, f32 arg2) {
     arg0->isAlive = true;
     arg0->type = type;
     arg0->unk_01E = 0;
     arg0->scale = arg2;
 }
 
-s32 set_particle_colour(UnkPlayerStruct258* arg0, s32 arg1, s16 arg2) {
+void set_particle_colour(UnkPlayerStruct258* arg0, s32 arg1, s16 arg2) {
     arg0->red = (u8) (arg1 >> 16);
     arg0->green = (u8) (arg1 >> 8);
     arg0->blue = (u8) arg1;
     arg0->alpha = arg2;
 }
 
-s32 set_particle_colour_randomly_varried(UnkPlayerStruct258* arg0, s32 arg1, s16 arg2) {
+void set_particle_colour_randomly_varried(UnkPlayerStruct258* arg0, s32 arg1, s16 arg2) {
     s32 temp_v0;
     temp_v0 = random_int(0x30);
 
@@ -5847,7 +5848,7 @@ void render_player_ground_particles(Player* player, UNUSED s8 arg1, s16 arg2, s8
                                 G_TX_NOLOD, G_TX_NOLOD);
             func_8004B35C(primRed, primGreen, primBlue, 0x000000FF);
             gDPSetRenderMode(gDisplayListHead++, G_RM_AA_ZB_TEX_EDGE, G_RM_AA_ZB_TEX_EDGE2);
-            gSPVertex(gDisplayListHead++, D_800E8C00, 4, 0);
+            gSPVertex(gDisplayListHead++, (uintptr_t) D_800E8C00, 4, 0);
             gSPDisplayList(gDisplayListHead++, D_0D008DA0);
         }
         gMatrixEffectCount += 1;
@@ -5915,7 +5916,7 @@ UNUSED void func_80066714(Player* player, UNUSED s32 arg1, s16 arg2, s8 arg3) {
                             G_TX_NOLOD, G_TX_NOLOD);
         func_8004B35C(red, green, blue, alpha);
         gDPSetRenderMode(gDisplayListHead++, G_RM_ZB_XLU_SURF, G_RM_ZB_XLU_SURF2);
-        gSPVertex(gDisplayListHead++, D_800E8B00, 4, 0);
+        gSPVertex(gDisplayListHead++, (uintptr_t) D_800E8B00, 4, 0);
         gSPDisplayList(gDisplayListHead++, D_0D008DA0);
         gMatrixEffectCount += 1;
     }
@@ -6010,12 +6011,12 @@ void func_80066BAC(Player* player, UNUSED s8 arg1, s16 arg2, s8 arg3) {
             gDPLoadTextureBlock(gDisplayListHead++, gTextureLoadedLightningBolt0, G_IM_FMT_IA, G_IM_SIZ_8b, 32, 64, 0,
                                 G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOMASK,
                                 G_TX_NOLOD, G_TX_NOLOD);
-            gSPVertex(gDisplayListHead++, &D_800E8900a[0][player->particlePool0[arg2].red], 4, 0);
+            gSPVertex(gDisplayListHead++, (uintptr_t) &D_800E8900a[0][player->particlePool0[arg2].red], 4, 0);
             gSPDisplayList(gDisplayListHead++, common_square_plain_render);
             gDPLoadTextureBlock(gDisplayListHead++, gTextureLoadedLightningBolt1, G_IM_FMT_IA, G_IM_SIZ_8b, 32, 64, 0,
                                 G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOMASK,
                                 G_TX_NOLOD, G_TX_NOLOD);
-            gSPVertex(gDisplayListHead++, &D_800E8900a[1][player->particlePool0[arg2].red], 4, 0);
+            gSPVertex(gDisplayListHead++, (uintptr_t) &D_800E8900a[1][player->particlePool0[arg2].red], 4, 0);
             gSPDisplayList(gDisplayListHead++, D_0D008DA0);
         } else {
             gSPDisplayList(gDisplayListHead++, D_0D008DB8);
@@ -6024,12 +6025,12 @@ void func_80066BAC(Player* player, UNUSED s8 arg1, s16 arg2, s8 arg3) {
             gDPLoadTextureBlock(gDisplayListHead++, gTextureLoadedLightningBolt1, G_IM_FMT_IA, G_IM_SIZ_8b, 32, 64, 0,
                                 G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOMASK,
                                 G_TX_NOLOD, G_TX_NOLOD);
-            gSPVertex(gDisplayListHead++, &D_800E8900a[0][player->particlePool0[arg2].red], 4, 0);
+            gSPVertex(gDisplayListHead++, (uintptr_t) &D_800E8900a[0][player->particlePool0[arg2].red], 4, 0);
             gSPDisplayList(gDisplayListHead++, common_square_plain_render);
             gDPLoadTextureBlock(gDisplayListHead++, gTextureLoadedLightningBolt0, G_IM_FMT_IA, G_IM_SIZ_8b, 32, 64, 0,
                                 G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOMASK,
                                 G_TX_NOLOD, G_TX_NOLOD);
-            gSPVertex(gDisplayListHead++, &D_800E8900a[1][player->particlePool0[arg2].red], 4, 0);
+            gSPVertex(gDisplayListHead++, (uintptr_t) &D_800E8900a[1][player->particlePool0[arg2].red], 4, 0);
             gSPDisplayList(gDisplayListHead++, D_0D008DA0);
         }
         gMatrixEffectCount += 1;
@@ -6104,12 +6105,12 @@ void render_player_onomatopoeia_whrrrr(Player* player, UNUSED s8 arg1, f32 arg2,
         gDPLoadTextureBlock(gDisplayListHead++, gTextureOnomatopoeiaWhrrrr1, G_IM_FMT_CI, G_IM_SIZ_8b, 64, 32, 0,
                             G_TX_NOMIRROR | G_TX_CLAMP, G_TX_NOMIRROR | G_TX_CLAMP, G_TX_NOMASK, G_TX_NOMASK,
                             G_TX_NOLOD, G_TX_NOLOD);
-        gSPVertex(gDisplayListHead++, D_800E8840, 4, 0);
+        gSPVertex(gDisplayListHead++, (uintptr_t) D_800E8840, 4, 0);
         gSPDisplayList(gDisplayListHead++, common_square_plain_render);
         gDPLoadTextureBlock(gDisplayListHead++, gTextureOnomatopoeiaWhrrrr2, G_IM_FMT_CI, G_IM_SIZ_8b, 64, 32, 0,
                             G_TX_NOMIRROR | G_TX_CLAMP, G_TX_NOMIRROR | G_TX_CLAMP, G_TX_NOMASK, G_TX_NOMASK,
                             G_TX_NOLOD, G_TX_NOLOD);
-        gSPVertex(gDisplayListHead++, D_800E8800, 4, 0);
+        gSPVertex(gDisplayListHead++, (uintptr_t) D_800E8800, 4, 0);
         gSPDisplayList(gDisplayListHead++, D_0D008DA0);
         gMatrixEffectCount += 1;
     }
@@ -6194,12 +6195,12 @@ void render_player_onomatopoeia_crash(Player* player, UNUSED s8 arg1, UNUSED f32
         gDPLoadTextureBlock(gDisplayListHead++, gTextureOnomatopoeiaCrash1, G_IM_FMT_CI, G_IM_SIZ_8b, 64, 32, 0,
                             G_TX_NOMIRROR | G_TX_CLAMP, G_TX_NOMIRROR | G_TX_CLAMP, G_TX_NOMASK, G_TX_NOMASK,
                             G_TX_NOLOD, G_TX_NOLOD);
-        gSPVertex(gDisplayListHead++, D_800E8880, 4, 0);
+        gSPVertex(gDisplayListHead++, (uintptr_t) D_800E8880, 4, 0);
         gSPDisplayList(gDisplayListHead++, common_square_plain_render);
         gDPLoadTextureBlock(gDisplayListHead++, gTextureOnomatopoeiaCrash2, G_IM_FMT_CI, G_IM_SIZ_8b, 64, 32, 0,
                             G_TX_NOMIRROR | G_TX_CLAMP, G_TX_NOMIRROR | G_TX_CLAMP, G_TX_NOMASK, G_TX_NOMASK,
                             G_TX_NOLOD, G_TX_NOLOD);
-        gSPVertex(gDisplayListHead++, D_800E88C0, 4, 0);
+        gSPVertex(gDisplayListHead++, (uintptr_t) D_800E88C0, 4, 0);
         gSPDisplayList(gDisplayListHead++, D_0D008DA0);
         gMatrixEffectCount += 1;
     }
@@ -6224,12 +6225,12 @@ void func_80068724(Player* player, UNUSED s8 arg1, UNUSED f32 arg2, s8 arg3, s8 
         gDPLoadTextureBlock(gDisplayListHead++, gTextureLoadedLightningBolt0, G_IM_FMT_IA, G_IM_SIZ_8b, 32, 64, 0,
                             G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOMASK, G_TX_NOLOD,
                             G_TX_NOLOD);
-        gSPVertex(gDisplayListHead++, D_800E8A00, 4, 0);
+        gSPVertex(gDisplayListHead++, (uintptr_t) D_800E8A00, 4, 0);
         gSPDisplayList(gDisplayListHead++, common_square_plain_render);
         gDPLoadTextureBlock(gDisplayListHead++, gTextureLoadedLightningBolt1, G_IM_FMT_IA, G_IM_SIZ_8b, 32, 64, 0,
                             G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOMASK, G_TX_NOLOD,
                             G_TX_NOLOD);
-        gSPVertex(gDisplayListHead++, D_800E8A40, 4, 0);
+        gSPVertex(gDisplayListHead++, (uintptr_t) D_800E8A40, 4, 0);
         gSPDisplayList(gDisplayListHead++, D_0D008DA0);
         gMatrixEffectCount += 1;
     }
@@ -6262,7 +6263,7 @@ void render_player_onomatopoeia_boing(Player* player, UNUSED s8 arg1, UNUSED f32
                             G_TX_NOLOD, G_TX_NOLOD);
         func_8004B35C(0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF);
         gDPSetRenderMode(gDisplayListHead++, G_RM_ZB_CLD_SURF, G_RM_ZB_CLD_SURF2);
-        gSPVertex(gDisplayListHead++, D_800E8B40, 4, 0);
+        gSPVertex(gDisplayListHead++, (uintptr_t) D_800E8B40, 4, 0);
         gSPDisplayList(gDisplayListHead++, D_0D008DA0);
         gMatrixEffectCount += 1;
     }
@@ -6286,12 +6287,12 @@ void render_player_onomatopoeia_pomp(Player* player, UNUSED s8 arg1, UNUSED f32 
         gDPLoadTextureBlock(gDisplayListHead++, gTextureOnomatopoeiaPoomp1, G_IM_FMT_CI, G_IM_SIZ_8b, 64, 32, 0,
                             G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOMASK, G_TX_NOLOD,
                             G_TX_NOLOD);
-        gSPVertex(gDisplayListHead++, D_800E8B80, 4, 0);
+        gSPVertex(gDisplayListHead++, (uintptr_t) D_800E8B80, 4, 0);
         gSPDisplayList(gDisplayListHead++, common_square_plain_render);
         gDPLoadTextureBlock(gDisplayListHead++, gTextureOnomatopoeiaPoomp2, G_IM_FMT_CI, G_IM_SIZ_8b, 64, 32, 0,
                             G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOMASK, G_TX_NOLOD,
                             G_TX_NOLOD);
-        gSPVertex(gDisplayListHead++, D_800E8BC0, 4, 0);
+        gSPVertex(gDisplayListHead++, (uintptr_t) D_800E8BC0, 4, 0);
         gSPDisplayList(gDisplayListHead++, D_0D008DA0);
         gMatrixEffectCount += 1;
     }
@@ -6319,7 +6320,7 @@ void func_800691B8(Player* player, UNUSED s8 arg1, s16 arg2, s8 arg3) {
                             G_TX_NOLOD, G_TX_NOLOD);
         func_8004B35C(0xFF, 0xFF, 0, alpha);
         gDPSetRenderMode(gDisplayListHead++, G_RM_ZB_CLD_SURF, G_RM_ZB_CLD_SURF2);
-        gSPVertex(gDisplayListHead++, D_800E87C0, 4, 0);
+        gSPVertex(gDisplayListHead++, (uintptr_t) D_800E87C0, 4, 0);
         gSPDisplayList(gDisplayListHead++, D_0D008DA0);
         gMatrixEffectCount++;
     }
@@ -6390,7 +6391,7 @@ void render_wall_bonk_star_particles(Player* player, UNUSED s8 arg1, s16 arg2, s
                             G_TX_NOLOD, G_TX_NOLOD);
         func_8004B35C(0x000000FF, 0x000000FF, 0, alpha);
         gDPSetRenderMode(gDisplayListHead++, G_RM_ZB_CLD_SURF, G_RM_ZB_CLD_SURF2);
-        gSPVertex(gDisplayListHead++, D_800E87C0, 4, 0);
+        gSPVertex(gDisplayListHead++, (uintptr_t) D_800E87C0, 4, 0);
         gSPDisplayList(gDisplayListHead++, D_0D008DA0);
         gMatrixEffectCount += 1;
     }
@@ -6417,7 +6418,7 @@ void func_80069938(Player* player, UNUSED s8 arg1, s16 arg2, s8 arg3) {
                             G_TX_NOLOD, G_TX_NOLOD);
         func_8004B35C(0x000000FF, 0x000000FF, 0, alpha);
         gDPSetRenderMode(gDisplayListHead++, G_RM_ZB_CLD_SURF, G_RM_ZB_CLD_SURF2);
-        gSPVertex(gDisplayListHead++, D_800E87C0, 4, 0);
+        gSPVertex(gDisplayListHead++, (uintptr_t) D_800E87C0, 4, 0);
         gSPDisplayList(gDisplayListHead++, D_0D008DA0);
         gMatrixEffectCount += 1;
     }
@@ -6473,7 +6474,7 @@ void func_80069DB8(Player* player, UNUSED s8 arg1, s16 arg2, s8 arg3) {
                             G_TX_NOLOD, G_TX_NOLOD);
         func_8004B35C(0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF);
         gDPSetRenderMode(gDisplayListHead++, G_RM_ZB_CLD_SURF, G_RM_ZB_CLD_SURF2);
-        gSPVertex(gDisplayListHead++, D_800E8740, 4, 0);
+        gSPVertex(gDisplayListHead++, (uintptr_t) D_800E8740, 4, 0);
         gSPDisplayList(gDisplayListHead++, D_0D008DA0);
         gMatrixEffectCount += 1;
     }
@@ -6499,7 +6500,7 @@ void func_8006A01C(Player* player, UNUSED s8 arg1, s16 arg2, s8 arg3) {
                             G_TX_NOLOD, G_TX_NOLOD);
         func_8004B35C(0xFF, 0xFF, 0xFF, 0xFF);
         gDPSetRenderMode(gDisplayListHead++, G_RM_ZB_CLD_SURF, G_RM_ZB_CLD_SURF2);
-        gSPVertex(gDisplayListHead++, D_0D008B78, 4, 0);
+        gSPVertex(gDisplayListHead++, (uintptr_t) D_0D008B78, 4, 0);
         gSPDisplayList(gDisplayListHead++, D_0D008DA0);
         gMatrixEffectCount++;
     }
@@ -6531,7 +6532,7 @@ void func_8006A280(Player* player, s8 playerId, s16 arg2, s8 screenId) {
                                G_TX_NOMASK, G_TX_NOLOD, G_TX_NOLOD);
         func_8004B414(red, green, blue, 0x000000FF);
         gDPSetRenderMode(gDisplayListHead++, G_RM_ZB_CLD_SURF, G_RM_ZB_CLD_SURF2);
-        gSPVertex(gDisplayListHead++, D_800E8780, 4, 0);
+        gSPVertex(gDisplayListHead++, (uintptr_t) D_800E8780, 4, 0);
         gSPDisplayList(gDisplayListHead++, D_0D008DA0);
         FrameInterpolation_RecordCloseChild();
         gMatrixEffectCount += 1;
@@ -6643,7 +6644,7 @@ void func_8006A7C0(Player* player, f32 arg1, f32 arg2, s8 arg3, s8 arg4) {
         move_s16_towards(&D_8018D890[arg3][arg4], 0, 0.1f);
         move_s16_towards(&D_8018D860[arg3][arg4], 0, 0.1f);
         if (gPlayerBalloonDepartingTimer[arg3][arg4] >= 0x78) {
-            set_player_balloon_to_gone((s32) player, arg3, arg4);
+            set_player_balloon_to_gone((s32) (uintptr_t) player, arg3, arg4);
         }
     }
 }
@@ -6729,12 +6730,12 @@ void render_battle_balloon(Player* player, s8 arg1, s16 arg2, s8 arg3) {
     gDPLoadTextureBlock(gDisplayListHead++, gTextureBalloon1, G_IM_FMT_CI, G_IM_SIZ_8b, 64, 32, 0,
                         G_TX_NOMIRROR | G_TX_CLAMP, G_TX_NOMIRROR | G_TX_CLAMP, G_TX_NOMASK, G_TX_NOMASK, G_TX_NOLOD,
                         G_TX_NOLOD);
-    gSPVertex(gDisplayListHead++, gBalloonVertexPlane1, 4, 0);
+    gSPVertex(gDisplayListHead++, (uintptr_t) gBalloonVertexPlane1, 4, 0);
     gSPDisplayList(gDisplayListHead++, common_square_plain_render);
     gDPLoadTextureBlock(gDisplayListHead++, gTextureBalloon2, G_IM_FMT_CI, G_IM_SIZ_8b, 64, 32, 0,
                         G_TX_NOMIRROR | G_TX_CLAMP, G_TX_NOMIRROR | G_TX_CLAMP, G_TX_NOMASK, G_TX_NOMASK, G_TX_NOLOD,
                         G_TX_NOLOD);
-    gSPVertex(gDisplayListHead++, gBalloonVertexPlane2, 4, 0);
+    gSPVertex(gDisplayListHead++, (uintptr_t) gBalloonVertexPlane2, 4, 0);
     gSPDisplayList(gDisplayListHead++, common_square_plain_render);
     gSPTexture(gDisplayListHead++, 0x0001, 0x0001, 0, G_TX_RENDERTILE, G_OFF);
 
@@ -6856,14 +6857,14 @@ void render_balloon(Vec3f arg0, f32 arg1, s16 arg2, s16 arg3) {
     gDPLoadTextureBlock(gDisplayListHead++, gTextureBalloon1, G_IM_FMT_CI, G_IM_SIZ_8b, 64, 32, 0,
                         G_TX_NOMIRROR | G_TX_CLAMP, G_TX_NOMIRROR | G_TX_CLAMP, G_TX_NOMASK, G_TX_NOMASK, G_TX_NOLOD,
                         G_TX_NOLOD);
-    gSPVertex(gDisplayListHead++, gBalloonVertexPlane1, 4, 0);
+    gSPVertex(gDisplayListHead++, (uintptr_t) gBalloonVertexPlane1, 4, 0);
     gSPDisplayList(gDisplayListHead++, common_square_plain_render);
     // D_8018D4C0 is correct. But interestingly, IDO seems to set "-0x40" to a different register so the texture still
     // looks fine.
     gDPLoadTextureBlock(gDisplayListHead++, gTextureBalloon2, G_IM_FMT_CI, G_IM_SIZ_8b, 64, 32, 0,
                         G_TX_NOMIRROR | G_TX_CLAMP, G_TX_NOMIRROR | G_TX_CLAMP, G_TX_NOMASK, G_TX_NOMASK, G_TX_NOLOD,
                         G_TX_NOLOD);
-    gSPVertex(gDisplayListHead++, gBalloonVertexPlane2, 4, 0);
+    gSPVertex(gDisplayListHead++, (uintptr_t) gBalloonVertexPlane2, 4, 0);
     gSPDisplayList(gDisplayListHead++, common_square_plain_render);
     gSPTexture(gDisplayListHead++, 1, 1, 0, G_TX_RENDERTILE, G_OFF);
     gMatrixEffectCount += 1;
@@ -6919,7 +6920,7 @@ void func_8006C294(Vec3f arg0, f32 arg1, s32 rgb, s16 alpha) {
                         G_TX_NOLOD);
     func_8004B35C(red, green, blue, alpha);
     gDPSetRenderMode(gDisplayListHead++, G_RM_ZB_CLD_SURF, G_RM_ZB_CLD_SURF2);
-    gSPVertex(gDisplayListHead++, D_800E87C0, 4, 0);
+    gSPVertex(gDisplayListHead++, (uintptr_t) D_800E87C0, 4, 0);
     gSPDisplayList(gDisplayListHead++, D_0D008DA0);
     gMatrixEffectCount += 1;
 }

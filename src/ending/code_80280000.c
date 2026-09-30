@@ -9,10 +9,10 @@
 #include <code_800029B0.h>
 #include "camera.h"
 #include "memory.h"
-#include "math_util.h"
+#include "racing/math_util.h"
 #include "code_80280000.h"
 #include "code_80281780.h"
-#include "skybox_and_splitscreen.h"
+#include "racing/skybox_and_splitscreen.h"
 #include "menu_items.h"
 #include "code_8006E9C0.h"
 #include "code_800029B0.h"
@@ -20,11 +20,12 @@
 #include "podium_ceremony_actors.h"
 #include "code_80281C40.h"
 #include "code_80057C60.h"
-#include "actors.h"
-#include "render_courses.h"
+#include "racing/actors.h"
+#include "racing/render_courses.h"
 #include "main.h"
 #include "render_player.h"
 #include "engine/TrackBrowser.h"
+#include <racing/memory.h>
 
 #include "engine/tracks/Track.h"
 #include "engine/Matrix.h"
@@ -52,7 +53,7 @@ void func_80280038(Camera* camera) {
     gMatrixEffectCount = 0;
     gMatrixHudCount = 0;
     init_rdp();
-    race_begin_viewport(gScreenOneCtx, 0);
+    race_begin_viewport(gScreenOneCtx);
     if ((CVarGetInteger("gDrawSky", true) == true)) {
         CM_RaceDrawSky(gScreenOneCtx, 0);
         func_80093A30(0); // Fill box for thunderbolt?

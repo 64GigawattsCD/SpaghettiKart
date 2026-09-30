@@ -16,7 +16,7 @@
 #include "actors.h"
 #include "math_util.h"
 #include "memory.h"
-#include "code_80281780.h"
+#include "ending/code_80281780.h"
 #include "collision.h"
 #include "skybox_and_splitscreen.h"
 #include "courses/all_course_data.h"
@@ -79,7 +79,7 @@ void parse_track_displaylists(TrackSections* asset) {
         if (addr == NULL) {
             printf("Warning: Could not find resource for section %d with crc 0x%llX\n", section->sectionId,
                    section->crc);
-            addr = (void*) section->crc;
+            addr = section->model;
         }
         generate_collision_mesh(addr, section->surfaceType, section->sectionId);
         section++;
@@ -199,11 +199,11 @@ void func_80291198(void) {
     gSPDisplayList(gDisplayListHead++, (Gfx*) d_course_mario_raceway_packed_dl_1140); //
 }
 
-void draw_transparent_geography(ScreenContext* screen, s32 playerId) {
+void draw_transparent_geography(ScreenContext* screen, UNUSED s32 playerId) {
     UNUSED s32 pad;
-    Player* player = screen->player;
+    UNUSED Player* player = screen->player;
     Mat4 matrix;
-    Vec3f vector;
+    UNUSED Vec3f vector;
     u16 pathCounter;
     u16 cameraRot;
     s16 playerDirection;

@@ -1,8 +1,9 @@
 #include "Engine.h"
 
+#include <cstdlib>
 #include "ship/utils/StringHelper.h"
 #include "GameExtractor.h"
-#include "mods/ModManager.h"
+#include "engine/mods/ModManager.h"
 #include "ui/ImguiUI.h"
 #include "ship/Context.h"
 #include "ship/controller/controldevice/controller/mapping/ControllerDefaultMappings.h"
@@ -26,6 +27,8 @@
 #include <ship/window/gui/Fonts.h>
 #include "ship/window/gui/resource/Font.h"
 #include "ship/window/gui/resource/FontFactory.h"
+#include "libultraship/window/gui/InputEditorWindow.h"
+#include "libultraship/window/gui/GfxDebuggerWindow.h"
 #include "libultraship/controller/controldeck/ControlDeck.h"
 #include "SpaghettiGui.h"
 #include "kart_input.h"
@@ -39,7 +42,7 @@
 #include <utility>
 
 #ifdef __SWITCH__
-#include <port/switch/SwitchImpl.h>
+#include <ship/port/switch/SwitchImpl.h>
 #endif
 
 extern "C" {
@@ -58,7 +61,7 @@ float gInterpolationStep = 0.0f;
 }
 
 Fast::Interpreter* GetInterpreter() {
-    return static_pointer_cast<Fast::Fast3dWindow>(Ship::Context::GetInstance()->GetWindow())
+    return static_pointer_cast<Fast::Fast3dWindow>(Ship::Context::GetRawInstance()->GetWindow())
         ->GetInterpreterWeak()
         .lock()
         .get();
@@ -241,7 +244,6 @@ GameEngine::GameEngine() {
 
 #ifdef __SWITCH__
     Ship::Switch::Init(Ship::PreInitPhase);
-    Ship::Switch::Init(Ship::PostInitPhase);
 #endif
 
 #ifdef _WIN32
@@ -369,21 +371,24 @@ GameEngine::GameEngine() {
     auto wnd = std::make_shared<Fast::Fast3dWindow>(gui);
 
     // auto wnd = std::make_shared<Fast::Fast3dWindow>(std::vector<std::shared_ptr<Ship::GuiWindow>>({}));
-    // auto wnd = std::dynamic_pointer_cast<Fast::Fast3dWindow>(Ship::Context::GetInstance()->GetWindow());
+    // auto wnd = std::dynamic_pointer_cast<Fast::Fast3dWindow>(Ship::Context::GetRawInstance()->GetWindow());
+
+    gui->AddGuiWindow(std::make_shared<LUS::InputEditorWindow>(CVAR_CONTROLLER_CONFIGURATION_WINDOW_OPEN, "Input Editor"));
+    gui->AddGuiWindow(std::make_shared<LUS::GfxDebuggerWindow>(CVAR_GFX_DEBUGGER_WINDOW_OPEN, "GfxDebuggerWindow", ImVec2(520, 600)));
 
     this->context->Init({assets_path}, {}, 3, { 26800, 512, 1100 }, wnd, controlDeck);
 
 #ifndef __SWITCH__
-    Ship::Context::GetInstance()->GetLogger()->set_level(
+    Ship::Context::GetRawInstance()->GetLogger()->set_level(
         (spdlog::level::level_enum) CVarGetInteger("gDeveloperTools.LogLevel", 1));
-    Ship::Context::GetInstance()->GetLogger()->set_pattern("[%H:%M:%S.%e] [%s:%#] [%l] %v");
+    Ship::Context::GetRawInstance()->GetLogger()->set_pattern("[%H:%M:%S.%e] [%s:%#] [%l] %v");
 #endif
 
     SPDLOG_INFO("Spaghetti Kart " SPAGHETTI_VERSION);
     SPDLOG_INFO(CVarGetInteger("gEnableDebugMode", 0) == 0 ? "Debug Mode deactivated" : "Debug Mode activated");
 
     wnd->SetRendererUCode(ucode_f3dex);
-    this->context->InitGfxDebugger();
+    //this->context->InitGfxDebugger();
 
     auto loader = context->GetResourceManager()->GetResourceLoader();
     loader->RegisterResourceFactory(std::make_shared<SM64::AudioBankFactoryV0>(), RESOURCE_FORMAT_BINARY, "AudioBank",
@@ -465,14 +470,16 @@ bool GameEngine::GenAssetFile() {
 
     if (!extractor->SelectGameFromUI()) {
         ShowMessage("Error", "No ROM selected.\n\nExiting...");
-        exit(1);
+        // _Exit, not exit: this runs before the game world is initialized, so running the
+        // global World destructor (CleanWorld) would dereference still-null singletons and crash.
+        _Exit(1);
     }
 
     auto game = extractor->ValidateChecksum();
     if (!game.has_value()) {
         ShowMessage("Unsupported ROM",
                     "The provided ROM is not supported.\n\nCheck the readme for a list of supported versions.");
-        exit(1);
+        _Exit(1);
     }
 
     ShowMessage(("Found " + game.value()).c_str(),
@@ -483,11 +490,11 @@ bool GameEngine::GenAssetFile() {
 
 uint32_t GameEngine::GetInterpolationFPS() {
     if (CVarGetInteger("gMatchRefreshRate", 0)) {
-        return Ship::Context::GetInstance()->GetWindow()->GetCurrentRefreshRate();
+        return Ship::Context::GetRawInstance()->GetWindow()->GetCurrentRefreshRate();
 
     } else if (CVarGetInteger("gVsyncEnabled", 1) ||
-               !Ship::Context::GetInstance()->GetWindow()->CanDisableVerticalSync()) {
-        return std::min<uint32_t>(Ship::Context::GetInstance()->GetWindow()->GetCurrentRefreshRate(),
+               !Ship::Context::GetRawInstance()->GetWindow()->CanDisableVerticalSync()) {
+        return std::min<uint32_t>(Ship::Context::GetRawInstance()->GetWindow()->GetCurrentRefreshRate(),
                                   CVarGetInteger("gInterpolationFPS", 30));
     }
 
@@ -588,7 +595,7 @@ void GameEngine::StartFrame() const {
 // }
 
 void GameEngine::RunCommands(Gfx* pool, const std::vector<std::unordered_map<Mtx*, MtxF>>& mtx_replacements) {
-    auto wnd = std::dynamic_pointer_cast<Fast::Fast3dWindow>(Ship::Context::GetInstance()->GetWindow());
+    auto wnd = std::dynamic_pointer_cast<Fast::Fast3dWindow>(Ship::Context::GetRawInstance()->GetWindow());
 
     if (wnd == nullptr) {
         return;
@@ -609,7 +616,7 @@ void GameEngine::RunCommands(Gfx* pool, const std::vector<std::unordered_map<Mtx
     bool curAltAssets = CVarGetInteger("gEnhancements.Mods.AlternateAssets", 0);
     if (prevAltAssets != curAltAssets) {
         prevAltAssets = curAltAssets;
-        Ship::Context::GetInstance()->GetResourceManager()->SetAltAssetsEnabled(curAltAssets);
+        Ship::Context::GetRawInstance()->GetResourceManager()->SetAltAssetsEnabled(curAltAssets);
         gfx_texture_cache_clear();
     }
 }
@@ -655,7 +662,7 @@ void GameEngine::ProcessGfxCommands(Gfx* pool) {
 
     time -= fps;
 
-    auto wnd = std::dynamic_pointer_cast<Fast::Fast3dWindow>(Ship::Context::GetInstance()->GetWindow());
+    auto wnd = std::dynamic_pointer_cast<Fast::Fast3dWindow>(Ship::Context::GetRawInstance()->GetWindow());
     if (wnd != nullptr) {
         wnd->SetTargetFps(GetInterpolationFPS());
         wnd->SetMaximumFrameLatency(1);
@@ -726,7 +733,7 @@ void GameEngine::EndAudioFrame() {
 }
 
 void GameEngine::AudioInit() {
-    const auto resourceMgr = Ship::Context::GetInstance()->GetResourceManager();
+    const auto resourceMgr = Ship::Context::GetRawInstance()->GetResourceManager();
     resourceMgr->LoadResources("sound");
     const auto banksFiles = resourceMgr->GetArchiveManager()->ListFiles("sound/banks/*");
     const auto sequences_files = resourceMgr->GetArchiveManager()->ListFiles("sound/sequences/*");
@@ -780,11 +787,21 @@ uint8_t GameEngine::GetBankIdByName(const std::string& name) {
 ImFont* GameEngine::CreateFontWithSize(float size, std::string fontPath) {
     auto mImGuiIo = &ImGui::GetIO();
     ImFont* font;
+    // Rasterize the glyph atlas at higher density so menu text stays sharp on HiDPI/Retina
+    // displays. Bake at retinaScale * maxMenuScale so the runtime Menu Scale setting
+    // (FontGlobalScale) only ever downsamples the atlas rather than stretching it blurry.
+    float rasterDensity = 1.0f;
+#if defined(__APPLE__)
+    constexpr float kRetinaScale = 2.0f;  // Retina backing scale
+    constexpr float kMaxMenuScale = 2.0f; // keep in sync with the gSettings.Menu.Scale slider Max
+    rasterDensity = kRetinaScale * kMaxMenuScale;
+#endif
     if (fontPath == "") {
         ImFontConfig fontCfg = ImFontConfig();
         fontCfg.OversampleH = fontCfg.OversampleV = 1;
         fontCfg.PixelSnapH = true;
         fontCfg.SizePixels = size;
+        fontCfg.RasterizerDensity = rasterDensity;
         font = mImGuiIo->Fonts->AddFontDefault(&fontCfg);
     } else {
         auto initData = std::make_shared<Ship::ResourceInitData>();
@@ -793,10 +810,12 @@ ImFont* GameEngine::CreateFontWithSize(float size, std::string fontPath) {
         initData->ResourceVersion = 0;
         initData->Path = fontPath;
         std::shared_ptr<Ship::Font> fontData = std::static_pointer_cast<Ship::Font>(
-            Ship::Context::GetInstance()->GetResourceManager()->LoadResource(fontPath, false, initData));
+            Ship::Context::GetRawInstance()->GetResourceManager()->LoadResource(fontPath, false, initData));
         char* fontDataPtr = (char*) malloc(fontData->DataSize);
         memcpy(fontDataPtr, fontData->Data, fontData->DataSize);
-        font = mImGuiIo->Fonts->AddFontFromMemoryTTF(fontDataPtr, fontData->DataSize, size);
+        ImFontConfig fontCfg = ImFontConfig();
+        fontCfg.RasterizerDensity = rasterDensity;
+        font = mImGuiIo->Fonts->AddFontFromMemoryTTF(fontDataPtr, fontData->DataSize, size, &fontCfg);
     }
     // FontAwesome fonts need to have their sizes reduced by 2.0f/3.0f in order to align correctly
     float iconFontSize = size * 2.0f / 3.0f;
@@ -805,6 +824,7 @@ ImFont* GameEngine::CreateFontWithSize(float size, std::string fontPath) {
     iconsConfig.MergeMode = true;
     iconsConfig.PixelSnapH = true;
     iconsConfig.GlyphMinAdvanceX = iconFontSize;
+    iconsConfig.RasterizerDensity = rasterDensity;
     mImGuiIo->Fonts->AddFontFromMemoryCompressedBase85TTF(fontawesome_compressed_data_base85, iconFontSize,
                                                           &iconsConfig, sIconsRanges);
     return font;
@@ -813,7 +833,7 @@ ImFont* GameEngine::CreateFontWithSize(float size, std::string fontPath) {
 // End
 
 extern "C" uint32_t GameEngine_GetSampleRate() {
-    auto player = Ship::Context::GetInstance()->GetAudio()->GetAudioPlayer();
+    auto player = Ship::Context::GetRawInstance()->GetAudio()->GetAudioPlayer();
     if (player == nullptr) {
         return 0;
     }

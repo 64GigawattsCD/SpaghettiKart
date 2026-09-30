@@ -10,24 +10,27 @@
 #include "camera.h"
 #include "camera_junk.h"
 #include "spawn_players.h"
-#include "skybox_and_splitscreen.h"
+#include "racing/skybox_and_splitscreen.h"
 #include "code_8006E9C0.h"
 #include "podium_ceremony_actors.h"
 #include "code_80005FD0.h"
-#include "collision.h"
+#include "racing/collision.h"
 #include "code_80281C40.h"
 #include "code_800029B0.h"
 #include "menu_items.h"
 #include "main.h"
 #include "menus.h"
-#include "render_courses.h"
+#include "racing/render_courses.h"
+#include "racing/memory.h"
 #include <string.h>
 #include "port/Game.h"
 
 // For init podium ceremony
 #include "ceremony_and_credits.h"
 
-#define bcopy memcpy
+// bcopy takes (src, dst); memcpy takes (dst, src), do not mix it up.
+#undef bcopy
+#define bcopy(src, dst, n) memmove(dst, src, n)
 
 u8 defaultCharacterIds[] = { 1, 2, 3, 4, 5, 6, 7, 0 };
 
@@ -93,8 +96,6 @@ void func_802818BC(void) {
 }
 
 void setup_podium_ceremony(void) {
-    Vec3f spawn = {0, 0, 0};
-
     clear_D_802874D8_actors();
 
     gCurrentCourseId = TRACK_ROYAL_RACEWAY;

@@ -42,13 +42,6 @@
 
 // Avoid undefined behaviour for non-returning functions
 #ifdef __GNUC__
-#define NORETURN __attribute__((noreturn))
-#else
-#define NORETURN
-#endif
-
-// Avoid undefined behaviour for non-returning functions
-#ifdef __GNUC__
 #define NO_REORDER __attribute__((no_reorder))
 #else
 #define NO_REORDER
@@ -63,16 +56,23 @@
 
 // Align to 8-byte boundary for DMA requirements
 #ifdef __GNUC__
-#define ALIGNED8
+#define ALIGNED8 __attribute__((aligned(8)))
 #else
 #define ALIGNED8
 #endif
 
 // Align to 16-byte boundary for audio lib requirements
 #ifdef __GNUC__
-#define ALIGNED16
+#define ALIGNED16 __attribute__((aligned(16)))
 #else
 #define ALIGNED16
+#endif
+
+// Align to 4096-byte boundary for 64-bit page requirements
+#ifdef __GNUC__
+#define ALIGNED4096 __attribute__((aligned(4096)))
+#else
+#define ALIGNED4096
 #endif
 
 // Fixed point macros
@@ -128,7 +128,7 @@
 #if IS_BIG_ENDIAN
 #define BSWAP16(x) (x)
 #else
-#define BSWAP16(x) (((x) & 0xff) << 8 | (((x) >> 8) & 0xff))
+#include "ship/utils/binarytools/endianness.h"
 #endif
 #endif
 

@@ -17,20 +17,20 @@
 #include <defines.h>
 #include "buffers.h"
 #include "camera.h"
-#include "race_logic.h"
-#include "skybox_and_splitscreen.h"
+#include "racing/race_logic.h"
+#include "racing/skybox_and_splitscreen.h"
 #include "render_objects.h"
 #include "effects.h"
-#include "code_80281780.h"
+#include "ending/code_80281780.h"
 #include "audio/external.h"
 #include "code_800029B0.h"
-#include "code_80280000.h"
-#include "podium_ceremony_actors.h"
+#include "ending/code_80280000.h"
+#include "ending/podium_ceremony_actors.h"
 #include "menu_items.h"
 #include "code_80057C60.h"
 #include "player_controller.h"
 #include "render_player.h"
-#include "actors.h"
+#include "racing/actors.h"
 #include "replays.h"
 #include <debug.h>
 #include "enhancements/freecam/freecam.h"
@@ -40,6 +40,7 @@
 #include "port/Game.h"
 #include "port/Engine.h"
 #include "engine/Matrix.h"
+#include "engine/TrackBrowser.h"
 
 // Declarations (not in this file)
 void func_80091B78(void);
@@ -193,6 +194,7 @@ s16 sNumVBlanks = 0;
 UNUSED s16 D_800DC590 = 0;
 f32 gVBlankTimer = 0.0f;
 f32 gCourseTimer = 0.0f;
+size_t gTickCounter;
 
 void create_thread(OSThread* thread, OSId id, void (*entry)(void*), void* arg, void* sp, OSPri pri) {
     thread->next = NULL;
@@ -393,7 +395,7 @@ void update_controller(s32 index) {
 }
 
 void read_controllers(void) {
-    OSMesg msg;
+    // OSMesg msg;
 
     osContStartReadData(&gSIEventMesgQueue);
     // osRecvMesg(&gSIEventMesgQueue, &msg, OS_MESG_BLOCK);
@@ -422,7 +424,7 @@ void read_controllers(void) {
 }
 
 void func_80000BEC(void) {
-    gPhysicalZBuffer = VIRTUAL_TO_PHYSICAL(&gZBuffer);
+    gPhysicalZBuffer = (uintptr_t) VIRTUAL_TO_PHYSICAL(&gZBuffer);
 }
 
 void dispatch_audio_sptask(struct SPTask* spTask) {
@@ -463,7 +465,7 @@ void end_master_display_list(void) {
 
 // clear_frame_buffer from SM64, with a few edits
 //! @todo Why did void* work for matching
-void* clear_framebuffer(s32 color) {
+void clear_framebuffer(s32 color) {
     gDPPipeSync(gDisplayListHead++);
 
     gDPSetRenderMode(gDisplayListHead++, G_RM_OPA_SURF, G_RM_OPA_SURF2);
@@ -527,7 +529,7 @@ void display_and_vsync(void) {
 
 void init_segment_ending_sequences(void) {
 #ifdef TARGET_N64
-    bzero((void*) SEG_ENDING, SEG_ENDING_SIZE);
+    memset((void*) SEG_ENDING, 0, SEG_ENDING_SIZE);
     osWritebackDCacheAll();
     dma_copy((u8*) SEG_ENDING, (u8*) SEG_ENDING_ROM_START, SEG_ENDING_ROM_SIZE);
     osInvalICache((void*) SEG_ENDING, SEG_ENDING_SIZE);
@@ -537,7 +539,7 @@ void init_segment_ending_sequences(void) {
 
 void init_segment_racing(void) {
 #ifdef TARGET_N64
-    bzero((void*) SEG_RACING, SEG_RACING_SIZE);
+    memset((void*) SEG_RACING, 0, SEG_RACING_SIZE);
     osWritebackDCacheAll();
     dma_copy((u8*) SEG_RACING, (u8*) SEG_RACING_ROM_START, SEG_RACING_ROM_SIZE);
     osInvalICache((void*) SEG_RACING, SEG_RACING_SIZE);
@@ -667,6 +669,7 @@ void display_debug_info(void) {
 }
 
 void process_game_tick(void) {
+    gTickCounter += 1;
 
     if (Editor_IsPaused() == false) {
         if (D_8015011E) {
@@ -690,6 +693,9 @@ void process_game_tick(void) {
     func_80059AC8();
     update_course_actors();
     CM_TickActors();
+    if (gTickCounter & 1) { // Only run once per game loop
+        CM_TickActors60fps();
+    }
     CM_TickTrack();
     if (CM_IsTourEnabled() == false) {
         func_8028FCBC();
@@ -726,7 +732,7 @@ void race_logic_loop(void) {
     }
 
     if (gIsGamePaused == false) {
-        for (size_t i = 0; i < gTickLogic; i++) {
+        for (size_t i = 0; i < (size_t) gTickLogic; i++) {
             process_game_tick();
         }
         if (Editor_IsPaused() == false) {
@@ -1098,19 +1104,19 @@ void update_gamestate(void) {
     switch (gGamestate) {
         case START_MENU_FROM_QUIT:
             func_80002658();
-            gCurrentlyLoadedTrackAddr = NULL;
+            gCurrentlyLoadedTrackAddr = 0;
             break;
         case MAIN_MENU_FROM_QUIT:
             func_800025D4();
-            gCurrentlyLoadedTrackAddr = NULL;
+            gCurrentlyLoadedTrackAddr = 0;
             break;
         case PLAYER_SELECT_MENU_FROM_QUIT:
             func_80002600();
-            gCurrentlyLoadedTrackAddr = NULL;
+            gCurrentlyLoadedTrackAddr = 0;
             break;
         case COURSE_SELECT_MENU_FROM_QUIT:
             func_8000262C();
-            gCurrentlyLoadedTrackAddr = NULL;
+            gCurrentlyLoadedTrackAddr = 0;
             break;
         case RACING:
             /**
@@ -1119,14 +1125,15 @@ void update_gamestate(void) {
              */
             // init_segment_racing();
             setup_race();
+            TrackBrowser_ResetSelectedTrack(); // Same function as gCurrentlyLoadedTrackAddr
             break;
         case ENDING:
-            gCurrentlyLoadedTrackAddr = NULL;
+            gCurrentlyLoadedTrackAddr = 0;
             init_segment_ending_sequences();
             setup_podium_ceremony();
             break;
         case CREDITS_SEQUENCE:
-            gCurrentlyLoadedTrackAddr = NULL;
+            gCurrentlyLoadedTrackAddr = 0;
             // init_segment_racing();
             init_segment_ending_sequences();
             load_credits();

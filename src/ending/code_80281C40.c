@@ -3,9 +3,9 @@
 
 #include "code_80281C40.h"
 #include "main.h"
-#include "math_util.h"
+#include "racing/math_util.h"
 #include "models/tracks/royal_raceway/royal_raceway_displaylists.h"
-#include "skybox_and_splitscreen.h"
+#include "racing/skybox_and_splitscreen.h"
 #include "render_objects.h"
 #include "code_80057C60.h"
 #include "menu_items.h"
@@ -61,7 +61,7 @@ void func_80281D00(void) {
     Mat4 matrix;
     UNUSED s32 pad2[3];
 
-    race_begin_viewport(gScreenOneCtx, 0);
+    race_begin_viewport(gScreenOneCtx);
     if ((CVarGetInteger("gDrawSky", true) == true)) {
         CM_RaceDrawSky(gScreenOneCtx, 0);
         func_80093A30(0); // Fill box for thunderbolt?

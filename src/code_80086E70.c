@@ -6,11 +6,11 @@
 #include "code_80086E70.h"
 #include "camera.h"
 #include "objects.h"
-#include "math_util.h"
+#include "racing/math_util.h"
 #include "math_util_2.h"
 #include "racing/memory.h"
 #include "update_objects.h"
-#include "collision.h"
+#include "racing/collision.h"
 #include "audio/external.h"
 #include "main.h"
 #include "code_80057C60.h"
@@ -1311,7 +1311,7 @@ void func_8008A1D0(s32 objectIndex, s32 cameraId, s32 arg2, s32 arg3) {
     clear_object_flag(objectIndex, 0x00100000 | VISIBLE);
     temp_v0 = get_horizontal_distance_to_camera(objectIndex, camera);
     if (CVarGetInteger("gNoCulling", 0) == 1) {
-        temp_v0 = MIN(temp_v0, arg3 * arg3);
+        temp_v0 = MIN(temp_v0, (u32) (arg3 * arg3));
     }
     if (temp_v0 < 0x2711U) {
         var_a2 = 0x5555;
@@ -1331,7 +1331,7 @@ void func_8008A1D0(s32 objectIndex, s32 cameraId, s32 arg2, s32 arg3) {
 // This function is really cool, it tests the value of an unitialized local variable
 UNUSED void func_8008A2CC(s32 objectIndex, s32 cameraId, u16 arg2) {
     Camera* camera;
-    u32 no_init;
+    u32 no_init = 0;
     u16 var_a2;
 
     camera = &camera1[cameraId];
@@ -1357,9 +1357,9 @@ s32 func_8008A364(s32 objectIndex, s32 cameraId, u16 arg2, s32 arg3) {
     clear_object_flag(objectIndex, 0x00020000 | VISIBLE);
     dist = get_horizontal_distance_to_camera(objectIndex, camera);
     if (CVarGetInteger("gNoCulling", 0) == 1) {
-        dist = MIN(dist, (arg3 * arg3) - 1);
+        dist = MIN(dist, (u32) ((arg3 * arg3) - 1));
     }
-    if (dist < (arg3 * arg3)) {
+    if (dist < (u32) (arg3 * arg3)) {
         set_object_flag(objectIndex, 0x00020000);
         if (dist < 0x2711U) {
             var_a2 = 0x5555;

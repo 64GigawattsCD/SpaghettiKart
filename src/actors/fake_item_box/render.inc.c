@@ -1,4 +1,4 @@
-#include <actors.h>
+#include <racing/actors.h>
 #include <code_800029B0.h>
 #include <libultra/gbi.h>
 #include <main.h>
@@ -26,7 +26,7 @@ void render_actor_fake_item_box(Camera* camera, struct FakeItemBox* fakeItemBox)
     f32 someMultiplier;
 
     size_t actorIdx = CM_FindActorIndex((struct Actor*)fakeItemBox);
-    if (-1 == actorIdx) {
+    if (-1 == (s32) actorIdx) {
         printf("[render_actor_fake_item_box] Could not find fake item box for FI, skipping!\n");
         return;
     }

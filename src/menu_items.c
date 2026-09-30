@@ -13,12 +13,13 @@
 #include "code_80005FD0.h"
 #include "code_8006E9C0.h"
 #include "menus.h"
+#include "racing/memory.h"
 #include "save.h"
 #include "code_80057C60.h"
-#include "credits.h"
+#include "ending/credits.h"
 #include "assets/models/data_segment2.h"
 #include "code_800AF9B0.h"
-#include "code_80281780.h"
+#include "ending/code_80281780.h"
 #include "memory.h"
 #include "audio/external.h"
 #include "render_objects.h"
@@ -27,10 +28,10 @@
 #include "kart_transmission.h"
 #include <assets/models/common_data.h>
 #include "textures.h"
-#include "math_util.h"
+#include "racing/math_util.h"
 #include "save_data.h"
-#include "podium_ceremony_actors.h"
-#include "skybox_and_splitscreen.h"
+#include "ending/podium_ceremony_actors.h"
+#include "racing/skybox_and_splitscreen.h"
 #include <assets/textures/startup_logo.h>
 #include "buffers.h"
 #include "racing/race_logic.h"
@@ -52,7 +53,7 @@
 #include "engine/TrackBrowser.h"
 #include "src/engine/HM_Intro.h"
 #include "src/port/interpolation/FrameInterpolation.h"
-#include "heap.h"
+#include "audio/heap.h"
 #include <assets/models/startup_logo.h>
 
 const char* GetCupName(void);
@@ -1603,7 +1604,7 @@ void func_80092290(s32 arg0, s32* arg1, s32* arg2) {
     s32 temp_t7;
     s32 temp_t8_2;
     s32 temp_t9;
-    s32 temp_t0;
+    UNUSED s32 temp_t0;
     s32 a, b, c, d;
     Vtx* vtx;
 
@@ -2543,7 +2544,7 @@ void func_800942D0(void) {
     }
 }
 
-void func_80094660(struct GfxPool* arg0, UNUSED s32 arg1) {
+void func_80094660(UNUSED struct GfxPool* arg0, UNUSED s32 arg1) {
     u16 perspNorm;
 
     gDPSetTexturePersp(gDisplayListHead++, G_TP_PERSP);
@@ -2579,7 +2580,7 @@ void render_checkered_flag(struct GfxPool* arg0, UNUSED s32 arg1) {
     gSPDisplayList(gDisplayListHead++, D_02007650);
 }
 
-void func_80094A64(struct GfxPool* pool) {
+void func_80094A64(UNUSED struct GfxPool* pool) {
     ClearObjectsMatrixPool();
     gMatrixHudCount = 0;
     gMatrixEffectCount = 0;
@@ -2860,7 +2861,11 @@ void func_80095574(void) {
     if (gMenuTimingCounter == DEBUG_MENU_DEBUG_MODE) {
         play_sound2(SOUND_INTRO_WELCOME);
     }
-    if (gMenuTimingCounter >= 0x12D) {
+    // Don't arm the demo reel while another fade is in flight: pressing start
+    // in the last moments before the attract timeout let this overwrite the
+    // press-start fade's gMenuFadeType mid-fade, hijacking it into the demo
+    // with the menu music already faded out. (Vanilla bug.)
+    if (gMenuTimingCounter >= 0x12D && is_screen_being_faded() == 0) {
         func_8009E230();
         func_800CA0A0();
     }
@@ -2910,8 +2915,8 @@ Gfx* func_800959F8(Gfx* displayListHead, Vtx* arg1) {
     }
 #ifdef AVOID_UB
     arg1 = LOAD_ASSET(arg1);
-    gSPVertex(displayListHead++, arg1, 2, 0);
-    gSPVertex(displayListHead++, &arg1[(index + 1) * 2], 2, 2);
+    gSPVertex(displayListHead++, (uintptr_t) arg1, 2, 0);
+    gSPVertex(displayListHead++, (uintptr_t) &arg1[(index + 1) * 2], 2, 2);
     gSPDisplayList(displayListHead++, common_rectangle_display);
 #else
     if (arg1 == D_02007BB8) {
@@ -3087,7 +3092,7 @@ Gfx* func_80095BD0_wide_right(Gfx* displayListHead, u8* arg1, f32 arg2, f32 arg3
 // Player select menu character border
 Gfx* func_80095E10(Gfx* displayListHead, s8 textureFormat, s32 texScaleS, s32 texScaleT, s32 srcX, s32 srcY,
                    s32 srcWidth, s32 srcHeight, s32 screenX, s32 screenY, u8* textureData, u32 texWidth,
-                   u32 texHeight) {
+                   UNUSED u32 texHeight) {
     gDPLoadTextureTile(displayListHead++, textureData, textureFormat, G_IM_SIZ_16b, texWidth, texHeight, srcX, srcY,
                        srcX + srcWidth - 1, srcY + srcHeight - 1, 0, G_TX_NOMIRROR | G_TX_WRAP,
                        G_TX_NOMIRROR | G_TX_WRAP, 0, 0, G_TX_NOLOD, G_TX_NOLOD);
@@ -3099,8 +3104,8 @@ Gfx* func_80095E10(Gfx* displayListHead, s8 textureFormat, s32 texScaleS, s32 te
 // Cup select menu, an alt version to fix cup and trophy
 Gfx* func_80095E10_alt(Gfx* displayListHead, s8 textureFormat, s32 texScaleS, s32 texScaleT, s32 srcX, s32 srcY,
                        s32 srcWidth, s32 srcHeight, s32 screenX, s32 screenY, u8* textureData, u32 texWidth,
-                       u32 texHeight) {
-    if (GameEngine_ResourceGetTexTypeByName(textureData) != 1) {
+                       UNUSED u32 texHeight) {
+    if (GameEngine_ResourceGetTexTypeByName((const char*) textureData) != 1) {
         gDPLoadTextureTile(displayListHead++, textureData, textureFormat, G_IM_SIZ_16b, texWidth, texHeight, srcX, srcY,
                            srcX + srcWidth - 1, srcY + srcHeight + 2, 0, G_TX_NOMIRROR | G_TX_WRAP,
                            G_TX_NOMIRROR | G_TX_WRAP, 0, 0, G_TX_NOLOD, G_TX_NOLOD);
@@ -3118,8 +3123,8 @@ Gfx* func_80095E10_alt(Gfx* displayListHead, s8 textureFormat, s32 texScaleS, s3
 }
 
 Gfx* func_800963F0(Gfx* displayListHead, s8 textureFormat, s32 texScaleS, s32 texScaleT, f32 scaleX, f32 scaleY,
-                   s32 srcX, s32 srcY, s32 srcHeight, s32 srcWidth, s32 screenX, s32 screenY, u8* textureData,
-                   u32 texWidth, u32 texHeight) {
+                   s32 srcX, s32 srcY, UNUSED s32 srcHeight, UNUSED s32 srcWidth, s32 screenX, s32 screenY,
+                   u8* textureData, u32 texWidth, u32 texHeight) {
     gDPLoadTextureTile(displayListHead++, textureData, textureFormat, G_IM_SIZ_16b, texWidth, texHeight, srcX, srcY,
                        srcX + texWidth - 1, srcY + texHeight - 1, 0, G_TX_NOMIRROR | G_TX_WRAP,
                        G_TX_NOMIRROR | G_TX_WRAP, 0, 0, G_TX_NOLOD, G_TX_NOLOD);
@@ -3179,8 +3184,8 @@ Gfx* func_80096CD8(Gfx* displayListHead, s32 xPos, s32 yPos, u32 width, u32 heig
     // Clamp positions to valid range
     s32 xStart = CLAMP(xPos << 2, -32768, 32767); // Ensure no overflow in fixed-point
     s32 yStart = CLAMP(yPos << 2, -32768, 32767);
-    s32 xEnd = CLAMP((xPos + width) << 2, -32768, 32767);
-    s32 yEnd = CLAMP((yPos + height) << 2, -32768, 32767);
+    s32 xEnd = CLAMP((s32) ((xPos + width) << 2), -32768, 32767);
+    s32 yEnd = CLAMP((s32) ((yPos + height) << 2), -32768, 32767);
 
     // Updated call with clamped values
     gSPWideTextureRectangle(displayListHead++, xStart, yStart, xEnd, yEnd, G_TX_RENDERTILE, 0, 0, 1024, 1024);
@@ -3188,9 +3193,8 @@ Gfx* func_80096CD8(Gfx* displayListHead, s32 xPos, s32 yPos, u32 width, u32 heig
     return displayListHead;
 }
 
-#ifdef NON_MATCHING
 Gfx* func_80097274(Gfx* displayListHead, s8 arg1, s32 arg2, s32 arg3, s32 arg4, s32 arg5, s32 arg6, s32 arg7, s32 arg8,
-                   s32 arg9, u16* argA, u32 argB, u32 argC, s32 argD) {
+                   s32 arg9, UNUSED u16* argA, u32 argB, u32 argC, UNUSED s32 argD) {
     u32 var_a1_2 = arg4;
     u32 var_s3 = arg5;
     s32 sp7C;
@@ -3201,50 +3205,41 @@ Gfx* func_80097274(Gfx* displayListHead, s8 arg1, s32 arg2, s32 arg3, s32 arg4, 
     s32 sp68 = 0;
     s32 sp64 = 0;
     s32 var_v0_2;
-
     gDPPipeSync(displayListHead++);
     gDPSetCycleType(displayListHead++, G_CYC_2CYCLE);
     gDPSetTextureLOD(displayListHead++, G_TL_TILE);
     gDPSetPrimColor(displayListHead++, 0, 0, 0, 0, 0, gGlobalTimer % 256);
     gDPSetCombineLERP(displayListHead++, TEXEL1, TEXEL0, PRIMITIVE_ALPHA, TEXEL0, TEXEL1, TEXEL0, PRIMITIVE, TEXEL0, 0,
                       0, 0, COMBINED, 0, 0, 0, COMBINED);
-
-    while (var_t0 < (s32) argB) {
+    while ((u32) var_t0 < argB) {
         var_t0 *= 2;
     }
-
     temp_lo = 0x400 / var_t0;
-
-    while ((temp_lo / 2) > (s32) argC) {
+    while ((u32) (temp_lo / 2) > argC) {
         temp_lo /= 2;
     }
-
     var_v0_2 = var_t0;
     while (var_v0_2 > 1) {
         var_v0_2 /= 2;
         sp68 += 1;
     }
     var_v0_2 = temp_lo;
-
     while (var_v0_2 > 1) {
         var_v0_2 /= 2;
         sp64 += 1;
     }
-
     if (arg8 < 0) {
         arg4 -= arg8;
         arg8 = 0;
     } else if (((arg6 - arg4) + arg8) > SCREEN_WIDTH) {
         arg6 = (arg4 - arg8) + SCREEN_WIDTH;
     }
-
     if (arg9 < 0) {
         arg5 -= arg9;
         arg9 = 0;
     } else if (((arg7 - arg5) + arg9) > SCREEN_HEIGHT) {
         arg7 = (arg5 - arg9) + SCREEN_HEIGHT;
     }
-
     if (arg6 < arg4) {
         return displayListHead;
     }
@@ -3253,8 +3248,7 @@ Gfx* func_80097274(Gfx* displayListHead, s8 arg1, s32 arg2, s32 arg3, s32 arg4, 
     }
     sp7C = arg8;
     for (var_s3 = arg5; var_s3 < (u32) arg7; var_s3 += temp_lo) {
-
-        if (arg7 < (s32) temp_lo + var_s3) {
+        if ((u32) arg7 < temp_lo + var_s3) {
             var_s4 = arg7 - var_s3;
             if (!var_s4) {
                 break;
@@ -3262,10 +3256,8 @@ Gfx* func_80097274(Gfx* displayListHead, s8 arg1, s32 arg2, s32 arg3, s32 arg4, 
         } else {
             var_s4 = temp_lo;
         }
-
         for (var_a1_2 = arg4; var_a1_2 < (u32) arg6; var_a1_2 += var_t0) {
-
-            if (arg6 < (s32) var_t0 + var_a1_2) {
+            if ((u32) arg6 < var_t0 + var_a1_2) {
                 var_s2 = arg6 - var_a1_2;
                 if (!var_s2) {
                     break;
@@ -3273,21 +3265,16 @@ Gfx* func_80097274(Gfx* displayListHead, s8 arg1, s32 arg2, s32 arg3, s32 arg4, 
             } else {
                 var_s2 = var_t0;
             }
-
-            gDPLoadMultiTile(displayListHead++, arg1, 0, G_TX_RENDERTILE, arg2, G_IM_SIZ_16b, argB, argC, var_a1_2,
+            gDPLoadMultiTile(displayListHead++, argA, 0, G_TX_RENDERTILE, arg1, G_IM_SIZ_16b, argB, argC, var_a1_2,
                              var_s3, var_a1_2 + var_s2, var_s3 + var_s4, 0, G_TX_WRAP, G_TX_WRAP, sp68, sp64,
                              G_TX_NOLOD, G_TX_NOLOD);
-
-            gDPLoadMultiTile(displayListHead++, D_0B002A00 + random_int(128) * 2, 256, G_TX_RENDERTILE + 1, arg2,
+            gDPLoadMultiTile(displayListHead++, D_0B002A00 + random_int(128) * 2, 256, G_TX_RENDERTILE + 1, arg1,
                              G_IM_SIZ_16b, argB, argC, var_a1_2, var_s3, var_a1_2 + var_s2, var_s3 + var_s4, 0,
                              G_TX_WRAP, G_TX_WRAP, sp68, sp64, G_TX_NOLOD, G_TX_NOLOD);
-
             gSPTextureRectangle(displayListHead++, arg8 * 4, arg9 * 4, (arg8 + var_s2) * 4, (arg9 + var_s4) * 4, 0,
                                 (var_a1_2 * 32) & 0xFFFF, (var_s3 * 32) & 0xFFFF, arg2, arg3);
-
             arg8 += var_t0;
         }
-
         arg8 = sp7C;
         arg9 += temp_lo;
     }
@@ -3295,9 +3282,6 @@ Gfx* func_80097274(Gfx* displayListHead, s8 arg1, s32 arg2, s32 arg3, s32 arg4, 
     gDPSetCycleType(displayListHead++, G_CYC_1CYCLE);
     return displayListHead;
 }
-#else
-GLOBAL_ASM("asm/non_matchings/menu_items/func_80097274.s")
-#endif
 
 #undef D_0B002A00
 
@@ -3325,8 +3309,8 @@ Gfx* func_80097AE4(Gfx* displayListHead, s8 textureFormat, s32 destX, s32 destY,
 }
 
 // Render player characters at player select menu
-Gfx* func_80097E58(Gfx* displayListHead, s8 textureFormat, u32 uls, u32 ult, u32 lrs, u32 lrt, s32 screenX, s32 screenY,
-                   u8* textureData, u32 textureWidth, u32 textureHeight, s32 width) {
+Gfx* func_80097E58(Gfx* displayListHead, s8 textureFormat, u32 uls, u32 ult, UNUSED u32 lrs, UNUSED u32 lrt,
+                   s32 screenX, s32 screenY, u8* textureData, u32 textureWidth, u32 textureHeight, s32 width) {
     if (width >= 32) {
         return displayListHead;
     }
@@ -3490,8 +3474,11 @@ Gfx* draw_box_fill_wide(Gfx* displayListHead, s32 ulx, s32 uly, s32 lrx, s32 lry
     gSPDisplayList(displayListHead++, D_02008030);
     gDPSetFillColor(displayListHead++, (GPACK_RGBA5551(red, green, (u32) blue, alpha) << 0x10 |
                                         GPACK_RGBA5551(red, green, (u32) blue, alpha)));
-    gDPFillWideRectangle(displayListHead++, OTRGetDimensionFromLeftEdge(ulx) - 1, uly, OTRGetDimensionFromRightEdge(lrx) + 1,
-                         lry);
+    // Use the integer Rect getters: the float getters' negative left edge goes
+    // through a float->unsigned cast in _SHIFTL (UB) that ARM64 saturates to 0,
+    // pushing the fill's left edge to the 4:3 boundary in widescreen.
+    gDPFillWideRectangle(displayListHead++, OTRGetRectDimensionFromLeftEdge(ulx) - 1, uly,
+                         OTRGetRectDimensionFromRightEdge(lrx) + 1, lry);
     gDPFillRectangle(displayListHead++, ulx, uly, lrx, lry);
     gSPDisplayList(displayListHead++, D_02008058);
     return displayListHead;
@@ -3728,7 +3715,7 @@ void clear_menu_textures(void) {
 #include <assets/textures/player_selection.h>
 
 void load_menu_img(MenuTexture* addr) {
-    u16 size;
+    UNUSED u16 size;
     s32 i;
     s32 imgLoaded;
     MenuTexture* texAddr;
@@ -3811,7 +3798,7 @@ void load_menu_img_mio0_forced(MenuTexture* addr) {
 void load_menu_img_comp_type(MenuTexture* texAddr, s32 compType) {
     s32 i;
     s32 imgLoaded;
-    u8 clearBit;
+    UNUSED u8 clearBit;
     TextureMap* texMap = &sMenuTextureMap[0];
 
     while (texAddr->textureData != NULL) {
@@ -3830,7 +3817,7 @@ void load_menu_img_comp_type(MenuTexture* texAddr, s32 compType) {
     }
 }
 
-void func_80099958(MenuTexture* addr, s32 arg1, s32 arg2) {
+void func_80099958(MenuTexture* addr, UNUSED s32 arg1, UNUSED s32 arg2) {
     u16 size;
     MenuTexture* texAddr;
 
@@ -3875,9 +3862,9 @@ void func_80099AEC(void) {
     s8 texEnd;
     s32 size;
     s32 texSize;
-    OSIoMesg mb;
+    UNUSED OSIoMesg mb;
     OSMesg msg;
-    s32 bufSize;
+    UNUSED s32 bufSize;
     MenuTexture* texAddr;
     struct_8018E060_entry* var_s1;
 
@@ -3984,7 +3971,7 @@ void func_80099EC4(void) {
     s8 texEnd;
     s32 size;
     UNUSED s32 pad[2];
-    OSIoMesg sp68;
+    UNUSED OSIoMesg sp68;
     OSMesg sp64;
     s32 texSize;
     MenuTexture* texAddr;
@@ -4075,8 +4062,8 @@ void func_80099EC4(void) {
 
 void func_8009A238(MenuTexture* arg0, s32 arg1) {
     s32 var_a3;
-    s32 temp_v1;
-    u64* sp24;
+    UNUSED s32 temp_v1;
+    UNUSED u64* sp24;
     UNUSED TextureMap* temp_v0;
 
     temp_v1 = sMenuTextureMap[arg1].offset;
@@ -4320,7 +4307,8 @@ void func_8009A9FC(s32 arg0, s32 arg1, u32 arg2, s32 arg3) {
     color0 = LOAD_ASSET(sMenuTextureList[sMenuTextureMap[arg0].offset]);
     color1 = LOAD_ASSET(sMenuTextureList[sMenuTextureMap[arg1].offset]);
     for (size_t i = 0; i < arg2; i++) {
-        temp_a0 = BSWAP16(*color0++);
+        temp_a0 = BSWAP16(*color0);
+        color0++;
         red = (temp_a0 & 0xF800) >> 0xB;
         green = (temp_a0 & 0x7C0) >> 6;
         blue = (temp_a0 & 0x3E) >> 1;
@@ -4453,7 +4441,7 @@ void adjust_img_colour(s32 index, s32 screenSize, s32 r, s32 g, s32 b) {
 
     color = LOAD_ASSET(sMenuTextureList[sMenuTextureMap[index].offset]);
 
-    for (size_t i = 0; i < screenSize; i++) {
+    for (size_t i = 0; i < (size_t) screenSize; i++) {
         u16 color_pixel = BSWAP16(*color);
         red = ((color_pixel & 0xF800) >> 0xB) * 0x4D;
         green = ((color_pixel & 0x7C0) >> 6) * 0x96;
@@ -4535,8 +4523,9 @@ Gfx* func_8009B9D0(Gfx* displayListHead, MenuTexture* textures) {
     }
     if (found) {
         gSPDisplayList(displayListHead++, displayList);
-        return displayListHead;
     }
+    // Texture not found: draw nothing.
+    return displayListHead;
 }
 
 Gfx* render_menu_textures(Gfx* arg0, MenuTexture* arg1, s32 column, s32 row) {
@@ -4582,7 +4571,7 @@ Gfx* render_menu_textures(Gfx* arg0, MenuTexture* arg1, s32 column, s32 row) {
 }
 
 Gfx* render_menu_textures_alt(Gfx* arg0, MenuTexture* arg1, s32 column, s32 row) {
-    u8* temp_v0_3;
+    UNUSED u8* temp_v0_3;
     s8 var_s4;
 
     while (arg1->textureData != NULL) {
@@ -4669,7 +4658,7 @@ Gfx* func_8009BC9C(Gfx* arg0, MenuTexture* texProps, s32 arg2, s32 arg3, s32 arg
 
 Gfx* print_letter(Gfx* arg0, MenuTexture* glyphTexture, f32 arg2, f32 arg3, s32 mode, f32 scaleX, f32 scaleY) {
     s32 var_v0;
-    u8* temp_v0_2;
+    UNUSED u8* temp_v0_2;
     f32 thing0;
     f32 thing1;
     MenuTexture* var_s0;
@@ -4813,7 +4802,7 @@ Gfx* func_8009C204(Gfx* arg0, MenuTexture* arg1, s32 arg2, s32 arg3, s32 arg4) {
 }
 
 Gfx* func_8009C434(Gfx* arg0, struct_8018DEE0_entry* arg1, s32 arg2, s32 arg3, s32 arg4) {
-    s32 var_t0;
+    UNUSED s32 var_t0;
     s32 var_t1;
     Gfx* temp;
     MenuTexture* var_s0;
@@ -4870,7 +4859,7 @@ Gfx* func_8009C434(Gfx* arg0, struct_8018DEE0_entry* arg1, s32 arg2, s32 arg3, s
 }
 
 Gfx* func_8009C434_alt(Gfx* arg0, struct_8018DEE0_entry* arg1, s32 arg2, s32 arg3) {
-    s32 var_t0;
+    UNUSED s32 var_t0;
     s32 var_t1;
     Gfx* temp;
     MenuTexture* var_s0;
@@ -4903,7 +4892,7 @@ Gfx* func_8009C434_alt(Gfx* arg0, struct_8018DEE0_entry* arg1, s32 arg2, s32 arg
     return arg0;
 }
 
-Gfx* func_8009C708(Gfx* arg0, struct_8018DEE0_entry* arg1, s32 arg2, s32 arg3, s32 arg4, s32 arg5) {
+Gfx* func_8009C708(Gfx* arg0, struct_8018DEE0_entry* arg1, s32 arg2, s32 arg3, UNUSED s32 arg4, s32 arg5) {
     s32 var_t0;
     UNUSED s32 thing;
     Gfx* temp;
@@ -5754,7 +5743,7 @@ void func_8009E0F0(s32 arg0) {
         if (gTransitionDuration[4] >= 0x100U) {
             gTransitionDuration[4] = 0x000000FF;
         }
-        gCurrentTransitionTime[4] = arg0;
+        gCurrentTransitionTime[4] = 0;
         for (var_v0 = 0; var_v0 < 0x4B0; var_v0++) {
             sTKMK00_LowResBuffer[var_v0] = 0;
         }
@@ -5899,8 +5888,8 @@ void add_menu_item(s32 type, s32 column, s32 row, s8 priority) {
     s32 temp_a1;
     MkAnimation* var_a0;
     s32 one = 1;
-    int original_width;
-    int height;
+    UNUSED int original_width;
+    UNUSED int height;
 
     var_v0 = 0;
     var_ra = gMenuItems;
@@ -6678,7 +6667,7 @@ void render_menus(MenuItem* arg0) {
                 break;
             case COURSE_SELECT_OK:
                 func_800A8564(arg0);
-                int32_t original_width = D_02004E80->width;
+                UNUSED int32_t original_width = D_02004E80->width;
                 int32_t height = D_02004E80->height;
                 D_02004E80->width = ResourceGetTexWidthByName(D_02004E80->textureData) * height /
                                     ResourceGetTexHeightByName(D_02004E80->textureData);
@@ -7395,8 +7384,8 @@ void func_800A1F30(UNUSED MenuItem* unused) {
 void func_800A1FB0(MenuItem* arg0) {
     Unk_D_800E70A0 spE0 = { 0 };
     s32 i;
-    s32 var_s5;
-    s32 var_s4;
+    s32 var_s5 = SUB_MENU_COPY_PAK_FROM_GHOST_MIN;
+    s32 var_s4 = 0;
     char spB8[3];
     s32 var_s1;
     char spA8[3];
@@ -8448,7 +8437,8 @@ void render_pause_battle(MenuItem* arg0) {
 
 void func_800A54EC(void) {
     Unk_D_800E70A0 sp50;
-    Unk_D_800E70A0* var_v1;
+    // Initialized against the (unreachable) default of the mode switch below.
+    Unk_D_800E70A0* var_v1 = &D_800E8538[0];
     MenuItem* sp48;
     s32 whyTheSequel;
     s32 why;
@@ -8774,12 +8764,6 @@ void pause_menu_item_box_cursor(MenuItem* arg0, Unk_D_800E70A0* arg1) {
     x2 += x1;
     y2 += y1;
     z2 += z1;
-
-    // clang-format off
-    if (x2);
-    if (y2);
-    if (z2);
-    // clang-format on
 
     guScale(mtx, 1.2f, 1.2f, 1.2f);
     guRotate(mtx2, y2, 0.0f, 1.0f, 0.0f);
@@ -9686,7 +9670,7 @@ void func_800A890C(s32 arg0, MenuItem* arg1) {
         gDPPipeSync(gDisplayListHead++);
         gDPSetRenderMode(gDisplayListHead++, G_RM_OPA_SURF, G_RM_OPA_SURF2);
         gDPSetCombineMode(gDisplayListHead++, G_CC_DECALRGBA, G_CC_DECALRGBA);
-        if (arg0 == GetCupIndex()) {
+        if (arg0 == (s32) GetCupIndex()) {
             if (gSubMenuSelection == SUB_MENU_MAP_SELECT_CUP) {
                 gDisplayListHead = draw_flash_select_case_slow(gDisplayListHead, temp_t1 + temp_t7, temp_a2,
                                                                (temp_t1 - temp_t7) + 64, temp_a2 + 39);
@@ -9710,8 +9694,8 @@ void func_800A8A98(MenuItem* item) {
     gDPSetRenderMode(gDisplayListHead++, G_RM_OPA_SURF, G_RM_OPA_SURF2);
     gDPSetCombineMode(gDisplayListHead++, G_CC_DECALRGBA, G_CC_DECALRGBA);
 
-    for (i = 0; i < GetCupSize(); i++) {
-        if ((i == GetCupCursorPosition()) && (gSubMenuSelection > SUB_MENU_MAP_SELECT_CUP) &&
+    for (i = 0; i < (s32) GetCupSize(); i++) {
+        if ((i == (s32) GetCupCursorPosition()) && (gSubMenuSelection > SUB_MENU_MAP_SELECT_CUP) &&
             (gModeSelection != GRAND_PRIX)) {
             if ((gSubMenuSelection == SUB_MENU_MAP_SELECT_COURSE) ||
                 (gSubMenuSelection == SUB_MENU_MAP_SELECT_BATTLE_COURSE)) {
@@ -10081,12 +10065,13 @@ const s8 D_800F0CA0[] = {
 };
 
 void update_ok_menu_item(MenuItem* arg0) {
-    s32 sp4;
     s32 var_v0;
 
     switch (arg0->type) {
         default:
-            var_v0 = sp4; // wut?
+            // Was an uninitialized read; -1 hits no animation case below,
+            // which is what the garbage value did in practice.
+            var_v0 = -1;
             break;
         case MENU_ITEM_UI_OK:
             var_v0 = D_800F0CA0[gMainMenuSelection - 1];
@@ -10893,14 +10878,14 @@ void func_800AB020(MenuItem* arg0) {
 void func_800AB098(MenuItem* arg0) {
     switch (arg0->state) {
         case 0:
-            if ((GetCupIndex() + 0x53) == arg0->type) {
+            if (((s32) GetCupIndex() + 0x53) == arg0->type) {
                 arg0->state = 2;
             } else {
                 arg0->state = 1;
             }
             break;
         case 4:
-            if ((GetCupIndex() + 0x53) == arg0->type) {
+            if (((s32) GetCupIndex() + 0x53) == arg0->type) {
                 arg0->state = 2;
                 arg0->param1 = 0;
                 break;
@@ -10917,7 +10902,7 @@ void func_800AB098(MenuItem* arg0) {
             }
             break;
         case 3:
-            if ((GetCupIndex() + 0x53) == arg0->type) {
+            if (((s32) GetCupIndex() + 0x53) == arg0->type) {
                 arg0->state = 2;
             }
             break;
@@ -10930,7 +10915,7 @@ void func_800AB098(MenuItem* arg0) {
 void func_800AB164(MenuItem* arg0) {
     Unk_D_800E70A0* thing = &D_800E7148[arg0->type - 0x53];
 
-    if ((GetCupIndex() + 0x53) == arg0->type) {
+    if (((s32) GetCupIndex() + 0x53) == arg0->type) {
         arg0->priority = 0x0A;
     } else {
         arg0->priority = 4;
@@ -10961,7 +10946,7 @@ void func_800AB164(MenuItem* arg0) {
 
 void func_800AB260(MenuItem* arg0) {
     s32 temp = (arg0->type - 0x58);
-    if (temp == GetCupIndex()) {
+    if (temp == (s32) GetCupIndex()) {
         arg0->visible = 1;
     } else {
         arg0->visible = 0;
@@ -10969,7 +10954,7 @@ void func_800AB260(MenuItem* arg0) {
 }
 
 void func_800AB290(MenuItem* arg0) {
-    if (arg0->param1 != GetCupIndex()) {
+    if (arg0->param1 != (s32) GetCupIndex()) {
         arg0->param1 = GetCupIndex();
         func_8009A594(arg0->D_8018DEE0_index, 0,
                       D_800E7E34[gCupCourseOrder[GetCupIndex()][arg0->type - 0x5F]]);
@@ -10994,8 +10979,8 @@ void func_800AB314(MenuItem* arg0) {
             if (gSubMenuSelection != one) {
                 arg0->state = 0;
                 arg0->param2 = 0;
-                for (var_a1 = 0; var_a1 < GetCupSize(); var_a1++) {
-                    if (GetCupCursorPosition() == var_a1) {
+                for (var_a1 = 0; var_a1 < (s32) GetCupSize(); var_a1++) {
+                    if ((s32) GetCupCursorPosition() == var_a1) {
                         sp24[var_a1]->visible = one;
                         if (arg0->param1 != var_a1) {
                             arg0->param1 = var_a1;
@@ -11015,7 +11000,7 @@ void func_800AB314(MenuItem* arg0) {
         case 0:
             switch (arg0->state) {
                 case 0:
-                    if ((arg0->param1 / 4) == GetCupIndex()) {
+                    if ((arg0->param1 / 4) == (s32) GetCupIndex()) {
                         arg0->param2++;
                         if (arg0->param2 >= 0x33) {
                             arg0->state = one;
@@ -11033,7 +11018,7 @@ void func_800AB314(MenuItem* arg0) {
                     }
                     break;
                 case 1:
-                    if ((arg0->param1 / 4) != GetCupIndex()) {
+                    if ((arg0->param1 / 4) != (s32) GetCupIndex()) {
                         arg0->state = 0;
                         arg0->param2 = 0;
                         arg0->param1 = 0;
@@ -11133,7 +11118,7 @@ void func_800AB904(MenuItem* arg0) {
 void func_800AB9B0(MenuItem* arg0) {
     Unk_D_800E70A0* temp_v1;
 
-    if (arg0->param1 != GetCupIndex()) {
+    if (arg0->param1 != (s32) GetCupIndex()) {
         arg0->param1 = GetCupIndex();
         arg0->param2 = func_800B54C0((s32) GetCupIndex(), gCCSelection);
         func_8009A594(arg0->D_8018DEE0_index, 0,

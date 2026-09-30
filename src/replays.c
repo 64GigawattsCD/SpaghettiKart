@@ -72,11 +72,11 @@ void load_course_ghost(void) {
     u8* ghost = (u8*) D_80162DC4;
 
     size_t size = 0;
-    if (ghost == d_luigi_raceway_staff_ghost) {
+    if (ghost == (u8*) d_luigi_raceway_staff_ghost) {
         size = 1046 * sizeof(StaffGhost);
-    } else if (ghost == d_mario_raceway_staff_ghost) {
+    } else if (ghost == (u8*) d_mario_raceway_staff_ghost) {
         size = 935 * sizeof(StaffGhost);
-    } else if (ghost == d_royal_raceway_staff_ghost) {
+    } else if (ghost == (u8*) d_royal_raceway_staff_ghost) {
         size = 1907 * sizeof(StaffGhost);
     }
 
@@ -130,11 +130,15 @@ s32 func_800051C4(void) {
 
     if (sReplayGhostBufferSize != 0) {
         // func_80040174 in mio0_decode.s
-        func_80040174((void*) sReplayGhostBuffer, (sReplayGhostBufferSize * 4) + 0x20, (s32) sReplayGhostEncoded);
-        phi_v0 =
-            mio0encode((s32) sReplayGhostEncoded, (sReplayGhostBufferSize * 4) + 0x20, (s32) gReplayGhostCompressed);
+        func_80040174((void*) sReplayGhostBuffer, (sReplayGhostBufferSize * 4) + 0x20,
+                      (s32) (uintptr_t) sReplayGhostEncoded);
+        phi_v0 = mio0encode((uintptr_t) sReplayGhostEncoded, (sReplayGhostBufferSize * 4) + 0x20,
+                            (uintptr_t) gReplayGhostCompressed);
         return phi_v0 + 0x1e;
     }
+    // Empty buffer used to fall off the end; report zero encoded size (the
+    // caller only checks this against an upper bound).
+    return 0;
 }
 
 void func_8000522C(void) {
@@ -447,7 +451,7 @@ void save_player_replay(void) {
     it says "these inputs were played for __ frames" */
     prevInputs = prevInputsWCounter & REPLAY_CLEAR_FRAME_COUNTER;
     // first frame of inputs
-    if ((*sPlayerInputs) == -1) {
+    if ((*sPlayerInputs) == (u32) -1) {
 
         sPlayerInputs[sPlayerInputIdx] = inputs;
 

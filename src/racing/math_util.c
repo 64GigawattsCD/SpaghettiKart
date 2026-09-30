@@ -1,7 +1,7 @@
 #include <libultraship.h>
 #include <mk64.h>
 #include <macros.h>
-#include <math_util.h>
+#include <racing/math_util.h>
 #include <main.h>
 #include "buffers.h"
 #include "buffers/trig_tables.h"
@@ -11,8 +11,6 @@
 #include "port/Game.h"
 #include <port/interpolation/FrameInterpolation.h>
 #include <port/interpolation/matrix.h>
-#pragma intrinsic(sqrtf, fabs)
-
 s32 D_802B91C0[2] = { 13, 13 };
 Vec3f D_802B91C8 = { 0.0f, 0.0f, 0.0f };
 
@@ -1104,11 +1102,11 @@ f32 is_within_render_distance(Vec3f cameraPos, Vec3f objectPos, u16 orientationY
     f32 distance;
     f32 distanceY;
     f32 scaleFov;
-    f32 maxDistance2;
+    UNUSED f32 maxDistance2;
     s32 plus_fov_angle;
     s32 minus_fov_angle;
     u16 temp;
-    s32 count = 0;
+    UNUSED s32 count = 0;
 
     maxDistance *= 6.5f;
     maxDistance2 = 1.0f;
@@ -1138,11 +1136,11 @@ f32 is_within_render_distance(Vec3f cameraPos, Vec3f objectPos, u16 orientationY
     }
 
     angleObject = get_angle_between_two_vectors(cameraPos, objectPos);
-    minus_fov_angle = (orientationY - extended_fov);
-    plus_fov_angle = (orientationY + extended_fov);
+    minus_fov_angle = (s32)orientationY - (s32)extended_fov;
+    plus_fov_angle = (s32)orientationY + (s32)extended_fov;
 
     if (minDistance == 0.0f) {
-        if (is_visible_between_angle((orientationY + extended_fov), (orientationY - extended_fov), angleObject) == 1) {
+        if (is_visible_between_angle(plus_fov_angle, minus_fov_angle, angleObject) == 1) {
             if (IsKalimariDesert()) {
                 return distance / 6.5f; // set for better DD settings in Desert
             } else {

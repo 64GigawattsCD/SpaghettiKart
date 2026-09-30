@@ -3,8 +3,8 @@
 #include "code_800029B0.h"
 #include "code_80091440.h"
 #include "camera.h"
-#include "math_util.h"
-#include "collision.h"
+#include "racing/math_util.h"
+#include "racing/collision.h"
 
 void func_800914A0(void) {
     D_80152308 = gPlayerOne->unk_006 + 7;
@@ -17,7 +17,7 @@ UNUSED void func_800914E0(void) {
     UNUSED Vec3f sp64 = { 0.0f, -20.0f, 150.0f };
     UNUSED Vec3f sp58 = { 0.0f, -6.0f, 4.0f };
     Camera* camera = &cameras[0];
-    struct ActorSpawnData* sp48 = D_8015F718[0];
+    struct ActorSpawnData* sp48 = (struct ActorSpawnData*) D_8015F718[0];
     struct ActorSpawnData* tempData;
 
     s16 temp3 = (s16) D_80152308;

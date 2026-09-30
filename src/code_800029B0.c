@@ -4,22 +4,23 @@
 #include <stubs.h>
 
 #include "code_800029B0.h"
-#include "TrackBrowser.h"
+#include "engine/TrackBrowser.h"
 #include "memory.h"
 #include "waypoints.h"
-#include "actors.h"
+#include "racing/actors.h"
 #include "actor_types.h"
-#include "math_util.h"
+#include "racing/math_util.h"
 #include "audio/external.h"
 #include <defines.h>
-#include "collision.h"
+#include "racing/collision.h"
 #include "memory.h"
 #include "menu_items.h"
-#include "skybox_and_splitscreen.h"
+#include "racing/skybox_and_splitscreen.h"
 #include "code_8006E9C0.h"
 #include "spawn_players.h"
 #include "replays.h"
-#include "render_courses.h"
+#include "racing/render_courses.h"
+#include "racing/memory.h"
 #include "main.h"
 #include "courses/all_course_data.h"
 #include "courses/all_course_packed.h"
@@ -33,7 +34,7 @@
 extern s32 D_802BA038;
 extern s16 D_802BA048;
 s16 gCurrentCourseId = 0;
-uintptr_t gCurrentlyLoadedTrackAddr = NULL;
+uintptr_t gCurrentlyLoadedTrackAddr = 0;
 u16 D_800DC5A8 = 0;
 s32 D_800DC5AC = 0;
 u16 D_800DC5B0 = 1;
@@ -117,7 +118,7 @@ u16 D_8015F700;
 u16 D_8015F702;
 f32 D_8015F704;
 Vec3f D_8015F708;
-UNUSED u32 D_8015F718[3]; // Likely held ptrs to segmented data.
+UNUSED uintptr_t D_8015F718[3]; // Likely held ptrs to segmented data.
 size_t gFreeMemorySize;
 uintptr_t gNextFreeMemoryAddress;
 uintptr_t gHeapEndPtr;
@@ -336,9 +337,9 @@ void clear_nmi_buffer(void) {
  * Also spawns water features
  */
 void credits_spawn_actors(void) {
-    Vec3f position;
-    Vec3f velocity = { 0, 0, 0 };
-    Vec3s rotation = { 0, 0, 0 };
+    UNUSED Vec3f position;
+    UNUSED Vec3f velocity = { 0, 0, 0 };
+    UNUSED Vec3s rotation = { 0, 0, 0 };
 
     bFog = false;
     D_800DC5C8 = 0;

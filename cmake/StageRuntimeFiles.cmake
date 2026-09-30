@@ -1,0 +1,8 @@
+if(NOT DEFINED SOURCE_DIR OR NOT DEFINED DESTINATION_DIR)
+  message(FATAL_ERROR "SOURCE_DIR and DESTINATION_DIR are required")
+endif()
+
+file(MAKE_DIRECTORY "${DESTINATION_DIR}")
+file(COPY "${SOURCE_DIR}/config.yml" "${SOURCE_DIR}/yamls"
+          "${SOURCE_DIR}/meta" DESTINATION "${DESTINATION_DIR}")
+file(COPY "${SOURCE_DIR}/assets/arcadekart_audio" DESTINATION "${DESTINATION_DIR}")

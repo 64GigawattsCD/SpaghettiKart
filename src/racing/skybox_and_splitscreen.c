@@ -242,30 +242,6 @@ void init_rdp(void) {
     gSPClipRatio(gDisplayListHead++, FRUSTRATIO_1);
 }
 
-UNUSED void func_802A40A4(void) {
-}
-UNUSED void func_802A40AC(void) {
-}
-UNUSED void func_802A40B4(void) {
-}
-UNUSED void func_802A40BC(void) {
-}
-UNUSED void func_802A40C4(void) {
-}
-UNUSED void func_802A40CC(void) {
-}
-UNUSED void func_802A40D4(void) {
-}
-UNUSED void func_802A40DC(void) {
-}
-
-UNUSED s32 set_viewport2(void) {
-    gSPViewport(gDisplayListHead++, VIRTUAL_TO_PHYSICAL(&gScreenOneCtx->viewport));
-    gSPClearGeometryMode(gDisplayListHead++, G_CLEAR_ALL_MODES);
-    gSPSetGeometryMode(gDisplayListHead++,
-                       G_ZBUFFER | G_SHADE | G_CULL_BACK | G_LIGHTING | G_SHADING_SMOOTH | G_CLIPPING);
-}
-
 void set_viewport(void) {
     gSPViewport(gDisplayListHead++, VIRTUAL_TO_PHYSICAL(D_802B8880));
     gSPClearGeometryMode(gDisplayListHead++, G_CLEAR_ALL_MODES);
@@ -310,11 +286,16 @@ void func_802A4300(void) {
             gDPFillRectangle(gDisplayListHead++, 157, 0, 159, 239);
             break;
         case SCREEN_MODE_2P_SPLITSCREEN_HORIZONTAL:
-            gDPFillWideRectangle(gDisplayListHead++, OTRGetDimensionFromLeftEdge(0), 119, OTRGetGameRenderWidth(), 121);
+            // Integer Rect getter: the float getter's negative result through
+            // _SHIFTL is float->unsigned UB, which saturates to 0 on ARM64 and
+            // clips the divider's left extension (see draw_box_fill_wide).
+            gDPFillWideRectangle(gDisplayListHead++, OTRGetRectDimensionFromLeftEdge(0), 119,
+                                 OTRGetGameRenderWidth(), 121);
             break;
         case SCREEN_MODE_3P_4P_SPLITSCREEN:
             gDPFillRectangle(gDisplayListHead++, 157, 0, 159, 239);
-            gDPFillWideRectangle(gDisplayListHead++, OTRGetDimensionFromLeftEdge(0), 119, OTRGetGameRenderWidth(), 121);
+            gDPFillWideRectangle(gDisplayListHead++, OTRGetRectDimensionFromLeftEdge(0), 119,
+                                 OTRGetGameRenderWidth(), 121);
             break;
     }
     gDPPipeSync(gDisplayListHead++);
@@ -421,7 +402,7 @@ void func_802A487C(Vtx* arg0) {
         gSPMatrix(gDisplayListHead++, VIRTUAL_TO_PHYSICAL(&gGfxPool->mtxScreen),
                   G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
         gSPMatrix(gDisplayListHead++, &gIdentityMatrix2, G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
-        gSPVertex(gDisplayListHead++, &arg0[4], 4, 0);
+        gSPVertex(gDisplayListHead++, (uintptr_t) &arg0[4], 4, 0);
         gSP2Triangles(gDisplayListHead++, 0, 3, 1, 0, 1, 3, 2, 0);
     }
 }
@@ -487,10 +468,10 @@ void func_802A4A0C(Vtx* vtx, ScreenContext* screen) {
     gSPMatrix(gDisplayListHead++, VIRTUAL_TO_PHYSICAL(&gGfxPool->mtxScreen),
               G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
     gSPMatrix(gDisplayListHead++, &gIdentityMatrix2, G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
-    gSPVertex(gDisplayListHead++, &vtx[0], 4, 0);
+    gSPVertex(gDisplayListHead++, (uintptr_t) &vtx[0], 4, 0);
     gSP2Triangles(gDisplayListHead++, 0, 3, 1, 0, 1, 3, 2, 0);
     if (IsRainbowRoad()) {
-        gSPVertex(gDisplayListHead++, &vtx[4], 4, 0);
+        gSPVertex(gDisplayListHead++, (uintptr_t) &vtx[4], 4, 0);
         gSP2Triangles(gDisplayListHead++, 0, 3, 1, 0, 1, 3, 2, 0);
     }
 }
@@ -550,7 +531,7 @@ void func_802A4EF4(void) {
  * The swapping of logic may be a required for proper draw order.
  * Or, perhaps they slapped functions in differing orders for each screen on a wim.
  */
-void race_begin_viewport(ScreenContext* screen, s32 mode) {
+void race_begin_viewport(ScreenContext* screen) {
     init_rdp();
 
     // --------------------------------------------------
@@ -622,13 +603,13 @@ static void arcade_kart_begin_scene_layer(s32* layerActive) {
 }
 
 void render_screens(ScreenContext* screen, s32 mode, s32 someId, s32 playerId) {
-    Mat4 matrix;
     Camera* camera = screen->camera;
     s32 screenId = screen - gScreenContexts;
     s32 arcadeKartSceneLayerActive = 0;
 
     if (NULL == camera) {
-        printf("[skybox_and_splitscreen.c] Skipping rendering for screen %d. This viewport has no camera\n", screen - gScreenContexts);
+        printf("[skybox_and_splitscreen.c] Skipping rendering for screen %ld. This viewport has no camera\n",
+               (long) (screen - gScreenContexts));
         return;
     }
 
@@ -668,7 +649,7 @@ void render_screens(ScreenContext* screen, s32 mode, s32 someId, s32 playerId) {
             }
             break;
         default:
-            race_begin_viewport(screen, mode);
+            race_begin_viewport(screen);
             arcade_kart_begin_scene_layer(&arcadeKartSceneLayerActive);
 
             if ((CVarGetInteger("gDrawSky", true) == true)) {
@@ -781,7 +762,7 @@ void render_screens(ScreenContext* screen, s32 mode, s32 someId, s32 playerId) {
 void set_screen(void) {
     ScreenContext* wrapper = &gScreenContexts[0];
     Player* player = &gPlayers[0];
-    Camera* camera = &cameras[0];
+    // Camera* camera = &cameras[0];
     struct Controller* controller = &gControllers[0];
 
     // struct? size = 0x10. unk++ doesn't work cause s32 too small.
@@ -846,7 +827,7 @@ void set_screen(void) {
                 break;
         }
         player++;
-        camera++;
+        // camera++;
         wrapper++;
         unk += 0x10;
     }
