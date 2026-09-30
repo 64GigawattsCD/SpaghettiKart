@@ -29,7 +29,11 @@
     "tinyxml2",
     "spdlog",
     "libogg",
-    "libvorbis"
+    "libvorbis",
+    {
+      "name": "openxr-loader",
+      "platform": "windows"
+    }
   ],
   "overrides": [
     {

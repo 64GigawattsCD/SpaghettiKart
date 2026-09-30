@@ -10,7 +10,7 @@
 #include <stdio.h>
 
 int gfx_create_framebuffer(uint32_t width, uint32_t height, uint32_t native_width, uint32_t native_height,
-                           uint8_t resize);
+                           uint8_t resize, bool forceFixedAspect);
 
 // A framebuffer that should only be used for drawing in the same frame that it is copied too
 // i.e. the VisMono and VisFbuf effects
@@ -48,25 +48,30 @@ static void FB_ClearFramebuffer(Gfx** gfxP, s32 fb, u32 fillColor) {
 
 void FB_CreateFramebuffers(void) {
     if (gReusableFrameBuffer == -1) {
-        gReusableFrameBuffer = gfx_create_framebuffer(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_WIDTH, SCREEN_HEIGHT, true);
+        gReusableFrameBuffer = gfx_create_framebuffer(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_WIDTH, SCREEN_HEIGHT, true, false);
     }
 
     if (gN64ResFrameBuffer == -1) {
-        gN64ResFrameBuffer = gfx_create_framebuffer(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_WIDTH, SCREEN_HEIGHT, false);
+        gN64ResFrameBuffer = gfx_create_framebuffer(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_WIDTH, SCREEN_HEIGHT, false, false);
     }
 
     if (gArcadeKartPostFxSceneFrameBuffer == -1) {
         gArcadeKartPostFxSceneFrameBuffer =
-            gfx_create_framebuffer(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_WIDTH, SCREEN_HEIGHT, true);
+            gfx_create_framebuffer(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_WIDTH, SCREEN_HEIGHT, true, false);
     }
 
     if (gArcadeKartPostFxHudFrameBuffer == -1) {
         gArcadeKartPostFxHudFrameBuffer =
-            gfx_create_framebuffer(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_WIDTH, SCREEN_HEIGHT, true);
+            gfx_create_framebuffer(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_WIDTH, SCREEN_HEIGHT, true, false);
     }
 }
 
 s32 FB_ArcadeKartPostFxShouldLayerHud(void) {
+    extern s32 GameEngine_CanLayerArcadeHud(void);
+    if (!GameEngine_CanLayerArcadeHud()) {
+        CVarSetInteger("gArcadeKart.PostFx.LayeredHudActive", 0);
+        return 0;
+    }
     if (CVarGetInteger("gArcadeKart.PostFx.Enabled", 1) == 0) {
         return 0;
     }
@@ -197,37 +202,23 @@ void FB_CopyToFramebuffer(Gfx** gfxP, s32 fb_src, s32 fb_dest, u8 oncePerFrame, 
  * required if the buffer is being used as a texture in F3D.
  */
 void FB_WriteFramebufferSliceToCPU(Gfx** gfxP, void* buffer, u8 byteSwap) {
+    extern s32 GameEngine_GetVrEyeFb(void);
+    extern void GameEngine_SetFbCopyScaledTarget(s32 fbId, s32 dstW, s32 dstH);
     Gfx* gfx = *gfxP;
-    s32 sourceFramebuffer = 0;
-
-    if (FB_ArcadeKartPostFxShouldLayerHud()) {
-        sourceFramebuffer = gArcadeKartPostFxSceneFrameBuffer;
+    s32 sourceFramebuffer = GameEngine_GetVrEyeFb();
+    if (sourceFramebuffer < 0) {
+        sourceFramebuffer = FB_ArcadeKartPostFxShouldLayerHud() ? gArcadeKartPostFxSceneFrameBuffer : 0;
     }
-
+    GameEngine_SetFbCopyScaledTarget(gReusableFrameBuffer, SCREEN_WIDTH, SCREEN_HEIGHT);
     FB_CopyToFramebuffer(&gfx, sourceFramebuffer, gReusableFrameBuffer, false, NULL);
-    
     // Set the N64 resolution framebuffer as the draw target (320x240)
     gsSPSetFB(gfx++, gN64ResFrameBuffer);
     // Reset scissor for new framebuffer
     gDPSetScissor(gfx++, G_SC_NON_INTERLACE, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 
-    int16_t s0 = 0, t0 = 0;
-    int16_t s1 = OTRGetGameRenderWidth();
-    int16_t t1 = OTRGetGameRenderHeight();
-    float aspectRatio = OTRGetAspectRatio();
-    float fourByThree = 4.0f / 3.0f;
-
-    // Adjust the texture coordinates so that only a 4:3 region from the center is drawn
-    // to the N64 resolution buffer. Currently ratios smaller than 4:3 will just stretch to fill.
-    if (aspectRatio > fourByThree) {
-        int16_t adjustedWidth = OTRGetGameRenderWidth() / (aspectRatio / fourByThree);
-        s0 = (OTRGetGameRenderWidth() - adjustedWidth) / 2;
-        s1 -= s0;
-    }
-
     gDPSetTextureImageFB(gfx++, 0, 0, 0, gReusableFrameBuffer);
-    gDPImageRectangle(gfx++, 0 << 2, 0 << 2, s0, t0, SCREEN_WIDTH << 2, SCREEN_HEIGHT << 2, s1, t1, G_TX_RENDERTILE,
-                      OTRGetGameRenderWidth(), OTRGetGameRenderHeight());
+    gDPImageRectangle(gfx++, 0 << 2, 0 << 2, 0, 0, SCREEN_WIDTH << 2, SCREEN_HEIGHT << 2, SCREEN_WIDTH,
+                      SCREEN_HEIGHT, G_TX_RENDERTILE, SCREEN_WIDTH, SCREEN_HEIGHT);
 
     // Read the final N64 framebuffer back as rgba16 into the CPU-side buffer
     gDPReadFB(gfx++, gN64ResFrameBuffer, buffer, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, byteSwap);

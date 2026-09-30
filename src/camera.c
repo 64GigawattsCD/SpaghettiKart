@@ -18,6 +18,7 @@
 #include "main.h"
 #include "spawn_players.h"
 #include "first_person_kart.h"
+#include "port/vr/vr.h"
 #include "kart_input.h"
 #include "enhancements/freecam/freecam_engine.h"
 #include "enhancements/freecam/freecam.h"
@@ -25,6 +26,14 @@
 
 #include "engine/GameAPI.h"
 #include "port/Game.h"
+
+// port/vr + port menu: the flatscreen view modes (first person / diorama) recompose the chase
+// cam result inside func_8001E45C; VR keeps the stock chase cam and composes its own eye pose.
+// The pause overlay (vr_pause_menu.c) keeps the player cam recomposing while paused so the
+// view-mode rows preview live.
+extern bool vr_is_active(void);
+extern int vr_pause_menu_is_open(void);
+extern float CVarGetFloat(const char* name, float defaultValue);
 
 f32 D_800DDB30[] = { 0.4f, 0.6f, 0.275f, 0.3f };
 
@@ -101,7 +110,10 @@ s32 CM_IsFirstPersonViewEnabled(s32 playerIndex) {
     if ((playerIndex < 0) || (playerIndex >= NUM_PLAYERS)) {
         return 0;
     }
-    return sFirstPersonViewEnabled[playerIndex] != 0;
+    if (vr_is_active()) {
+        return playerIndex == 0 && vr_get_view_mode() == VR_VIEW_FIRST_PERSON && !vr_action_cam_active();
+    }
+    return sFirstPersonViewEnabled[playerIndex] != 0 || CVarGetInteger("gFlatViewMode", 0) == 1;
 }
 
 void CM_DisableFirstPersonView(s32 playerIndex) {
@@ -132,6 +144,17 @@ static void update_first_person_view_toggle(s32 playerIndex) {
 
     controller = &gControllers[playerIndex];
     if (kart_input_was_command_pressed(controller, KART_INPUT_TOGGLE_FIRST_PERSON)) {
+        if (vr_is_active()) {
+            if (playerIndex == 0 && !vr_fp_switch_locked()) {
+                CVarSetInteger("gVRViewMode", vr_get_view_mode() == VR_VIEW_FIRST_PERSON ? VR_VIEW_THIRD_PERSON : VR_VIEW_FIRST_PERSON);
+            }
+            kart_input_consume_command_press(controller, KART_INPUT_TOGGLE_FIRST_PERSON);
+            return;
+        }
+        if (CVarGetInteger("gFlatViewMode", 0) == 1) {
+            CVarSetInteger("gFlatViewMode", 0);
+            sFirstPersonViewEnabled[playerIndex] = 1;
+        }
         sFirstPersonViewEnabled[playerIndex] = !sFirstPersonViewEnabled[playerIndex];
         sFirstPersonLookYaw[playerIndex] = 0.0f;
         sFirstPersonLookPitch[playerIndex] = 0.0f;
@@ -153,15 +176,15 @@ static f32 lerp_first_person_angle(f32 current, f32 target) {
 }
 
 static void apply_first_person_view_camera(Camera* camera, Player* player, s32 playerIndex) {
-    FirstPersonKartBodyPose pose;
+    Mat3 orientation;
+    Vec3f localEye;
+    Vec3f localLook;
     struct Controller* controller;
     f32 targetYaw;
     f32 targetPitch;
     f32 lookYaw;
     f32 lookPitch;
     f32 lookForward;
-    f32 lookRight;
-    f32 lookUp;
     f32 eyeX;
     f32 eyeY;
     f32 eyeZ;
@@ -176,9 +199,9 @@ static void apply_first_person_view_camera(Camera* camera, Player* player, s32 p
         return;
     }
 
-    if (get_first_person_kart_body_pose(&pose, player) == 0) {
-        return;
-    }
+    localEye[0] = FIRST_PERSON_EYE_RIGHT;
+    localEye[1] = FIRST_PERSON_EYE_UP;
+    localEye[2] = FIRST_PERSON_EYE_FORWARD;
 
     controller = &gControllers[playerIndex];
     if ((controller->button & L_CBUTTONS) != 0) {
@@ -195,22 +218,20 @@ static void apply_first_person_view_camera(Camera* camera, Player* player, s32 p
     lookPitch = sFirstPersonLookPitch[playerIndex];
 
     lookForward = cosf(lookPitch) * FIRST_PERSON_LOOK_FORWARD;
-    lookRight = FIRST_PERSON_LOOK_RIGHT + (sinf(lookYaw) * lookForward);
-    lookUp = FIRST_PERSON_LOOK_UP + (sinf(lookPitch) * FIRST_PERSON_LOOK_FORWARD);
+    localLook[0] = FIRST_PERSON_LOOK_RIGHT + (sinf(lookYaw) * lookForward);
+    localLook[1] = localEye[1] + FIRST_PERSON_LOOK_UP + (sinf(lookPitch) * FIRST_PERSON_LOOK_FORWARD);
+    localLook[2] = cosf(lookYaw) * lookForward;
 
-    eyeX = pose.pos[0] + (pose.right[0] * FIRST_PERSON_EYE_RIGHT) + (pose.up[0] * FIRST_PERSON_EYE_UP) +
-           (pose.forward[0] * FIRST_PERSON_EYE_FORWARD);
-    eyeY = pose.pos[1] + (pose.right[1] * FIRST_PERSON_EYE_RIGHT) + (pose.up[1] * FIRST_PERSON_EYE_UP) +
-           (pose.forward[1] * FIRST_PERSON_EYE_FORWARD);
-    eyeZ = pose.pos[2] + (pose.right[2] * FIRST_PERSON_EYE_RIGHT) + (pose.up[2] * FIRST_PERSON_EYE_UP) +
-           (pose.forward[2] * FIRST_PERSON_EYE_FORWARD);
+    calculate_orientation_matrix(orientation, 0, 1, 0, player->rotation[1]);
+    mtxf_translate_vec3f_mat3(localEye, orientation);
+    mtxf_translate_vec3f_mat3(localLook, orientation);
 
-    lookX = eyeX + (pose.right[0] * lookRight) + (pose.up[0] * lookUp) +
-            (pose.forward[0] * (cosf(lookYaw) * lookForward));
-    lookY = eyeY + (pose.right[1] * lookRight) + (pose.up[1] * lookUp) +
-            (pose.forward[1] * (cosf(lookYaw) * lookForward));
-    lookZ = eyeZ + (pose.right[2] * lookRight) + (pose.up[2] * lookUp) +
-            (pose.forward[2] * (cosf(lookYaw) * lookForward));
+    eyeX = player->pos[0] + localEye[0];
+    eyeY = player->pos[1] + localEye[1];
+    eyeZ = player->pos[2] + localEye[2];
+    lookX = player->pos[0] + localLook[0];
+    lookY = player->pos[1] + localLook[1];
+    lookZ = player->pos[2] + localLook[2];
 
     camera->unk_B0 = 0;
     camera->unk_2C = player->rotation[1];
@@ -1195,6 +1216,57 @@ void func_8001E0C4(Camera* camera, Player* player, s8 arg2) {
     camera->rot[2] = 0;
 }
 
+// First person / diorama flatscreen view-mode recomposition (gFlatViewMode 1/2), shared by the
+// race camera (func_8001E45C) and the battle camera (func_8001EA0C) so first person works in both.
+// Keeps the chase cam's smoothed FORWARD heading (the lookAt - pos it just computed - identical
+// rotational feel to third person) but re-seats the eye: first person at the driver's head,
+// diorama on a raised trailing tabletop. VR composes its own eye pose; demos and cinematics keep
+// the stock camera. Call AFTER pos/lookAt are set, BEFORE the rot recompute.
+static void apply_flat_view_mode(Camera* camera, Player* player) {
+    s32 viewMode;
+    f32 dirX, dirZ, len;
+    if (vr_is_active() || !(player->type & PLAYER_HUMAN) || gDemoMode != 0 ||
+        (player->type & PLAYER_CINEMATIC_MODE)) {
+        return; // the finish hands the view back to the stock rolling camera - first person lets go
+    }
+    viewMode = CVarGetInteger("gFlatViewMode", 0);
+    if (viewMode != 1 && viewMode != 2) {
+        return; // third person - the chase cam result stands
+    }
+    dirX = camera->lookAt[0] - camera->pos[0];
+    dirZ = camera->lookAt[2] - camera->pos[2];
+    len = sqrtf(dirX * dirX + dirZ * dirZ);
+    if (len > 0.001f) {
+        dirX /= len;
+        dirZ /= len;
+    } else {
+        dirX = 0.0f;
+        dirZ = 1.0f;
+    }
+    if (viewMode == 1) {
+        // First person: eye at the driver's head (render_player hides the own kart body), gaze
+        // level so the horizon stays put on slopes.
+        f32 eyeH = CVarGetFloat("gFlatFPHeight", 8.0f);
+        camera->pos[0] = player->pos[0] + dirX * 4.0f;
+        camera->pos[1] = player->pos[1] + eyeH;
+        camera->pos[2] = player->pos[2] + dirZ * 4.0f;
+        camera->lookAt[0] = camera->pos[0] + dirX * 250.0f;
+        camera->lookAt[1] = camera->pos[1];
+        camera->lookAt[2] = camera->pos[2] + dirZ * 250.0f;
+    } else {
+        // Diorama: a raised tabletop view trailing the kart (the miniature-world framing of the VR
+        // diorama, flat). Defaults are Ray's tuned values.
+        f32 dist = CVarGetFloat("gFlatDioramaDist", 190.0f);
+        f32 height = CVarGetFloat("gFlatDioramaHeight", 50.0f);
+        camera->pos[0] = player->pos[0] - dirX * dist;
+        camera->pos[1] = player->pos[1] + height;
+        camera->pos[2] = player->pos[2] - dirZ * dist;
+        camera->lookAt[0] = player->pos[0] + dirX * 60.0f;
+        camera->lookAt[1] = player->pos[1];
+        camera->lookAt[2] = player->pos[2] + dirZ * 60.0f;
+    }
+}
+
 // This function has a few stack variables.
 void func_8001E45C(Camera* camera, Player* player, s8 arg2) {
     UNUSED s32 pad[6];
@@ -1277,6 +1349,11 @@ void func_8001E45C(Camera* camera, Player* player, s8 arg2) {
     camera->lookAt[0] = sp64[0];
     camera->lookAt[1] = sp64[1];
     camera->lookAt[2] = sp64[2];
+
+    // Flatscreen first person / diorama recomposition (live-read every frame so the menu applies
+    // instantly), shared with the battle camera. Placed before the rot recompute so camera->rot
+    // stays consistent with the override.
+    apply_flat_view_mode(camera, player);
 
     temp_f12 = camera->lookAt[0] - camera->pos[0];
     sp90 = camera->lookAt[1] - camera->pos[1];
@@ -1401,6 +1478,10 @@ void func_8001EA0C(Camera* camera, Player* player, s8 arg2) {
     camera->lookAt[1] = sp64[1];
     camera->lookAt[2] = sp64[2];
 
+    // First person / diorama also work in battle - the battle chase cam (mode 9) gets the same
+    // eye recomposition the race camera does, so gFlatViewMode applies in the arenas too.
+    apply_flat_view_mode(camera, player);
+
     temp_f12 = camera->lookAt[0] - camera->pos[0];
     sp90 = camera->lookAt[1] - camera->pos[1];
     temp_f14 = camera->lookAt[2] - camera->pos[2];
@@ -1494,9 +1575,16 @@ void func_8001EE98(Player* player, Camera* camera, s8 index) {
                 func_8001EA0C(camera, player, index);
                 break;
         }
+    } else if (camera->mode == 1 && !vr_is_active() && gDemoMode == 0 && vr_pause_menu_is_open() &&
+               ((player->lakituProps & (LAKITU_RETRIEVAL | HELD_BY_LAKITU)) == 0)) {
+        // The flatscreen pause overlay edits gFlatViewMode and the camera knobs live - keep
+        // recomposing the (frozen-world) player camera while it's open, so switching View Mode
+        // or dragging a slider previews INSTANTLY behind the menu instead of waiting for the
+        // unpause. VR skips this: its eyes re-render continuously anyway.
+        func_8001E45C(camera, player, index);
     }
 
-    if ((gIsGamePaused == 0) && CM_IsFirstPersonViewEnabled(index) && (camera->mode != 3) && (gDemoMode != 1) &&
+    if (!vr_is_active() && (gIsGamePaused == 0) && CM_IsFirstPersonViewEnabled(index) && (camera->mode != 3) && (gDemoMode != 1) &&
         ((player->type & PLAYER_CINEMATIC_MODE) != PLAYER_CINEMATIC_MODE)) {
         apply_first_person_view_camera(camera, player, index);
     }

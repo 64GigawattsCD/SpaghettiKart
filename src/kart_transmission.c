@@ -9,7 +9,7 @@
 #include "kart_input.h"
 #include "kart_character_stats.h"
 #include "code_80057C60.h"
-#include "math_util.h"
+#include "racing/math_util.h"
 #include "main.h"
 #include "port/audio/HMAS.h"
 #include "audio/external.h"

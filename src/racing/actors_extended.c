@@ -1,3 +1,4 @@
+extern short vr_item_throw_yaw_offset(int isHumanPlayer); // port/vr - head-aimed throws in VR first person
 #include <libultraship.h>
 #include <macros.h>
 #include <defines.h>

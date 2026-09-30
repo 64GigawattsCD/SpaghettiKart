@@ -9,7 +9,7 @@ extern "C" {
 #include "code_80057C60.h"
 #include "defines.h"
 #include "main.h"
-#include "math_util.h"
+#include "racing/math_util.h"
 #include "math_util_2.h"
 #include "render_objects.h"
 #include "render_player.h"

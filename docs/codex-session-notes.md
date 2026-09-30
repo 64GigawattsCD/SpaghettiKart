@@ -1,3 +1,9 @@
+## VR Refresh (2026-09-30)
+
+See `docs/vr-upstream-refresh.md` for the refreshed upstream/VR sources, camera history, runtime location,
+and pending headset tests. Active integration is in `E:\SpaghettiKart-VR-refresh`; original WIP remains
+in `E:\SpaghettiKart`.
+
 ## Screenshot Capture
 
 - For fullscreen SpaghettiKart captures, call `SetProcessDPIAware()` before reading screen or window bounds.

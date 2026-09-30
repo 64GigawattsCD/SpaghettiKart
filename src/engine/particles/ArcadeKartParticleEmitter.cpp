@@ -4,7 +4,7 @@
 #include <cmath>
 
 extern "C" {
-#include "math_util.h"
+#include "racing/math_util.h"
 }
 
 static void copy_vec3f(Vec3f dest, const Vec3f src) {

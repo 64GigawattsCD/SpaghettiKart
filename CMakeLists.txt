@@ -127,6 +127,12 @@ if(SPAGHETTIKART_IOS)
 endif()
 
 add_executable(${PROJECT_NAME} ${ALL_FILES})
+if(WIN32)
+  find_package(OpenXR CONFIG REQUIRED)
+  find_package(GLEW REQUIRED)
+  target_link_libraries(${PROJECT_NAME} PRIVATE OpenXR::openxr_loader GLEW::GLEW opengl32)
+  target_compile_definitions(${PROJECT_NAME} PRIVATE ENABLE_VR=1 GLEW_STATIC)
+endif()
 target_include_directories(
   ${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
                           ${CMAKE_CURRENT_SOURCE_DIR}/include

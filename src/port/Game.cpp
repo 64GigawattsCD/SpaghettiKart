@@ -3,7 +3,9 @@
 
 #include "Game.h"
 #include "port/Engine.h"
+#include "port/vr/vr.h"
 
+#include <cstring>
 #include <fast/Fast3dWindow.h>
 #include <memory>
 #include <atomic>
@@ -203,6 +205,32 @@ u32 WorldNextCup(void) {
 
 u32 WorldPreviousCup(void) {
     return GetWorld()->PreviousCup();
+}
+
+// How many cups the browser can actually reach in the current mode - the same bound NextCup
+// enforces (battle hides one trailing cup, the race modes hide two).
+u32 WorldCupCount(void) {
+    World* world = GetWorld();
+    size_t hack = (gModeSelection != BATTLE) ? 2 : 1;
+    if (world->Cups.size() < hack) {
+        return 1;
+    }
+    return (u32) (world->Cups.size() - hack + 1);
+}
+
+// Wrapping cup setter for the track roulette. NextCup saturates at the last cup, which pinned the
+// old roulette there; a wheel has to roll past the end and come back around. No sound here - the
+// roulette tick paces its own clicks.
+u32 WorldSetCupWrapped(u32 index) {
+    World* world = GetWorld();
+    u32 count = WorldCupCount();
+    if (world->Cups.empty()) {
+        return 0;
+    }
+    index %= count;
+    world->CupIndex = index;
+    world->SetCurrentCup(world->Cups[index]);
+    return index;
 }
 
 void CM_SetCup(void* cup) {
@@ -1188,6 +1216,8 @@ void CM_ThrowRuntimeError(const char* fmt, ...) {
 #ifdef __APPLE__
 #include <CoreFoundation/CoreFoundation.h>
 #endif
+// src/port/Engine.cpp - releases OpenXR, closes the --console, and hard-exits so quit fully terminates.
+extern "C" void GameEngine_TerminateProcess(void);
 
 #ifdef _WIN32
 int SDL_main(int argc, char** argv) {
@@ -1219,6 +1249,24 @@ extern "C"
     setenv("SHIP_HOME", "~/Library/Application Support/SpaghettiKart", 0);
 #endif
     // load_wasm();
+
+    // VR enable decision (mirrors the SM64 VR build): --vr forces VR on, --novr forces it off,
+    // otherwise auto-enable when a headset is connected. Must run before GameEngine::Create() so the
+    // constructor can force the OpenGL backend (OpenXR binds to WGL) before the window is created.
+    {
+        bool forceVr = false, forceNoVr = false;
+        for (int i = 1; i < argc; i++) {
+            if (strcmp(argv[i], "--vr") == 0) {
+                forceVr = true;
+            } else if (strcmp(argv[i], "--novr") == 0) {
+                forceNoVr = true;
+            }
+        }
+        if (forceVr || (!forceNoVr && vr_headset_present())) {
+            vr_request_enable();
+        }
+    }
+
     GameEngine::Create();
     audio_init();
     sound_init();
@@ -1253,9 +1301,6 @@ extern "C"
     CustomEngineDestroy();
     // GameEngine::Instance->ProcessFrame(push_frame);
     GameEngine::Instance->Destroy();
-    // Everything user-visible (config, saves) is persisted by Destroy(). Skip the
-    // remaining static destructors: their order is unspecified and some log after
-    // spdlog's own statics are gone, crashing on quit (same class as issue #689).
-    // Mirrors the _Exit precedent on the extraction error paths.
-    _Exit(0);
+    GameEngine_TerminateProcess(); // release OpenXR, drop the console, force a clean exit (does not return)
+    return 0;
 }

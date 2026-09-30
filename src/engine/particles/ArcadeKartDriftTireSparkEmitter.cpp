@@ -12,7 +12,7 @@ extern "C" {
 #include "defines.h"
 #include "macros.h"
 #include "main.h"
-#include "math_util.h"
+#include "racing/math_util.h"
 #include "math_util_2.h"
 #include "render_objects.h"
 #include "render_player.h"
