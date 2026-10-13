@@ -6,6 +6,7 @@
 #include <math.h>
 #include "port/Engine.h"
 #include "FrameInterpolation.h"
+#include "BinaryAngle.h"
 #include "matrix.h"
 #include "engine/Matrix.h"
 #include "src/engine/CoreMath.h"
@@ -307,10 +308,10 @@ struct InterpolateCtx {
         return w * o + step * n;
     }
 
-    void lerp_vec3s(Vec3s* res, Vec3s o, Vec3s n) {
-        (*res)[0] = lerp_s16(o[0], n[0]);
-        (*res)[1] = lerp_s16(o[1], n[1]);
-        (*res)[2] = lerp_s16(o[2], n[2]);
+    void interpolate_vec3s(Vec3s* res, Vec3s o, Vec3s n) {
+        (*res)[0] = interpolate_angle(o[0], n[0]);
+        (*res)[1] = interpolate_angle(o[1], n[1]);
+        (*res)[2] = interpolate_angle(o[2], n[2]);
     }
 
     void lerp_vec3f(Vec3f* res, Vec3f* o, Vec3f* n) {
@@ -344,30 +345,7 @@ struct InterpolateCtx {
     }
 
     s16 interpolate_angle(s16 os, s16 ns) {
-        if (os == ns)
-            return ns;
-        int o = (u16) os;
-        int n = (u16) ns;
-        u16 res;
-        int diff = o - n;
-        if (-0x8000 <= diff && diff <= 0x8000) {
-            if (diff < -0x4000 || diff > 0x4000) {
-                return ns;
-            }
-            res = (u16) (w * o + step * n);
-        } else {
-            if (o < n) {
-                o += 0x10000;
-            } else {
-                n += 0x10000;
-            }
-            diff = o - n;
-            if (diff < -0x4000 || diff > 0x4000) {
-                return ns;
-            }
-            res = (u16) (w * o + step * n);
-        }
-        return res;
+        return FrameInterpolation::InterpolateBinaryAngle(os, ns, step);
     }
 
     void interpolate_vecs(Vec3f* res, Vec3f* o, Vec3f* n) {
@@ -445,11 +423,11 @@ struct InterpolateCtx {
                             tempF[2] = lerp(old_op.matrix_pos_rot_xyz.pos.z, new_op.matrix_pos_rot_xyz.pos.z);
 
                             tempS[0] =
-                                lerp(old_op.matrix_pos_rot_xyz.orientation.x, new_op.matrix_pos_rot_xyz.orientation.x);
+                                interpolate_angle(old_op.matrix_pos_rot_xyz.orientation.x, new_op.matrix_pos_rot_xyz.orientation.x);
                             tempS[1] =
-                                lerp(old_op.matrix_pos_rot_xyz.orientation.y, new_op.matrix_pos_rot_xyz.orientation.y);
+                                interpolate_angle(old_op.matrix_pos_rot_xyz.orientation.y, new_op.matrix_pos_rot_xyz.orientation.y);
                             tempS[2] =
-                                lerp(old_op.matrix_pos_rot_xyz.orientation.z, new_op.matrix_pos_rot_xyz.orientation.z);
+                                interpolate_angle(old_op.matrix_pos_rot_xyz.orientation.z, new_op.matrix_pos_rot_xyz.orientation.z);
 
                             mtxf_pos_rotation_xyz(*gInterpolationMatrix, tempF, tempS);
                             break;
@@ -527,8 +505,8 @@ struct InterpolateCtx {
                             lerp_vec3f(&tmp_vec3f2, &old_op.set_transform_matrix_data.positionVector,
                                        &new_op.set_transform_matrix_data.positionVector);
 
-                            u16 rotationAngleTemp = lerp_s16(old_op.set_transform_matrix_data.rotationAngle,
-                                       new_op.set_transform_matrix_data.rotationAngle);
+                            u16 rotationAngleTemp = (u16)interpolate_angle((s16)old_op.set_transform_matrix_data.rotationAngle,
+                                       (s16)new_op.set_transform_matrix_data.rotationAngle);
                             f32 scaleFactorTemp = lerp(old_op.set_transform_matrix_data.scaleFactor, new_op.set_transform_matrix_data.scaleFactor);
 
                             set_transform_matrix(*gInterpolationMatrix, tmp_vec3f, tmp_vec3f2, rotationAngleTemp, scaleFactorTemp);
@@ -541,7 +519,7 @@ struct InterpolateCtx {
                             lerp_vec3f(&tmp_vec3f, &old_op.set_matrix_transformation_data.location,
                                        &new_op.set_matrix_transformation_data.location);
 
-                            lerp_vec3s(&tmp_vec3s, *(Vec3s*)&old_op.set_matrix_transformation_data.rotation,
+                            interpolate_vec3s(&tmp_vec3s, *(Vec3s*)&old_op.set_matrix_transformation_data.rotation,
                                                    *(Vec3s*)&new_op.set_matrix_transformation_data.rotation);
 
                             f32 scaleFactorTemp = lerp(old_op.set_matrix_transformation_data.scale, new_op.set_matrix_transformation_data.scale);
@@ -554,7 +532,7 @@ struct InterpolateCtx {
                             lerp_vec3f(&tmp_vec3f, &old_op.set_translate_rotate_data.location,
                                        &new_op.set_translate_rotate_data.location);
 
-                            lerp_vec3s(&tmp_vec3s, old_op.set_translate_rotate_data.rotation,
+                            interpolate_vec3s(&tmp_vec3s, old_op.set_translate_rotate_data.rotation,
                                                    new_op.set_translate_rotate_data.rotation);
 
                             mtxf_translate_rotate(*gInterpolationMatrix, tmp_vec3f, tmp_vec3s);
@@ -574,7 +552,8 @@ struct InterpolateCtx {
                             tmp32[0] = lerp_s32(old_op.matrix_pos_rot_scale_xy.x, new_op.matrix_pos_rot_scale_xy.x);
                             tmp32[1] = lerp_s32(old_op.matrix_pos_rot_scale_xy.y, new_op.matrix_pos_rot_scale_xy.y);
 
-                            tmp_vec3s[0] = lerp_s16(old_op.matrix_pos_rot_scale_xy.angle, new_op.matrix_pos_rot_scale_xy.angle);
+                            tmp_vec3s[0] = interpolate_angle((s16)old_op.matrix_pos_rot_scale_xy.angle,
+                                                           (s16)new_op.matrix_pos_rot_scale_xy.angle);
 
                             tmp_vec3f[0] = lerp(old_op.matrix_pos_rot_scale_xy.scale, new_op.matrix_pos_rot_scale_xy.scale);
 
@@ -583,7 +562,7 @@ struct InterpolateCtx {
                         }
                         case Op::SetApplyMatrixTransformations: {
                             lerp_vec3f(&tmp_vec3f, (Vec3f*)&old_op.matrix_applytransformations.pos, (Vec3f*)&new_op.matrix_applytransformations.pos);
-                            lerp_vec3s(&tmp_vec3s, (int16_t*)&old_op.matrix_applytransformations.rot, (int16_t*)&new_op.matrix_applytransformations.rot);
+                            interpolate_vec3s(&tmp_vec3s, (int16_t*)&old_op.matrix_applytransformations.rot, (int16_t*)&new_op.matrix_applytransformations.rot);
                             lerp_vec3f(&tmp_vec3f2, (Vec3f*)&old_op.matrix_applytransformations.scale, (Vec3f*)&new_op.matrix_applytransformations.scale);
 
                             ApplyMatrixTransformations(*gInterpolationMatrix, *(FVector*)&tmp_vec3f, *(IRotator*)&tmp_vec3s, *(FVector*)&tmp_vec3f2);

@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.20)
+project(vr_refresh_tests LANGUAGES CXX)
+enable_testing()
+add_executable(binary_angle_test binary_angle_test.cpp)
+target_compile_features(binary_angle_test PRIVATE cxx_std_17)
+add_test(NAME binary_angle COMMAND binary_angle_test)

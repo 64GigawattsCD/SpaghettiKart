@@ -1,3 +1,11 @@
+## VR Refresh (2026-10-13)
+
+- Active branch: `codex/vr-refresh-oct13` in `E:\SpaghettiKart-VR-refresh`.
+- Follow-up details and donor revisions: `docs/vr-refresh-2026-10-13.md`.
+- User preference: all background game tests must be muted. Use temporary test settings with
+  `gGameMasterVolume = 0.0` (plus music/SFX/environment at zero); leave normal play settings intact.
+- `tests/vr_refresh/smoke.ps1` runs muted desktop startup checks in isolated runtime directories.
+
 ## VR Refresh (2026-09-30)
 
 See `docs/vr-upstream-refresh.md` for the refreshed upstream/VR sources, camera history, runtime location,
