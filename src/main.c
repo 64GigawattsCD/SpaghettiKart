@@ -40,6 +40,7 @@
 #include "port/Game.h"
 #include "port/Engine.h"
 #include "engine/Matrix.h"
+#include "vr/openxr_runtime.h"
 
 // Declarations (not in this file)
 void func_80091B78(void);
@@ -1181,7 +1182,9 @@ void thread5_iteration(void) {
     read_controllers();
     FB_CreateFramebuffers();
     clear_framebuffer(0); // Clear the framebuffer
+    VR_BeginFrame();
     game_state_handler();
+    VR_RenderFrame();
 
     // call_render_hook();
 

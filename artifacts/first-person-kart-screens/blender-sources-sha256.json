@@ -1,0 +1,27 @@
+[
+  {
+    "path": "artifacts/first-person-kart-screens/meshy_kart_cleaned.blend",
+    "bytes": 37759808,
+    "sha256": "2e0746743c4b2562f0ae6193a4d95e34a18933366fab01d369acbfc95733c169"
+  },
+  {
+    "path": "artifacts/first-person-kart-screens/meshy_kart_cleaned.blend1",
+    "bytes": 38361580,
+    "sha256": "f709decc717a3baf987c8627c7546c9a001b19c9fd4093db3beb703462240766"
+  },
+  {
+    "path": "artifacts/first-person-kart-screens/meshy_kart_retopo_source_before_red_frame_decimate.blend",
+    "bytes": 500881439,
+    "sha256": "cba29b0eb133e21ae6358d3f5a9d60172393feae2b719afaf8983db6dc731bf8"
+  },
+  {
+    "path": "artifacts/first-person-kart-screens/meshy_kart_retopo_source.blend",
+    "bytes": 61170293,
+    "sha256": "86bd0d01ee1fd40f4e79892927bbe2706636013a9ac495e7584d7dd86a208b34"
+  },
+  {
+    "path": "artifacts/first-person-kart-screens/meshy_kart_retopo_source.blend1",
+    "bytes": 61170293,
+    "sha256": "5d69e88e2d175363767c4a9c9632158cddabc871991c05bfe15c0e9020a18709"
+  }
+]

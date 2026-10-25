@@ -1,0 +1,7 @@
+Fast64: registered
+Object: Mesh0 type=MESH
+  verts=16311 edges=37999 polys=21998 materials=1
+  dimensions=(9.3388, 5.7113, 4.0)
+  location=(0.0, 0.0, 0.0)
+  rotation=(0.0, 0.0, 0.0)
+  material=Material_0.004 use_nodes=True

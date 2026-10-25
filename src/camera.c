@@ -104,6 +104,14 @@ s32 CM_IsFirstPersonViewEnabled(s32 playerIndex) {
     return sFirstPersonViewEnabled[playerIndex] != 0;
 }
 
+void CM_EnableFirstPersonView(s32 playerIndex) {
+    if ((playerIndex < 0) || (playerIndex >= NUM_PLAYERS)) {
+        return;
+    }
+
+    sFirstPersonViewEnabled[playerIndex] = 1;
+}
+
 void CM_DisableFirstPersonView(s32 playerIndex) {
     if ((playerIndex < 0) || (playerIndex >= NUM_PLAYERS)) {
         return;

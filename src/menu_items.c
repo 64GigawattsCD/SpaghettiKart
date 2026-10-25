@@ -5252,6 +5252,13 @@ void func_8009CE64(s32 arg0) {
                     gMenuSelection -= 1;
                     break;
                 case 2:
+                    if ((CVarGetInteger("gArcadeKart.VR.MenuQuadActive", 0) != 0) &&
+                        (CVarGetInteger("gArcadeKart.VR.DisableMenuPreview", 1) != 0)) {
+                        gMenuFadeType = 0;
+                        gFadeModeSelection = 0;
+                        gMenuSelection = START_MENU;
+                        break;
+                    }
                     gDemoMode = 1;
                     gDemoUseController = 1;
                     gGamestateNext = 4;

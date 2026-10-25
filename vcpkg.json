@@ -25,6 +25,7 @@
     "sdl2-net",
     "glew",
     "glfw3",
+    "openxr-loader",
     "nlohmann-json",
     "tinyxml2",
     "spdlog",

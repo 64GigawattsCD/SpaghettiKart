@@ -1,3 +1,24 @@
+## Original Draft Publication Checkpoint (2026-10-25)
+
+- User requested all accumulated work be pushed. This branch preserves the
+  original OpenXR draft, matching libultraship changes, exporter, screenshots
+  and Blender authoring checkpoints (lossless split 7z), without merging them back into
+  the current integration in `E:\SpaghettiKart-VR-refresh`.
+- Current phone integration is on `codex/vr-refresh-oct13`; user confirmed
+  "All working" after the latest touch-control changes. This older VR draft
+  has not been newly tested. No gameplay tests this publication pass.
+- No paid external asset calls. Account credit snapshot: 9736.194195; weekly
+  usage 11%, account-wide rather than per-task billing.
+- GitHub does not accept new LFS objects in this public fork. Blender files
+  are archived losslessly with 48 MiB volumes; the original local files stay
+  untouched. See the asset folder's README and source SHA256 manifest.
+
+## VR Refresh (2026-09-30)
+
+Current integration is in `E:\SpaghettiKart-VR-refresh` on `codex/vr-upstream-refresh`.
+Its `docs/vr-upstream-refresh.md` records the upstream refresh, RaYRoD/LoizouS OpenXR source,
+camera history and pending headset checks. This checkout's original WIP remains here.
+
 ## Screenshot Capture
 
 - For fullscreen SpaghettiKart captures, call `SetProcessDPIAware()` before reading screen or window bounds.
@@ -82,3 +103,9 @@
 - Drift/turbo tire sparkles now use `ArcadeKartDriftTireSparkEmitter`, two local-space rear-tire emitters per racer. They key off the same drift evidence as the word effect (`DRIFTING_EFFECT`, positive `driftDuration`, or positive `driftState`). The visible effect has a tire-local zap core from split `lightning_zap_0/1` half-cards plus a copied mushroom/exhaust spark layer with extra outward/up/back motion. Zap flip animation uses private flipped UV quads plus swapped split textures, never the old mirrored stock display list. The zap halves share the same stage tint: yellow for slide, orange for drift, rainbow for turbo drift. Spark-copy velocity is stored per particle but only applied while drawing the copied spark layer, so the zap stays tire-local. Drift tire sparkles skip the normal world particle pass and draw from `CM_DrawArcadeKartLateParticles` after kart rendering; do not reintroduce the camera-space nudge, because it breaks wheel alignment without fixing draw order. The emitter starts at the reported rear tire location with no extra inward/rearward local offset; keep only per-particle jitter for variety. Its local motion uses half of `player->unk_0C0` on top of body yaw so the sparks follow drift slip without over-rotating around the visible kart sprite. The text word effect remains human/owner scoped in the legacy feedback pool.
 - The drift tire spark draw pass receives both `cameraId` and `screenId`. The zap/spark render position is a blend between the physical rear tire point and a screen-specific visual anchor reconstructed from the same card origin/orientation math used by `render_kart`, including the card tilt term from `unk_0CC` and the roll/yaw fields `unk_048`/`unk_050`. The sprite-local X sign is mirrored from the physical tire side because the rear-facing kart billboard projects player-left/player-right opposite from the tyre array's world-space side. This is intentional camera-facing alignment for the visible sprite tire, not a change to the dust/contact physics origin.
 - New C++ particle draw paths must restore common display state with `D_0D007EB8` after drawing. The drift tire emitter's first pass used the mirrored stock card display list (`D_0D008E70`) for random horizontal flips and did not restore state; that reproduced the wide missing-HUD-band failure where center/right HUD groups disappear from the post-FX HUD framebuffer. Keep tire spark flips off or implement them with a private quad/UV path, never by swapping to the mirrored stock display list in this branch.
+## VR Refresh (2026-10-13)
+
+- Updated integration is in `E:\SpaghettiKart-VR-refresh`, branch `codex/vr-refresh-oct13`.
+- See that checkout's `docs/vr-refresh-2026-10-13.md` for imported fixes and verification.
+- User preference: mute every background game test. Use temporary settings with
+  `gGameMasterVolume = 0.0`, keeping normal play settings intact.

@@ -236,6 +236,7 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/engine/particles
     ${CMAKE_CURRENT_SOURCE_DIR}/src/enhancements
     ${CMAKE_CURRENT_SOURCE_DIR}/src/enhancements/freecam
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/vr
 )
 
 # Collect source files to build the executable
@@ -270,6 +271,8 @@ file(GLOB_RECURSE ALL_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
     "src/port/*.h"
     "src/port/*.c"
     "src/port/*.cpp"
+    "src/vr/*.cpp"
+    "src/vr/*.h"
     "src/mods/*.h"
     "src/mods/*.c"
     "src/mods/*.cpp"
@@ -416,6 +419,26 @@ include_directories(
 add_subdirectory(libultraship ${CMAKE_CURRENT_SOURCE_DIR}/libultraship)
 add_dependencies(${PROJECT_NAME} libultraship)
 target_link_libraries(${PROJECT_NAME} PRIVATE libultraship)
+
+find_package(OpenXR CONFIG QUIET)
+set(SPAGHETTIKART_OPENXR_AVAILABLE OFF)
+if(OpenXR_FOUND AND TARGET OpenXR::openxr_loader)
+  set(SPAGHETTIKART_OPENXR_AVAILABLE ON)
+  target_link_libraries(${PROJECT_NAME} PRIVATE OpenXR::openxr_loader)
+elseif(OpenXR_FOUND AND TARGET openxr_loader)
+  set(SPAGHETTIKART_OPENXR_AVAILABLE ON)
+  target_link_libraries(${PROJECT_NAME} PRIVATE openxr_loader)
+endif()
+
+if(SPAGHETTIKART_OPENXR_AVAILABLE)
+  message(STATUS "OpenXR loader found; VR runtime detection enabled.")
+  target_compile_definitions(${PROJECT_NAME} PRIVATE SPAGHETTIKART_OPENXR=1)
+else()
+  if(OpenXR_FOUND)
+    message(WARNING "OpenXR was found, but no known loader target was exported. Building VR detection stubs.")
+  endif()
+  target_compile_definitions(${PROJECT_NAME} PRIVATE SPAGHETTIKART_OPENXR=0)
+endif()
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
   target_compile_definitions(${PROJECT_NAME} PRIVATE

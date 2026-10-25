@@ -89,6 +89,7 @@ void func_8001EE98(Player*, Camera*, s8);
 void func_8001F394(Player*);
 void func_8001F87C(s32);
 s32 CM_IsFirstPersonViewEnabled(s32 playerIndex);
+void CM_EnableFirstPersonView(s32 playerIndex);
 void CM_DisableFirstPersonView(s32 playerIndex);
 void CM_ResetFirstPersonViews(void);
 
