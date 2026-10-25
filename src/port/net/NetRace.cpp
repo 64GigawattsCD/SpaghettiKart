@@ -1,4 +1,5 @@
 #include "NetRace.h"
+#include "game_options.h"
 #include "Session.h"
 #include <algorithm>
 #include <cmath>
@@ -124,6 +125,37 @@ extern "C" int net_running(void) { return session.phase == KartNet::Phase::Racin
 extern "C" int net_gear(int player) { return gears[std::clamp(player, 0, 1)]; }
 extern "C" float net_rpm(int player) { return rpms[std::clamp(player, 0, 1)]; }
 
+extern "C" void net_menu_state(NetMenuState* state) {
+    if (!state) return;
+    *state = {};
+    state->active = session.Active(); state->inRace = raceActive;
+    state->canStart = session.phase == KartNet::Phase::Lobby && session.IsHost() && session.HasPeer();
+    state->character = character; state->port = port;
+    std::snprintf(state->address, sizeof(state->address), "%s", address);
+    if (!session.error.empty()) std::snprintf(state->status, sizeof(state->status), "%s", session.error.c_str());
+    else std::snprintf(state->status, sizeof(state->status), "%s  %u MS", KartNet::PhaseName(session.phase), session.Rtt());
+}
+
+extern "C" void net_menu_adjust(int field, int direction) {
+    if (session.Active() || gGamestate == RACING) return;
+    const int step = direction ? std::clamp(direction, -10, 10) : 1;
+    if (field == 0) { character = (character + step + 8) % 8; CVarSetInteger("gNet.Character", character); }
+    else if (field == 1) { port = std::clamp(port + step, 1, 65535); CVarSetInteger("gNet.Port", port); }
+    else if (field >= 2 && field <= 5) {
+        int octets[4]{};
+        std::sscanf(address, "%d.%d.%d.%d", &octets[0], &octets[1], &octets[2], &octets[3]);
+        octets[field - 2] = (std::clamp(octets[field - 2], 0, 255) + step + 256) % 256;
+        std::snprintf(address, sizeof(address), "%d.%d.%d.%d", octets[0], octets[1], octets[2], octets[3]);
+        CVarSetString("gNet.Address", address);
+    }
+}
+
+extern "C" void net_menu_command(int action) {
+    if ((action == 1 || action == 2) && !session.Active() && gGamestate != RACING) command = action;
+    else if (action == 3 && session.phase == KartNet::Phase::Lobby && session.IsHost() && session.HasPeer()) command = action;
+    else if (action == 4) command = action;
+}
+
 extern "C" void net_read_inputs(void) {
     if (!initialized) {
         initialized = true;
@@ -156,10 +188,15 @@ extern "C" void net_read_inputs(void) {
     if (!raceActive) return;
     // Keep camera/look controls local; only driving intent is sent to the authority.
     auto& pad = gControllerPads[0];
+    game_options_net_input(pad.button, pad.stick_x, pad.stick_y);
     KartNet::Input input; input.sequence = ++sequence; input.buttons = pad.button & 0xc0d0;
     input.x = int8_t(std::clamp(int(pad.stick_x), -80, 80)); input.y = int8_t(std::clamp(int(pad.stick_y), -80, 80));
     input.throttle = uint8_t(std::clamp(pad.button_value[15], 0.0f, 1.0f)*255);
     input.brake = uint8_t(std::clamp(pad.button_value[14], 0.0f, 1.0f)*255);
+    if (game_options_is_live_network()) {
+        input.buttons = 0; input.x = input.y = 0; input.throttle = input.brake = 0;
+        pad = {};
+    }
     session.Submit(input);
     pad.button &= ~(uint32_t(START_BUTTON) | Z_TRIG);
     for (int slot = 1; slot < 4; ++slot) gControllerPads[slot] = {};

@@ -7,7 +7,6 @@
 #include "Properties.h"
 #include "TrackProperties.h"
 #include "ContentBrowser.h"
-#include "LanRaceWindow.h"
 
 #include <spdlog/spdlog.h>
 #include <imgui.h>
@@ -47,9 +46,9 @@ void SetupGuiElements() {
     // mGameMenuBar = std::make_shared<GameMenuBar>("gOpenMenuBar", CVarGetInteger("gOpenMenuBar", 0));
     // gui->SetMenuBar(mGameMenuBar);
 
-    mPortMenu = std::make_shared<PortMenu>("gOpenMenu", "Port Menu");
+    CVarSetInteger("gOpenMenu", 0);
+    mPortMenu = std::make_shared<PortMenu>("gOpenMenu", "Developer Settings");
     gui->SetMenu(mPortMenu);
-    gui->AddGuiWindow(std::make_shared<LanRaceWindow>("gNet.Window", "LAN Race"));
 
     mStatsWindow = gui->GetGuiWindow("Stats");
     if (mStatsWindow == nullptr) {
@@ -66,6 +65,7 @@ void SetupGuiElements() {
         SPDLOG_ERROR("Could not find input editor window");
         return;
     }
+    mInputEditorWindow->Hide();
 
     mGfxDebuggerWindow = gui->GetGuiWindow("GfxDebuggerWindow");
     if (mGfxDebuggerWindow == nullptr) {

@@ -6,8 +6,9 @@ Updated: 2026-10-25. Living summary; replace stale facts rather than accumulatin
 - Active work: `codex/vr-refresh-oct13` in `E:\SpaghettiKart-VR-refresh`.
 - Android/UI, cockpit, LAN and renderer work was pushed to the user forks on
   2026-10-25. Verify live status; this sentence is not a cleanliness assertion.
-- User said "All working" after the latest phone radial-control changes.
-- Current request: lean project context/tooling. No gameplay behavior changed.
+- User said "All working" after the phone radial controls, before the menu pass.
+- Current pass: shared native Options/pause pages replace normal port overlays;
+  Windows/Android compilation and offline checks completed, user playtest pending.
 
 ## Keep These Behaviors
 - Phone: controls inward, HUD outward. Lap times top-right; RPM/gear bottom-right;
@@ -24,6 +25,9 @@ Updated: 2026-10-25. Living summary; replace stale facts rather than accumulatin
 - Character-tinted authored cockpit is for first person/VR; chase uses sprites.
   Heading bugs concern view versus travel direction, not model orientation.
 - Android audio uses queue-driven refill plus saturated mixing; desktop pacing stays.
+- Native Options reuses PortMenu definitions; bindings are embedded, LAN is native.
+  Live LAN menu input is local and driving-neutral; it does not pause the server.
+  Details and remaining runtime checks: `docs/ui-unification-audit-2026-10-25.md`.
 
 ## Verified Versus Pending
 - Prior muted phone/PC LAN checks passed movement, ownership and convergence.

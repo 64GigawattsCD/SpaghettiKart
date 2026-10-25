@@ -99,6 +99,26 @@ class MenuSession:
     def click(self, name, context, target_id, hold=2):
         return self.plan(name, click_steps(self.point(context, target_id), hold))
 
+    def options_page(self, page):
+        return self.wait(lambda r: r['state']['menu'].get('options', {}).get('open')
+                         and r['state']['menu']['options']['page'] == page
+                         and not r['state']['menu']['fading'])['state']['menu']['options']
+
+    def option_click(self, name, page, label, direction=0):
+        for _ in range(40):
+            options = self.options_page(page)
+            row = next((r for r in options['rows'] if r['label'] == label), None)
+            require(row and row['enabled'], {'page': page, 'label': label, 'options': options})
+            if row['visible']:
+                return self.click(name, options['context'], row['id'] + (1 if direction < 0 else 2 if direction > 0 else 0))
+            first = next(r['index'] for r in options['rows'] if r['visible'])
+            self.click(name+'-page', options['context'], 1002 if row['index'] < first else 1003)
+        raise AssertionError('Option did not become visible: '+label)
+
+    def options_back(self, page):
+        options = self.options_page(page)
+        return self.click('options-back', options['context'], 1000)
+
     def checkpoint(self, name):
         report = self.plan(name, [{'frames': 4, 'capture': name}])
         require(len(report['captures']) == 1, report)
@@ -200,13 +220,9 @@ class MenuSession:
         require(report['state']['character'] == 1 and report['state']['automatic'], report)
         self.checkpoint('race')
         self.plan('pause-input', [{'frames': 1, 'buttons': START_BUTTON}, {'frames': 8}])
-        report = self.wait(lambda r: r['state']['menu']['paused'] == 1
-                           and any(t['id'] == 0x1f for t in r['state']['menu']['targets']))
+        self.options_page('PAUSED')
         self.checkpoint('pause')
-        # GP's native CONTINUE row is 0x1f; its context includes live pause state.
-        resume = [t for t in report['state']['menu']['targets'] if t['id'] == 0x1f]
-        require(len(resume) == 1, report)
-        self.click('continue', resume[0]['context'], 0x1f)
+        self.option_click('continue', 'PAUSED', 'RESUME RACE')
         self.wait(lambda r: r['state']['gamestate'] == RACING and r['state']['menu']['paused'] == 0)
         self.checkpoint('resume')
         report = self.plan('drive-after-resume', [{'frames': 90, 'buttons': A_BUTTON}, {'frames': 4}])

@@ -47,6 +47,7 @@ IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARA
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include "game_options.h"
 
 extern "C" {
 #include "defines.h"
@@ -67,6 +68,7 @@ namespace Ship {
         // Use the actual rendered image rectangle, including docking and letterboxing.
         ImGuiWindow* game = ImGui::GetCurrentWindow();
         if (vr_is_active() || size.x <= 0 || size.y <= 0) return;
+        GameUI::DrawOptionsBindings(pos.x, pos.y, size.x, size.y);
         const bool blocked = GetMenuOrMenubarVisible() || is_screen_being_faded();
         const bool active = menu_pointer_count() > 0 && !blocked;
         auto wnd = Context::GetRawInstance()->GetWindow();
@@ -78,6 +80,8 @@ namespace Ship {
             menu_pointer_cancel(); return;
         }
         ImGuiIO& io = ImGui::GetIO();
+        if (game_options_is_open() && !GameUI::OptionsBindingsOpen() && io.MouseWheel != 0)
+            game_options_scroll(io.MouseWheel > 0 ? -1 : 1);
         const ImVec2 pointer = testPointer ? ImVec2(pos.x+testX*size.x,pos.y+testY*size.y) : io.MousePos;
         const bool down = testPointer ? testDown != 0 : ImGui::IsMouseDown(0);
         const float scale = size.y / 240.0f;
@@ -465,23 +469,35 @@ namespace Ship {
 
     ImGui::DockSpace(dockId, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_None | ImGuiDockNodeFlags_NoDockingInCentralNode);
 
-    if (ImGui::IsKeyPressed(TOGGLE_BTN) || ImGui::IsKeyPressed(ImGuiKey_Escape) ||
-        (ImGui::IsKeyPressed(TOGGLE_PAD_BTN) && CVarGetInteger(CVAR_IMGUI_CONTROLLER_NAV, 0))) {
-        if ((ImGui::IsKeyPressed(ImGuiKey_Escape) || ImGui::IsKeyPressed(TOGGLE_PAD_BTN)) && GetMenu()) {
+    const bool f1 = ImGui::IsKeyPressed(TOGGLE_BTN);
+    const bool escape = ImGui::IsKeyPressed(ImGuiKey_Escape);
+    if (f1 || escape) {
+        if (f1 && ImGui::GetIO().KeyCtrl && ImGui::GetIO().KeyShift && CVarGetInteger("gEnableDebugMode", 0) && GetMenu())
             GetMenu()->ToggleVisibility();
-        } else if ((ImGui::IsKeyPressed(TOGGLE_BTN) || ImGui::IsKeyPressed(TOGGLE_PAD_BTN)) && GetMenuBar()) {
-            Gui::GetMenuBar()->ToggleVisibility();
-        }
+        else if (GetMenuOrMenubarVisible() && GetMenu()) GetMenu()->Hide();
+        else if (game_options_is_open() || (escape && (game_options_page()[0] != '\0' ||
+                 (gGamestate != RACING && (gMenuSelection == CHARACTER_SELECT_MENU ||
+                  gMenuSelection == COURSE_SELECT_MENU || gMenuSelection == DATA_MENU ||
+                  gMenuSelection == COURSE_DATA_MENU || gMenuSelection == CONTROLLER_PAK_MENU)))))
+            game_options_request_back();
+        else game_options_request();
         if (wnd->IsFullscreen()) {
             Context::GetRawInstance()->GetWindow()->SetMouseCapture(
                 !(GetMenuOrMenubarVisible() || wnd->ShouldForceCursorVisibility()));
         }
-        if (CVarGetInteger(CVAR_IMGUI_CONTROLLER_NAV, 0) && GetMenuOrMenubarVisible()) {
-            mImGuiIo->ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
-        } else {
-            mImGuiIo->ConfigFlags &= ~ImGuiConfigFlags_NavEnableGamepad;
-        }
     }
+    if (GameUI::OptionsBindingsOpen() || (CVarGetInteger(CVAR_IMGUI_CONTROLLER_NAV, 0) && GetMenuOrMenubarVisible()))
+        mImGuiIo->ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+    else mImGuiIo->ConfigFlags &= ~ImGuiConfigFlags_NavEnableGamepad;
+    static bool nativeMenuWasOpen = false;
+    const bool nativeMenuOpen = game_options_is_open();
+    if (nativeMenuOpen || nativeMenuWasOpen) {
+        const bool cursor = nativeMenuOpen || GetMenuOrMenubarVisible() ||
+                            menu_pointer_count() > 0 || wnd->ShouldForceCursorVisibility();
+        wnd->SetCursorVisibility(cursor);
+        if (wnd->IsFullscreen()) wnd->SetMouseCapture(!cursor);
+    }
+    nativeMenuWasOpen = nativeMenuOpen;
 
 #if __APPLE__
     if ((ImGui::IsKeyDown(ImGuiKey_LeftSuper) || ImGui::IsKeyDown(ImGuiKey_RightSuper)) &&

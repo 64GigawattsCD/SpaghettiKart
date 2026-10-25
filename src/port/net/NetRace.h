@@ -15,6 +15,14 @@ void net_update_display(void);
 void net_after_frame(void);
 int net_gear(int player);
 float net_rpm(int player);
+typedef struct {
+    int active, inRace, canStart, character, port;
+    char address[64];
+    char status[192];
+} NetMenuState;
+void net_menu_state(NetMenuState* state);
+void net_menu_adjust(int field, int direction);
+void net_menu_command(int action);
 #ifdef __cplusplus
 }
 #include <nlohmann/json.hpp>

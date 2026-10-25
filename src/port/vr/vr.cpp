@@ -1727,6 +1727,7 @@ extern "C" void vr_shutdown(void) {
 #else // !_WIN32 - VR is Windows/WGL-only for now; stub out elsewhere.
 
 extern "C" bool vr_is_active(void) { return false; }
+extern "C" bool vr_fp_switch_locked(void) { return false; }
 extern "C" void vr_diag_log(const char* fmt, ...) { (void)fmt; }
 extern "C" int  vr_display_refresh_hz(void) { return 0; }
 extern "C" bool vr_headset_present(void) { return false; }

@@ -95,8 +95,6 @@ void PortMenu::AddSettings() {
     // General Settings
     AddSidebarEntry("Settings", "General", 3);
     WidgetPath path = { "Settings", "General", SECTION_COLUMN_1 };
-    AddWidget(path, "LAN Race", WIDGET_WINDOW_BUTTON)
-        .CVar("gNet.Window").WindowName("LAN Race");
 
 #ifdef __ANDROID__
     static const std::unordered_map<int32_t, const char*> phoneLayouts = {
@@ -954,6 +952,12 @@ void PortMenu::AddRulesets() {
         .PreFunc([](WidgetInfo& info) { info.isHidden = (CVarGetInteger("gFlatViewMode", 0) != 2); })
         .Options(UIWidgets::FloatSliderOptions().Min(0.0f).Max(700.0f).Step(10.0f).DefaultValue(190.0f).Format("%.0f")
                      .Tooltip("How far the diorama camera trails behind the kart. 0 = straight overhead."));
+    AddWidget(path, "Reset Camera Settings", WIDGET_BUTTON)
+        .Callback([](WidgetInfo&) {
+            CVarSetFloat("gFlatFPHeight", 8.0f);
+            CVarSetFloat("gFlatDioramaHeight", 50.0f);
+            CVarSetFloat("gFlatDioramaDist", 190.0f);
+        });
 
     // VR options. The VR layer reads these CVars every frame, so changes apply live. Shown on the
     // desktop window; in VR the desktop ImGui is visible on the monitor (e.g. via Virtual Desktop).
@@ -1051,6 +1055,9 @@ void PortMenu::AddRulesets() {
         .Options(UIWidgets::CheckboxOptions().Tooltip(
             "Hide the lap counter, race timer, minimap, positions and rankings. The item box stays visible "
             "so you can still see your held item."));
+    AddWidget(path, "World Locked HUD", WIDGET_CVAR_CHECKBOX)
+        .CVar("gVRHudWorldLock")
+        .Options(UIWidgets::CheckboxOptions().DefaultValue(true));
     AddWidget(path, "Flip Cam (FP)", WIDGET_CVAR_CHECKBOX)
         .CVar("gVRFPDrama")
         .Options(UIWidgets::CheckboxOptions().DefaultValue(true).Tooltip(
@@ -1081,6 +1088,7 @@ void PortMenu::AddRulesets() {
             CVarSetFloat("gVRMenuSize", 4.2f);
             CVarSetFloat("gVRMenuOpacity", 1.0f);
             CVarSetInteger("gVRHideHud", 0);
+            CVarSetInteger("gVRHudWorldLock", 1);
             CVarSetInteger("gVRFlipCam", 0);
             CVarSetInteger("gVRFPDrama", 1);
             Ship::Context::GetRawInstance()->GetWindow()->GetGui()->SaveConsoleVariablesNextFrame();
@@ -1278,6 +1286,18 @@ void PortMenu::InitElement() {
 
 void PortMenu::UpdateElement() {
     Ship::Menu::UpdateElement();
+}
+
+void PortMenu::VisitOptions(const std::function<void(const std::string&, const std::string&, WidgetInfo&)>& visitor) {
+    for (auto& [reason, info] : disabledMap) info.active = info.evaluation(info);
+    for (const auto& section : menuOrder) {
+        auto& entry = menuEntries.at(section);
+        for (const auto& sidebar : entry.sidebarOrder) {
+            for (auto& column : entry.sidebars.at(sidebar).columnWidgets) {
+                for (auto& widget : column) visitor(section, sidebar, widget);
+            }
+        }
+    }
 }
 
 void PortMenu::Draw() {

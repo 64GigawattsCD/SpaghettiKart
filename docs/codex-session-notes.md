@@ -1,3 +1,28 @@
+## Unified Native Menus (2026-10-25)
+
+- Audited stock Options, native pause/view, PortMenu, Input Editor and LAN UI.
+  Ordinary settings now use one native page tree backed by PortMenu definitions,
+  including callbacks, defaults, platform availability and existing CVar keys.
+  Pause uses that tree and the pausing player's controller; race transitions and
+  stock copy/erase dialogs retain their original state-machine logic.
+- Input Editor is embedded inside the game image. Normal Escape/F1 and touch
+  entries use native settings; the old port window is developer-only. Bindings
+  are unavailable in-headset; VR tuning stays on the native HUD plane. Retained
+  VR menu opacity, world-lock toggle and first-person intro lock. Added the
+  missing lock-query stub for non-Windows linking.
+- LAN's independent window is replaced by native session controls. Live options
+  preserve raw local menu input before neutralizing driving input; authoritative
+  simulation continues. Android hides gameplay controls for native menu ownership.
+- Test telemetry now reports semantic menu pages/rows/values/targets. Updated
+  desktop and phone pause routes and the opt-in desktop Options/Camera runner.
+  Audit and remaining runtime checks: docs/ui-unification-audit-2026-10-25.md.
+- Windows Debug and Android release compiled. Native menu model, pointer, HUD
+  and ENet transport suites passed, plus seven Python menu helper tests. No
+  game or phone session launched; updated game routes remain unrun, per user.
+  ADB had no connected device, so this APK has not been installed on the phone.
+- No paid external asset calls. Account snapshot credits 9736.194195, weekly
+  usage 15%, account-wide rather than per-task billing.
+
 ## Lean Project Context (2026-10-25)
 
 - Startup now uses root `AGENTS.md`, the bounded living `docs/current-state.md`

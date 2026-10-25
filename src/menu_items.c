@@ -11,6 +11,7 @@
 #include "code_800029B0.h"
 #include "menu_items.h"
 #include "vr_pause_menu.h"
+#include "game_options.h"
 #include "menu_pointer.h"
 #include "quit_menu.h"
 #include "race_mods_menu.h"
@@ -8290,8 +8291,7 @@ static void pause_pointer_row(MenuItem* item, s32 row, s32 x, s32 baseline) {
 void render_pause_menu(MenuItem* arg0) {
     if (gIsGamePaused != 0) {
         menu_pointer_clear_targets();
-        // VR: while our VR options overlay is open it REPLACES the stock pause menu - skip the stock render so
-        // its background/options don't show behind ours.
+        // The shared native menu replaces stock pause visuals on desktop, phone and VR.
         if (!vr_pause_menu_is_open()) {
             switch (gModeSelection) {
                 case TIME_TRIALS:
@@ -8307,11 +8307,8 @@ void render_pause_menu(MenuItem* arg0) {
                     render_pause_battle(arg0);
                     break;
             }
-            // The R1 overlay (view modes + race actions) works on flatscreen too now - say so,
-            // or nobody ever finds it without a headset.
-            vr_pause_menu_draw_entry();
         }
-        vr_pause_menu_draw(); // VR: draw our VR options overlay (no-op when closed; replaces the stock menu when open)
+        vr_pause_menu_draw();
     }
 }
 
@@ -9654,6 +9651,7 @@ void handle_menus_with_pri_arg(s32 priSpecial) {
         }
     }
 
+    if (priSpecial != 0 && game_options_is_live_network()) game_options_draw();
     if (priSpecial == 0) {
         if (gMenuSelection == COURSE_SELECT_MENU) {
             track_roulette_draw_hint(); // Z reroll / GP shuffle hint
@@ -9663,6 +9661,7 @@ void handle_menus_with_pri_arg(s32 priSpecial) {
         menu_pointer_draw_navigation();
         quit_menu_draw_confirm();
         race_mods_draw();
+        if (game_options_is_frontend()) game_options_draw();
     }
 }
 
@@ -12311,9 +12310,7 @@ void func_800ADF48(MenuItem* arg0) {
     s32 hit;
 
     if (gIsGamePaused != 0) {
-        // VR: R1 opens our native VR options overlay over the pause menu. While it's up it takes the input,
-        // so skip the stock pause-menu navigation. Restart(2)/Quit(3) selected in it run the SAME transition
-        // the stock pause menu uses (flags + state 0x1F + screen-Y reset + fade), so the race clears properly.
+        // Shared pause navigation retains the stock restart/quit/course/driver/setup transitions.
         s32 vrAct = vr_pause_menu_input();
         if (vrAct >= 2 && vrAct <= 6) {
             // Restart(2)/Quit(3)/Course Select(4)/Driver Select(5)/Race Setup(6): the funcs set

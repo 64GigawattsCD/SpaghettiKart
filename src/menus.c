@@ -13,6 +13,7 @@
 
 #include "menus.h"
 #include "menu_pointer.h"
+#include "game_options.h"
 #include "engine/TrackBrowser.h"
 #include "engine/editor/Editor.h"
 #include "main.h"
@@ -323,12 +324,15 @@ static void pointer_nav_button(int id, int x, int width, const char* label) {
 
 void menu_pointer_draw_navigation(void) {
     if (gGamestate == RACING || is_screen_being_faded()) return;
+    if (game_options_is_frontend()) return;
     if (gMenuSelection == START_MENU || gMenuSelection == START_MENU_FROM_QUIT ||
         gMenuSelection == LOGO_INTRO_MENU || gMenuSelection == HARBOUR_MASTERS_MENU) {
         menu_pointer_target(800+gMenuSelection, A_BUTTON, 0, 0, 320, 240);
         return;
     }
     pointer_nav_button(B_BUTTON, 5, 48, "BACK");
+    if (gMenuSelection == MAIN_MENU || gMenuSelection == CHARACTER_SELECT_MENU ||
+        gMenuSelection == COURSE_SELECT_MENU) game_options_draw_entry();
     if (gMenuSelection == CHARACTER_SELECT_MENU || gMenuSelection == PLAYER_SELECT_MENU_FROM_QUIT) {
         int slot = menu_pointer_character_slot();
         if (gPlayerSelectMenuSelection == PLAYER_SELECT_MENU_MAIN && gCharacterGridCharacterLocked[slot] &&
@@ -373,6 +377,8 @@ void update_menus(void) {
     // Pause-menu RACE SETUP return: once a mid-race quit lands back on the main menu, this drives
     // the menu to the OK screen and re-opens the setup overlay (no-op until then / when not armed).
     race_mods_menu_reopen_poll();
+
+    if (gFadeModeSelection == FADE_MODE_NONE && game_options_frontend_input()) return;
 
     if (gFadeModeSelection == FADE_MODE_NONE) {
         if (!is_screen_being_faded()) {
@@ -463,6 +469,7 @@ void options_menu_act(struct Controller* controller, u16 controllerIdx) {
     UNUSED u32 pad;
 
     btnAndStick = kart_input_get_menu_pressed(controller);
+    if (controllerIdx == 0) game_options_legacy_input(&btnAndStick);
     if (controllerIdx == 0 && !is_screen_being_faded()) {
         int hit = menu_pointer_take(500+gSubMenuSelection);
         if (hit >= SUB_MENU_OPTION_MIN && hit <= SUB_MENU_OPTION_MAX &&

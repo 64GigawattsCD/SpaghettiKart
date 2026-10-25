@@ -22,7 +22,7 @@ Do not pass credentials in arguments/output. This helper does not mute games.
 ```
 
 Focused native checks (no game or phone launch): choose only the affected suite.
-Names: `audio`, `hud`, `menu_pointer`, `network`, `vr_refresh`. Network tests use
+Names: `audio`, `hud`, `menu_pointer`, `network`, `vr_refresh`, `game_options`. Network tests use
 local ENet loopback; initial configuration can download the pinned dependency.
 
 ```powershell

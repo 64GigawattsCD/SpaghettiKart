@@ -17,6 +17,7 @@
 #include <fast/backends/gfx_rendering_api.h>
 #include <libultraship.h>
 #include "Engine.h"
+#include "game_options.h"
 extern "C" {
 #include "main.h"
 #include "code_800029B0.h"
@@ -109,6 +110,15 @@ json hudState() {
     return result;
 }
 json menuState() {
+    json optionRows = json::array();
+    for (int i = 0; i < game_options_row_count(); ++i) {
+        GameOptionRowInfo row{};
+        if (game_options_row_info(i, &row)) optionRows.push_back({{"label", row.label}, {"value", row.value},
+            {"index", row.index}, {"id", row.index * 3}, {"enabled", !!row.enabled},
+            {"adjustable", !!row.adjustable}, {"visible", !!row.visible}});
+    }
+    json options = {{"open", !!game_options_is_open()}, {"page", game_options_page()},
+        {"context", game_options_context()}, {"live_network", !!game_options_is_live_network()}, {"rows", optionRows}};
     json targets = json::array();
     const int count = menu_pointer_count();
     for (int i = 0; i < count; ++i) {
@@ -130,7 +140,7 @@ json menuState() {
             {"player_count", gPlayerCount}, {"mode", gModeSelection}, {"cc", gCCSelection},
             {"cup", gCupSelection}, {"course", gCourseIndexInCup}, {"course_id", gCurrentCourseId},
             {"paused", gIsGamePaused}, {"fading", !!is_screen_being_faded()},
-            {"players", players}, {"targets", targets}};
+            {"players", players}, {"targets", targets}, {"sound_mode", gSoundMode}, {"options", options}};
 }
 json state() {
     const auto& p = gPlayers[0];

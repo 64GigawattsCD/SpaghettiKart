@@ -48,6 +48,12 @@ game readback for layout QA, without operating-system screen capture.
 
 ## Controls
 
+Options and pause now use the same native game-menu pages for audio, display,
+camera, HUD, controls and LAN settings. Controller bindings appear within that
+flow. The audit and current runtime-check status are in
+`docs/ui-unification-audit-2026-10-25.md`. Gameplay touch controls hide whenever
+native options are open, including a menu opened during an online race.
+
 Gameplay touch controls appear only during races; native menus accept direct touch
 and mouse input. The left steering control steers. The radial pedal cluster has
 gas at center, jump above, drift right, brake below and item left. Gas begins on

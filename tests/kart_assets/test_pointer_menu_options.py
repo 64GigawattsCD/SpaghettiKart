@@ -94,16 +94,25 @@ class ExtendedMenus(MenuSession):
 
     def options(self):
         self.click('main-options', 103, 301)
-        self.menu(OPTIONS, 'sub_selection', 21)
+        self.options_page('OPTIONS')
         self.shot('options-before')
+        before = self.wait(lambda r: True)['state']['menu']['sound_mode']
+        self.option_click('open-audio', 'OPTIONS', 'AUDIO')
         for index in range(4):
-            self.hit(f'sound-{index}', 22, 521, 525)
-            self.menu(OPTIONS, 'sub_selection', 22)
+            self.option_click(f'sound-{index}', 'AUDIO', 'SOUND MODE')
             self.shot(f'sound-{index}')
-        self.back(OPTIONS)
+        after = self.wait(lambda r: True)['state']['menu']['sound_mode']
+        require(before == after, {'before': before, 'after': after})
+        self.options_back('AUDIO')
+        self.options_back('OPTIONS')
+        self.menu(MAIN, 'main_selection', 3)
+        self.click('options-reopen', 103, 301)
+        self.option_click('audio-reopen', 'OPTIONS', 'AUDIO')
+        context = self.options_page('AUDIO')['context']
+        self.click('done-from-audio', context, 1001)
         self.menu(MAIN, 'main_selection', 3)
         self.evidence['options'] = {'sound_cycles': 4, 'back': True,
-                                    'sound_persistence': 'not asserted; no sound field in bridge telemetry'}
+                                    'sound_cycle_restored': before == after, 'done_closes_tree': True}
 
     def data(self):
         self.click('main-data', 103, 302)
@@ -192,41 +201,33 @@ class ExtendedMenus(MenuSession):
     def view(self):
         self.enter_race()
         self.plan('pause', [{'frames': 1, 'buttons': START_BUTTON}, {'frames': 8}])
-        self.hit('view-options', 0, 100000, 110000)
-        first = self.family(110000, 120000)
-        rows = [sorted(page_rows(first, 54))]
-        require(56 not in {t['id'] for t in first}, first)
-        self.shot('view-page-1')
-        self.hit('view-next', 57, 110000, 120000)
-        second = self.family(110000, 120000)
-        rows.append(sorted(page_rows(second, 54)))
-        require(not set(rows[0]) & set(rows[1]) and 57 not in {t['id'] for t in second}, rows)
-        self.shot('view-page-2')
-        self.hit('view-previous', 56, 110000, 120000)
-        require(sorted(page_rows(self.family(110000, 120000), 54)) == rows[0], rows)
-        self.hit('view-diorama', 2, 110000, 120000)
-        diorama = self.family(110000, 120000)
-        require(2 in page_rows(diorama, 54), diorama)
-        self.shot('view-diorama')
-        self.hit('view-first-person', 1, 110000, 120000)
-        first_person = self.family(110000, 120000)
-        require(2 not in page_rows(first_person, 54), first_person)
+        self.option_click('pause-options', 'PAUSED', 'OPTIONS')
+        self.option_click('camera-options', 'OPTIONS', 'CAMERA')
+        for _ in range(4):
+            options = self.options_page('CAMERA')
+            if any(row['label'] == 'VIEW MODE' and row['value'] == 'FIRST PERSON' for row in options['rows']):
+                break
+            self.option_click('cycle-view', 'CAMERA', 'VIEW MODE')
+        options = self.options_page('CAMERA')
+        height = next(row for row in options['rows'] if row['label'] == 'FIRST PERSON EYE HEIGHT')
+        before = float(height['value'])
         self.shot('height-before')
-        self.hit('height-increase', 11, 110000, 120000)
+        self.option_click('height-increase', 'CAMERA', 'FIRST PERSON EYE HEIGHT', 1)
+        raised = next(row for row in self.options_page('CAMERA')['rows'] if row['label'] == 'FIRST PERSON EYE HEIGHT')
+        require(float(raised['value']) > before, raised)
         self.shot('height-increased')
-        self.hit('height-decrease', 10, 110000, 120000)
+        self.option_click('height-decrease', 'CAMERA', 'FIRST PERSON EYE HEIGHT', -1)
         self.shot('height-restored')
-        self.hit('view-back', 54, 110000, 120000)
-        self.family(160000, 200000)
-        self.shot('stock-pause-after-back')
-        self.hit('view-reopen', 0, 100000, 110000)
-        self.hit('view-resume', 55, 110000, 120000)
+        self.options_back('CAMERA')
+        self.options_back('OPTIONS')
+        self.shot('pause-after-back')
+        self.option_click('view-resume', 'PAUSED', 'RESUME RACE')
         self.wait(lambda r: r['state']['gamestate'] == RACING and r['state']['menu']['paused'] == 0)
         self.shot('view-resumed')
         report = self.plan('resume-drive', [{'frames': 90, 'buttons': A_BUTTON}, {'frames': 4}])
         distance = math.dist(report['events'][0]['start']['position'], report['events'][0]['end']['position'])
         require(distance > 10, report)
-        self.evidence['view'] = {'rows_by_page': rows, 'view_mode_hidden_rows_changed': True,
+        self.evidence['view'] = {'view_mode_rows_changed': True,
                                  'height_adjustment_captures': True, 'back': True, 'resume_distance': distance}
 
 

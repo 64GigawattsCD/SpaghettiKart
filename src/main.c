@@ -16,6 +16,7 @@
 #include "racing/memory.h"
 #include "menus.h"
 #include "menu_pointer.h"
+#include "game_options.h"
 #include <segments.h>
 #include <common_structs.h>
 #include <defines.h>
@@ -1274,6 +1275,7 @@ void thread5_iteration(void) {
     profiler_log_thread5_time(THREAD5_START);
     config_gfx_pool();
     read_controllers();
+    game_options_before_frame();
     menu_pointer_begin();
     FB_CreateFramebuffers();
     clear_framebuffer(0); // Clear the framebuffer

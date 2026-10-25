@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.20)
+project(game_options_tests LANGUAGES CXX)
+enable_testing()
+add_executable(game_options_test game_options_test.cpp)
+target_compile_features(game_options_test PRIVATE cxx_std_17)
+add_test(NAME game_options_navigation_and_values COMMAND game_options_test)
