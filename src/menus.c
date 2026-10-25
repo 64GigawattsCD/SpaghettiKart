@@ -313,7 +313,7 @@ static void pointer_nav_button(int id, int x, int width, const char* label) {
     // Records extend to the bottom edge; their unused middle band holds navigation.
     const int y = gMenuSelection == COURSE_DATA_MENU ? 100 : 220;
     menu_pointer_target(800 + gMenuSelection, id, x, y, width, 19);
-    gDisplayListHead = draw_box_fill(gDisplayListHead, x, y, x+width-1, y+18, 12, 20, 40, 230);
+    gDisplayListHead = draw_box_fill(gDisplayListHead, x, y, x+width-1, y+18, 0, 0, 0, 255);
     if (id == L_JPAD || id == R_JPAD || id == U_JPAD || id == D_JPAD) {
         race_mods_draw_pointer_arrow(x+width/2,y+9,id == L_JPAD ? -1 : id == R_JPAD ? 1 : id == U_JPAD ? -2 : 2);
         return;
@@ -330,8 +330,13 @@ void menu_pointer_draw_navigation(void) {
         menu_pointer_target(800+gMenuSelection, A_BUTTON, 0, 0, 320, 240);
         return;
     }
+    if ((gMenuSelection == MAIN_MENU || gMenuSelection == MAIN_MENU_FROM_QUIT) &&
+        gMainMenuSelection == MAIN_MENU_PLAYER_SELECT) {
+        main_menu_footer_draw();
+        return;
+    }
     pointer_nav_button(B_BUTTON, 5, 48, "BACK");
-    if (gMenuSelection == MAIN_MENU || gMenuSelection == CHARACTER_SELECT_MENU ||
+    if (gMenuSelection == CHARACTER_SELECT_MENU ||
         gMenuSelection == COURSE_SELECT_MENU) game_options_draw_entry();
     if (gMenuSelection == CHARACTER_SELECT_MENU || gMenuSelection == PLAYER_SELECT_MENU_FROM_QUIT) {
         int slot = menu_pointer_character_slot();
@@ -340,19 +345,17 @@ void menu_pointer_draw_navigation(void) {
             const char* labels[] = {"AUTO", "MANUAL"};
             menu_pointer_clear_targets();
             gDisplayListHead = draw_box_wide(gDisplayListHead, 0,0,320,240,0,0,0,135);
-            gDisplayListHead = draw_box_fill(gDisplayListHead, 54,70,266,183,12,20,40,255);
+            gDisplayListHead = draw_box_fill(gDisplayListHead, 54,70,266,183,0,0,0,255);
             set_text_color(TEXT_YELLOW);
             race_mods_text_fit_center(160,94,"TRANSMISSION",.7f,190);
             for (int i=0;i<2;++i) {
                 int x=66+i*97;
                 menu_pointer_target(menu_pointer_character_context(), 100+i, x, 108, 91, 38);
-                gDisplayListHead = draw_box_fill(gDisplayListHead, x,108,x+90,145,0,0,0,255);
-                set_text_color(kart_transmission_get_mode(slot)==(i == 0 ? KART_TRANSMISSION_AUTOMATIC : KART_TRANSMISSION_MANUAL) ? TEXT_YELLOW : TEXT_GREEN);
-                race_mods_text_fit_center(x+45,133,labels[i],.7f,82);
+                race_mods_draw_native_button(x, 108, 91, 38, labels[i],
+                    kart_transmission_get_mode(slot) == (i == 0 ? KART_TRANSMISSION_AUTOMATIC : KART_TRANSMISSION_MANUAL));
             }
             menu_pointer_target(800+gMenuSelection, B_BUTTON, 116,153,88,25);
-            set_text_color(TEXT_BLUE);
-            race_mods_text_fit_center(160,171,"BACK",.6f,78);
+            race_mods_draw_native_button(116, 153, 88, 25, "BACK", 0);
         }
     }
     // Less-frequent record/Controller Pak dialogs retain their original controls,
@@ -1586,10 +1589,12 @@ void main_menu_act(struct Controller* controller, u16 controllerIdx) {
     s32 subMode;
     bool cursorMoved;
     s32 newMode;
+    int pointerHit = -1;
 
     btnAndStick = kart_input_get_menu_pressed(controller);
     if (controllerIdx == 0 && !is_screen_being_faded() && !race_mods_is_open()) {
         int hit = menu_pointer_take(menu_pointer_main_context());
+        pointerHit = hit;
         if (hit >= 0 && hit < 4 && gMainMenuSelection == MAIN_MENU_PLAYER_SELECT) {
             gPlayerCount = hit+1;
             btnAndStick |= A_BUTTON;
@@ -1601,8 +1606,6 @@ void main_menu_act(struct Controller* controller, u16 controllerIdx) {
             gGameModeSubMenuColumn[gPlayerCount-1][gGameModeMenuColumn[gPlayerCount-1]] = hit-200;
             btnAndStick |= A_BUTTON;
         } else if (hit == 300) btnAndStick |= A_BUTTON;
-        else if (hit == 301) btnAndStick |= CONT_L;
-        else if (hit == 302) btnAndStick |= CONT_R;
     }
     if (!gEnableDebugMode && (btnAndStick & START_BUTTON)) {
         btnAndStick |= A_BUTTON;
@@ -1615,9 +1618,7 @@ void main_menu_act(struct Controller* controller, u16 controllerIdx) {
                 break;
             }
             case MAIN_MENU_PLAYER_SELECT: {
-                // Port addition: Z QUIT confirm. Z opens the A YES / B NO dialog; while it's up (or a quit
-                // is pending) it owns every press, so the stock chain below must not see this frame's input.
-                if (quit_menu_input(btnAndStick)) {
+                if (quit_menu_input(btnAndStick) || main_menu_footer_input(&btnAndStick, pointerHit)) {
                     newMode = gGameModePlayerSelection[gPlayerCount - 1][gGameModeMenuColumn[gPlayerCount - 1]];
                     break;
                 }
@@ -1657,17 +1658,6 @@ void main_menu_act(struct Controller* controller, u16 controllerIdx) {
                     gMainMenuSelection = MAIN_MENU_MODE_SELECT;
                     reset_cycle_flash_menu();
                     play_sound2(SOUND_MENU_SELECT);
-                    newMode = gGameModePlayerSelection[gPlayerCount - 1][gGameModeMenuColumn[gPlayerCount - 1]];
-                } else if (btnAndStick & CONT_L) {
-                    // L800B2C58
-                    gMainMenuSelection = MAIN_MENU_OPTION;
-                    func_8009E280();
-                    play_sound2(SOUND_MENU_OPTION);
-                    newMode = gGameModePlayerSelection[gPlayerCount - 1][gGameModeMenuColumn[gPlayerCount - 1]];
-                } else if (btnAndStick & CONT_R) {
-                    gMainMenuSelection = MAIN_MENU_DATA;
-                    func_8009E258();
-                    play_sound2(SOUND_MENU_DATA);
                     newMode = gGameModePlayerSelection[gPlayerCount - 1][gGameModeMenuColumn[gPlayerCount - 1]];
                 } else {
                     newMode = gGameModePlayerSelection[gPlayerCount - 1][gGameModeMenuColumn[gPlayerCount - 1]];

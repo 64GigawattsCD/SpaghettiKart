@@ -1017,6 +1017,25 @@ void race_mods_draw_pointer_arrow(s32 x, s32 y, s32 direction) {
     }
 }
 
+void race_mods_draw_native_backdrop(int inRace, int alpha) {
+    if (!inRace) {
+        gDPSetGrayscaleColor(gDisplayListHead++, gBackgroundColor[0].red, gBackgroundColor[0].green,
+                            gBackgroundColor[0].blue, gBackgroundColor[0].alpha);
+        gSPGrayscale(gDisplayListHead++, true);
+        gDisplayListHead = func_8009BC9C(gDisplayListHead, gMenuTexturesBackground[has_unlocked_extra_mode()],
+                                       0, 0, 3, 0);
+        gSPGrayscale(gDisplayListHead++, false);
+    }
+    gDisplayListHead = draw_box_wide(gDisplayListHead, 0, 0, 320, 240, 0, 0, 0, alpha);
+}
+
+void race_mods_draw_native_button(s32 x, s32 y, s32 width, s32 height, const char* label, int selected) {
+    if (selected) gDisplayListHead = draw_flash_select_case_slow(gDisplayListHead, x, y, x + width - 1, y + height - 1);
+    else gDisplayListHead = draw_box_fill(gDisplayListHead, x, y, x + width - 1, y + height - 1, 0, 0, 0, 255);
+    set_text_color_rainbow_if_selected(selected, 1, TEXT_YELLOW);
+    race_mods_text_fit_center(x + width / 2, y + height / 2 + 5, label, .62f, width - 10);
+}
+
 // Six touch-sized rows per page; controller selection determines the visible page.
 void race_mods_draw(void) {
     s32 rowCount = sBattle ? BROW_COUNT : ROW_COUNT;
@@ -1029,9 +1048,9 @@ void race_mods_draw(void) {
     }
     menu_pointer_clear_targets();
     if (end > rowCount) end = rowCount;
-    gDisplayListHead = draw_box_wide(gDisplayListHead, 16, 2, 304, 238, 0, 0, 40, 235);
+    race_mods_draw_native_backdrop(0, 100);
     set_text_color(TEXT_YELLOW);
-    race_mods_text_fit_center(160, 30, sBattle ? "BATTLE SETUP" : "RACE SETUP", 0.7f, 270.0f);
+    race_mods_text_fit_center(160, 30, sBattle ? "BATTLE SETUP" : "RACE SETUP", 0.85f, 270.0f);
 
     for (i = start; i < end; i++) {
         s32 y = 54 + (i - start) * SETUP_ROW_PITCH;
@@ -1042,8 +1061,8 @@ void race_mods_draw(void) {
         }
         if (i == sSel) {
             gDisplayListHead = draw_flash_select_case_slow(gDisplayListHead, 26, y - 16, 294, y + 7);
-        }
-        set_text_color(i == sSel ? TEXT_GREEN : TEXT_BLUE);
+        } else gDisplayListHead = draw_box_fill(gDisplayListHead, 26, y - 16, 294, y + 7, 0, 0, 0, 255);
+        set_text_color_rainbow_if_selected(i, sSel, TEXT_YELLOW);
         race_mods_text_fit(32, y, label, 0.6f, i == (sBattle ? BROW_B_START : ROW_START) ? 256.0f : 118.0f);
 
         if (setup_row_adjustable(i)) {
@@ -1071,9 +1090,8 @@ void race_mods_draw(void) {
 
     set_text_color(TEXT_YELLOW);
     race_mods_text_fit_center(160, 198, sBattle ? battle_row_help() : row_help(), 0.48f, 272.0f);
-    set_text_color(TEXT_BLUE);
-    race_mods_text_fit_center(66, 230, "BACK", 0.6f, 72.0f);
-    race_mods_text_fit_center(248, 230, "START", 0.6f, 84.0f);
+    race_mods_draw_native_button(26, 212, 80, 26, "BACK", 0);
+    race_mods_draw_native_button(202, 212, 92, 26, "START", 0);
     menu_pointer_target(context, ROW_COUNT * 3, 26, 212, 80, 26);
     menu_pointer_target(context, ROW_COUNT * 3 + 1, 202, 212, 92, 26);
     if (start > 0) {

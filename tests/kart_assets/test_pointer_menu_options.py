@@ -133,7 +133,7 @@ class ExtendedMenus(MenuSession):
                                  'navigation_clears_lap_times': True}
 
     def quit_no(self):
-        self.hit('quit-open', 0, 150000, 160000)
+        self.click('quit-open', 103, 304)
         targets = self.family(150000, 160000)
         require({t['id'] for t in targets} == {1, 2}, targets)
         all_targets = self.wait(lambda r: True)['state']['menu']['targets']

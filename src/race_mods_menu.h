@@ -38,6 +38,9 @@ void race_mods_text_fit(s32 x, s32 y, const char* text, f32 scale, f32 maxWidth)
 void race_mods_text_fit_center(s32 cx, s32 y, const char* text, f32 scale, f32 maxWidth);
 // Small native arrow: -1/+1 horizontal, -2/+2 vertical; x/y is its center.
 void race_mods_draw_pointer_arrow(s32 x, s32 y, s32 direction);
+// Shared stock background, black tiles and animated game-font selections.
+void race_mods_draw_native_backdrop(int inRace, int alpha);
+void race_mods_draw_native_button(s32 x, s32 y, s32 width, s32 height, const char* label, int selected);
 // In-race status line (infected mode: the flashing INFECTED warning + the winner banner).
 // Called from the HUD pass in code_80057C60.c.
 void race_mods_draw_status_hud(void);

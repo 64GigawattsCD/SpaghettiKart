@@ -1,8 +1,4 @@
-// Native MK64-style QUIT button on the main menu's bottom row. Visuals clone the L OPTION / R DATA boxes
-// (same row, same 64-px pitch, same idle box / flashing-select / fold-away animation); the label uses the
-// game glyph font in the button-hint convention ("Z QUIT" like "L OPTION"). Quitting plays the native menu
-// click, fades the music, runs the stock colored menu wipe, then exits through GameEngine_RequestQuit -
-// byte-identical teardown to clicking the window X.
+// Native footer: directional focus and pointer activation share the same actions.
 #include <libultraship.h>
 #include <libultra/types.h>
 #include <macros.h>
@@ -15,6 +11,8 @@
 #include "quit_menu.h"
 #include "menu_pointer.h"
 #include "race_mods_menu.h"
+#include "game_options.h"
+#include "menu_footer_model.h"
 
 extern Gfx* gDisplayListHead;
 
@@ -22,16 +20,12 @@ extern Gfx* gDisplayListHead;
 // while (WindowIsRunning()) exits -> CustomEngineDestroy() + GameEngine::Destroy().
 extern void GameEngine_RequestQuit(void);
 
-// Bottom row, continuing the stock 64-px pitch: OPTION x=0x15, DATA x=0x55, QUIT x=0x95 (OK sits at 0x10A).
-#define QUIT_X 0x95
-#define QUIT_Y 0xC8
-#define QUIT_W 58 // the OPTION/DATA box texture metrics (58x19) - see seg2_textureMenuLOption
-#define QUIT_H 19
-
 // Frames until the actual quit. The native wipe started in quit_menu_trigger runs 20 frames, so the app
 // exits mid-wipe (flash + click + fade-out are all visible) and the wipe's completion dispatch never runs.
 static s32 sQuitCountdown = 0;
-static s32 sConfirm = 0; // A YES / B NO dialog up
+static s32 sConfirm = 0;
+static s32 sConfirmYes = 0;
+static int sFooterSelection = -1;
 
 static s32 quit_pointer_context(void) {
     return 150000 + gMainMenuSelection * 2 + sConfirm;
@@ -43,27 +37,72 @@ int quit_menu_input(unsigned short btnAndStick) {
     }
     s32 hit = menu_pointer_take(quit_pointer_context());
     if (sConfirm) {
-        if (hit == 1) btnAndStick = A_BUTTON;
-        if (hit == 2) btnAndStick = B_BUTTON;
-    } else if (hit == 0) {
-        btnAndStick = CONT_G;
-    }
-    if (sConfirm) {
+        if (hit == 1 || hit == 2) {
+            sConfirmYes = hit == 1;
+            btnAndStick = A_BUTTON;
+        }
+        if (btnAndStick & (L_JPAD | R_JPAD)) {
+            sConfirmYes = !sConfirmYes;
+            reset_cycle_flash_menu();
+            play_sound2(SOUND_MENU_CURSOR_MOVE);
+        }
         if (btnAndStick & A_BUTTON) {
             sConfirm = 0;
-            quit_menu_trigger();
-        } else if (btnAndStick & (B_BUTTON | CONT_G)) {
+            menu_pointer_cancel();
+            if (sConfirmYes) quit_menu_trigger();
+            else play_sound2(SOUND_MENU_GO_BACK);
+        } else if (btnAndStick & B_BUTTON) {
             sConfirm = 0;
+            menu_pointer_cancel();
             play_sound2(SOUND_MENU_GO_BACK);
         }
         return 1; // dialog owns all input while it's up (dpad must not move the selection behind it)
     }
-    if (btnAndStick & CONT_G) {
-        sConfirm = 1;
-        play_sound2(SOUND_MENU_SELECT);
-        return 1;
-    }
     return 0;
+}
+
+int main_menu_footer_focused(void) {
+    return gMainMenuSelection == MAIN_MENU_PLAYER_SELECT && sFooterSelection >= 0;
+}
+
+int main_menu_footer_input(unsigned short* buttons, int pointerId) {
+    unsigned int navigation = 0;
+    int previous = sFooterSelection;
+    if (*buttons & L_JPAD) navigation |= FOOTER_LEFT;
+    if (*buttons & R_JPAD) navigation |= FOOTER_RIGHT;
+    if (*buttons & U_JPAD) navigation |= FOOTER_UP;
+    if (*buttons & D_JPAD) navigation |= FOOTER_DOWN;
+    if (*buttons & B_BUTTON) navigation |= FOOTER_CANCEL;
+    if (*buttons & (A_BUTTON | START_BUTTON)) navigation |= FOOTER_CONFIRM;
+    int action = menu_footer_step(&sFooterSelection, gPlayerCount, navigation, pointerId);
+    if (previous != sFooterSelection) {
+        reset_cycle_flash_menu();
+        play_sound2(SOUND_MENU_CURSOR_MOVE);
+    }
+    switch (action) {
+        case FOOTER_OPTIONS:
+            game_options_request();
+            play_sound2(SOUND_MENU_OPTION);
+            break;
+        case FOOTER_DATA:
+            sFooterSelection = -1;
+            gMainMenuSelection = MAIN_MENU_DATA;
+            func_8009E258();
+            play_sound2(SOUND_MENU_DATA);
+            break;
+        case FOOTER_BACK:
+            sFooterSelection = -1;
+            *buttons = B_BUTTON;
+            return 0;
+        case FOOTER_QUIT:
+            sConfirm = 1;
+            sConfirmYes = 0;
+            menu_pointer_cancel();
+            play_sound2(SOUND_MENU_SELECT);
+            break;
+        case FOOTER_NONE: return 0;
+    }
+    return 1;
 }
 
 void quit_menu_trigger(void) {
@@ -79,33 +118,22 @@ void quit_menu_trigger(void) {
 }
 
 void quit_menu_update(void) {
+    if (gMainMenuSelection != MAIN_MENU_PLAYER_SELECT) sFooterSelection = -1;
     if (sQuitCountdown > 0 && --sQuitCountdown == 0) {
         GameEngine_RequestQuit();
     }
 }
 
-void quit_menu_draw_box(void) {
-    // Mirror the sibling OPTION box's param1 so QUIT folds away in lock-step when the menu advances to
-    // mode select (param1 animates 0 -> 0x20 = collapsed) and expands back with it.
-    MenuItem* opt = find_menu_items(MAIN_MENU_OPTION_GFX);
-    s32 p = (opt != NULL) ? opt->param1 : 0;
-    if (p >= 0x20) {
-        return;
-    }
-    s32 t = (p * 0x3A) / 64; // the stock horizontal collapse amount
-    if (sQuitCountdown > 0 || sConfirm) {
-        gDisplayListHead = draw_flash_select_case_fast(gDisplayListHead, QUIT_X + 1 + t, QUIT_Y,
-                                                       (QUIT_X - t) + QUIT_W - 1, QUIT_Y + QUIT_H - 2);
-    } else {
-        gDisplayListHead = draw_box_fill(gDisplayListHead, QUIT_X + 1 + t, QUIT_Y, (QUIT_X - t) + QUIT_W - 1,
-                                         QUIT_Y + QUIT_H - 2, 1, 1, 1, 0x000000FF);
-    }
-    if (p == 0) { // label only when fully expanded (the texture boxes collapse their art; text can't)
-        set_text_color(TEXT_YELLOW);
-        print_text1_center_mode_1(QUIT_X + QUIT_W / 2, QUIT_Y + QUIT_H - 4, "Z QUIT", 0, 0.6f, 0.6f);
-        if (gMainMenuSelection == MAIN_MENU_PLAYER_SELECT && !sConfirm && !sQuitCountdown && !is_screen_being_faded()) {
-            menu_pointer_target(quit_pointer_context(), 0, QUIT_X, QUIT_Y, QUIT_W, QUIT_H);
-        }
+void main_menu_footer_draw(void) {
+    static const char* labels[] = { "OPTIONS", "DATA", "BACK", "QUIT" };
+    if (gMainMenuSelection != MAIN_MENU_PLAYER_SELECT) return;
+    for (int i = 0; i < 4; ++i) {
+        int x = MENU_FOOTER_X + i * MENU_FOOTER_PITCH;
+        race_mods_draw_native_button(x, MENU_FOOTER_Y, MENU_FOOTER_WIDTH, MENU_FOOTER_HEIGHT,
+                                    labels[i], sFooterSelection == i);
+        if (!sConfirm && !sQuitCountdown && !is_screen_being_faded())
+            menu_pointer_target(menu_pointer_main_context(), MENU_FOOTER_FIRST_ID + i,
+                                x, MENU_FOOTER_Y, MENU_FOOTER_WIDTH, MENU_FOOTER_HEIGHT);
     }
 }
 
@@ -115,12 +143,12 @@ void quit_menu_draw_confirm(void) {
     }
     menu_pointer_clear_targets();
     // Drawn from the tail of the menu-item render pass, so the dialog covers the player-select widgets.
-    gDisplayListHead = draw_box_wide(gDisplayListHead, 84, 94, 236, 150, 0, 0, 40, 235);
+    gDisplayListHead = draw_box_wide(gDisplayListHead, 0, 0, 320, 240, 0, 0, 0, 120);
+    gDisplayListHead = draw_box_fill(gDisplayListHead, 72, 86, 248, 156, 0, 0, 0, 255);
     set_text_color(TEXT_YELLOW);
-    print_text1_center_mode_1(160, 118, "QUIT GAME?", 0, 0.8f, 0.8f);
-    set_text_color(TEXT_BLUE);
-    race_mods_text_fit_center(120, 142, "A YES", 0.7f, 66.0f);
-    race_mods_text_fit_center(200, 142, "B NO", 0.7f, 66.0f);
-    menu_pointer_target(quit_pointer_context(), 1, 86, 125, 72, 24);
-    menu_pointer_target(quit_pointer_context(), 2, 162, 125, 72, 24);
+    race_mods_text_fit_center(160, 112, "QUIT GAME?", .8f, 156);
+    race_mods_draw_native_button(86, 125, 72, 26, "YES", sConfirmYes);
+    race_mods_draw_native_button(162, 125, 72, 26, "NO", !sConfirmYes);
+    menu_pointer_target(quit_pointer_context(), 1, 86, 125, 72, 26);
+    menu_pointer_target(quit_pointer_context(), 2, 162, 125, 72, 26);
 }

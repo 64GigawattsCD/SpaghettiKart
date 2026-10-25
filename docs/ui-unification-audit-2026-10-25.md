@@ -99,3 +99,42 @@ cmake --build build/game-options-tests --config Debug
 ctest --test-dir build/game-options-tests -C Debug --output-on-failure
 python -m unittest discover -s tests/kart_assets -p 'test_pointer_menu*.py'
 ```
+
+## Main Footer And Stock Art Follow-Up
+
+User's first PC review identified both the original L OPTION texture and the new
+Options entry. The original OPTION/DATA items are no longer instantiated or drawn.
+The player-count screen has one equally spaced Options / Data / Back / Quit row,
+with 68x28 targets at y=202 inside the 320x240 game image. The separate bottom Back
+and Options overlays are suppressed there. Version/debug labels move above the
+banner on that screen to leave the footer clear.
+
+Down enters the footer beneath the selected player-count tile; left/right cycle
+its four actions; Up or Cancel returns to the player-count tiles. Confirm activates
+the focused action. Touch/mouse release uses the same action path (IDs 301..304 in
+the existing main-menu pointer context). Direct L/R/Z shortcuts are removed from
+this menu only; gameplay bindings and the separate course-random action remain.
+Back uses the original title-screen transition. Options opens the unified tree
+without leaving the current main menu. Data retains its original transition and
+record/save handling. Quit keeps its native wipe and clean engine shutdown, now
+with a directional Yes/No confirmation initially focused on No.
+
+The art pass reuses the existing blue-sky/sunset menu resource, main-menu tint,
+stock glyphs, black tiles, slow flashing selections and rainbow selected text.
+Options and race setup redraw that backdrop instead of opaque navy panels; pause
+keeps gameplay behind a black dim layer and retains VR opacity. Navigation tiles,
+transmission choices, quit confirmation and embedded-binding colours follow the
+same palette. No new raster art or ComfyUI jobs were needed. Paid art credits: 0;
+task-specific model-token billing is not available in this checkout.
+
+Added offline coverage: all four pointer/controller footer actions, directional
+entry/return/wrap, cancellation precedence, player-tile focus transfer and footer
+geometry. The opt-in quit runner now targets the unified footer. Runtime visual
+and input review remains with the user; no autonomous gameplay was launched.
+
+Final checks passed: Windows Debug compilation, Android release compilation
+(including the final spacing edits), the native options/footer model suite,
+native pointer tests, seven Python menu-helper checks, and `git diff --check`.
+No phone installation or visual/gameplay test was attempted in this follow-up.
+Final compile logs: `build/agent-logs/native-menu-spacing-windows-20261025-113926-e186ef03.log`
+and `build/agent-logs/native-menu-spacing-android-20261025-114046-b6733a30.log`.

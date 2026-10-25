@@ -2708,8 +2708,6 @@ void setup_menus(void) {
                 add_menu_item(MENU_ITEM_UI_2P_GAME, 0x0000015E, 0x0000003E, MENU_ITEM_PRIORITY_6);
                 add_menu_item(MENU_ITEM_UI_1P_GAME, 0x0000015E, 0x0000003E, MENU_ITEM_PRIORITY_6);
                 add_menu_item(MENU_ITEM_UI_OK, 0x0000015E, 0x000000C8, MENU_ITEM_PRIORITY_6);
-                add_menu_item(MAIN_MENU_DATA_GFX, 0x0000015E, 0x000000C8, MENU_ITEM_PRIORITY_6);
-                add_menu_item(MAIN_MENU_OPTION_GFX, 0x0000015E, 0x000000C8, MENU_ITEM_PRIORITY_6);
                 if (has_unlocked_extra_mode() != 0) {
                     add_menu_item(MAIN_MENU_EXTRA_CC, 0, 0, MENU_ITEM_PRIORITY_6);
                 }
@@ -6336,7 +6334,8 @@ GLOBAL_ASM("asm/non_matchings/menu_items/add_menu_item.s")
 static void draw_debug(void) {
     if (CVarGetInteger("gEnableDebugMode", 0) != 0) {
         set_text_color(TEXT_RED);
-        print_text1_right(0x138, 0xEA, "DEBUG", 0, 0.5f, 0.5f);
+        print_text1_right(0x138, gMainMenuSelection == MAIN_MENU_PLAYER_SELECT ? 12 : 0xEA,
+                          "DEBUG", 0, 0.5f, 0.5f);
     }
 }
 
@@ -6348,7 +6347,8 @@ static void draw_version(void) {
     }
 
     set_text_color(TEXT_GREEN);
-    print_text1_right(column, 0xEA, SPAGHETTI_VERSION, 0, 0.5f, 0.5f);
+    print_text1_right(column, gMainMenuSelection == MAIN_MENU_PLAYER_SELECT ? 12 : 0xEA,
+                      SPAGHETTI_VERSION, 0, 0.5f, 0.5f);
 }
 
 #ifdef NON_MATCHING
@@ -6497,7 +6497,6 @@ void render_menus(MenuItem* arg0) {
                     draw_version();
                     draw_debug();
                 }
-                quit_menu_draw_box(); // port addition: bottom-row QUIT box (GAME_SELECT only exists on MAIN_MENU)
                 break;
             case MENU_ITEM_UI_1P_GAME:
             case MENU_ITEM_UI_2P_GAME:
@@ -6511,30 +6510,6 @@ void render_menus(MenuItem* arg0) {
                 func_800A8564(arg0);
                 gDisplayListHead =
                     func_8009BC9C(gDisplayListHead, D_0200487C, arg0->column, arg0->row, 2, arg0->param1);
-                break;
-            case MAIN_MENU_OPTION_GFX:
-            case MAIN_MENU_DATA_GFX:
-                if (gMainMenuSelection == MAIN_MENU_PLAYER_SELECT && arg0->param1 == 0)
-                    menu_pointer_target(menu_pointer_main_context(),
-                        arg0->type == MAIN_MENU_OPTION_GFX ? 301 : 302, arg0->column, arg0->row, 58, 19);
-                var_a1 = arg0->type - MENU_ITEM_UI_OK;
-                var_v1 = arg0->type - MENU_ITEM_UI_GAME_SELECT;
-                if (arg0->param1 < 0x20) {
-                    temp_t9 = (arg0->param1 * 0x3A) / 64;
-                    if (var_a1 == gMainMenuSelection) {
-                        gDisplayListHead =
-                            draw_flash_select_case_fast(gDisplayListHead, arg0->column + 1 + temp_t9, arg0->row,
-                                                        (arg0->column - temp_t9) + D_800E8254[var_v1]->width - 1,
-                                                        arg0->row + D_800E8254[var_v1]->height - 2);
-                    } else {
-                        gDisplayListHead =
-                            draw_box_fill(gDisplayListHead, arg0->column + 1 + temp_t9, arg0->row,
-                                          (arg0->column - temp_t9) + D_800E8254[var_v1]->width - 1,
-                                          arg0->row + D_800E8254[var_v1]->height - 2, 1, 1, 1, 0x000000FF);
-                    }
-                }
-                gDisplayListHead =
-                    func_8009BC9C(gDisplayListHead, D_800E8254[var_v1], arg0->column, arg0->row, 2, arg0->param1);
                 break;
             case MAIN_MENU_50CC:
             case MAIN_MENU_100CC:
@@ -9696,7 +9671,7 @@ void func_800A8270(s32 index, MenuItem* arg1) {
 
         if ((index + 1) == gPlayerCount) {
             if ((gMainMenuSelection == MAIN_MENU_OPTION) || (gMainMenuSelection == MAIN_MENU_DATA) ||
-                (gMainMenuSelection == MAIN_MENU_PLAYER_SELECT)) {
+                (gMainMenuSelection == MAIN_MENU_PLAYER_SELECT && !main_menu_footer_focused())) {
                 gDisplayListHead = draw_flash_select_case_slow(gDisplayListHead, var_s3, var_s0, var_s4, var_s0 + 53);
             } else {
                 gDisplayListHead =

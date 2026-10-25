@@ -1,4 +1,5 @@
 #include "../../src/port/ui/GameOptionsModel.h"
+#include "../../src/menu_footer_model.h"
 #include <cstdlib>
 #include <iostream>
 #include <limits>
@@ -9,6 +10,34 @@ static void Check(bool passed, const char* message) {
 }
 
 int main() {
+    int footer = -1;
+    Check(menu_footer_step(&footer, 1, 0, -1) == FOOTER_NONE, "Idle player navigation remains native");
+    Check(menu_footer_step(&footer, 1, FOOTER_CONFIRM, -1) == FOOTER_NONE, "Confirm on player tile proceeds");
+    for (int player = 1; player <= 4; ++player) {
+        footer = -1;
+        Check(menu_footer_step(&footer, player, FOOTER_DOWN, -1) == FOOTER_CONSUMED && footer == player - 1,
+              "Down enters footer below the selected player tile");
+        Check(menu_footer_step(&footer, player, FOOTER_UP | FOOTER_CONFIRM, -1) == FOOTER_CONSUMED && footer == -1,
+              "Up leaves footer without confirming behind it");
+    }
+    footer = 0;
+    Check(menu_footer_step(&footer, 1, FOOTER_LEFT, -1) == FOOTER_CONSUMED && footer == 3, "Footer reverse wrap");
+    Check(menu_footer_step(&footer, 1, FOOTER_RIGHT, -1) == FOOTER_CONSUMED && footer == 0, "Footer forward wrap");
+    for (int item = 0; item < 4; ++item) {
+        footer = item;
+        Check(menu_footer_step(&footer, 1, FOOTER_CONFIRM, -1) == FOOTER_OPTIONS + item, "Footer controller action order");
+        footer = -1;
+        Check(menu_footer_step(&footer, 1, 0, MENU_FOOTER_FIRST_ID + item) == FOOTER_OPTIONS + item && footer == item,
+              "Footer pointer action matches controller");
+        Check(MENU_FOOTER_X + item * MENU_FOOTER_PITCH + MENU_FOOTER_WIDTH <= 312, "Footer tile fits game image");
+    }
+    Check(MENU_FOOTER_Y + MENU_FOOTER_HEIGHT <= 238 && MENU_FOOTER_WIDTH < MENU_FOOTER_PITCH, "Footer padding and gaps");
+    Check(menu_footer_step(&footer, 1, FOOTER_CANCEL | FOOTER_CONFIRM, -1) == FOOTER_CONSUMED && footer == -1,
+          "Cancel returns focus without activating");
+    footer = 3;
+    Check(menu_footer_step(&footer, 1, FOOTER_CONFIRM, 1) == FOOTER_NONE && footer == -1,
+          "Player tile pointer clears footer focus before confirming");
+    Check(menu_footer_step(&footer, 1, 0, 999) == FOOTER_NONE, "Unknown pointer does not activate footer");
     for (int count = 0; count <= 180; ++count) {
         Cursor cursor;
         cursor.selected = 1000;

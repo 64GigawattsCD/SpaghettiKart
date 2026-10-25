@@ -7,8 +7,11 @@ Updated: 2026-10-25. Living summary; replace stale facts rather than accumulatin
 - Android/UI, cockpit, LAN and renderer work was pushed to the user forks on
   2026-10-25. Verify live status; this sentence is not a cleanliness assertion.
 - User said "All working" after the phone radial controls, before the menu pass.
-- Current pass: shared native Options/pause pages replace normal port overlays;
-  Windows/Android compilation and offline checks completed, user playtest pending.
+- Shared native Options/pause pages replace normal port overlays. User's first
+  PC review found duplicate Options entries; the follow-up consolidates the main
+  footer into Options / Data / Back / Quit, without L/R/Z menu shortcuts.
+- Menu art now reuses stock background/glyphs, black tiles and animated selections;
+  offline checks and compilation status are in the UI audit. User playtest pending.
 
 ## Keep These Behaviors
 - Phone: controls inward, HUD outward. Lap times top-right; RPM/gear bottom-right;

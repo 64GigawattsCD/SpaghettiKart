@@ -559,9 +559,9 @@ extern "C" int game_options_legacy_input(unsigned short* pressed) {
 }
 
 extern "C" void game_options_draw_entry(void) {
-    if (game_options_is_open() || is_screen_being_faded() || gGamestate == RACING) return;
-    set_text_color(TEXT_BLUE);
-    race_mods_text_fit_center(269, 228, "OPTIONS", .55f, 78);
+    if (game_options_is_open() || is_screen_being_faded() || gGamestate == RACING ||
+        gMenuSelection == MAIN_MENU || gMenuSelection == MAIN_MENU_FROM_QUIT) return;
+    race_mods_draw_native_button(225, 212, 88, 27, "OPTIONS", 0);
     menu_pointer_target(239999, 0, 225, 212, 88, 27);
 }
 
@@ -571,14 +571,13 @@ extern "C" void game_options_draw(void) {
     auto& frame = stack.back();
     frame.cursor.Clamp(static_cast<int>(rows.size()));
     menu_pointer_clear_targets();
-    const int alpha = vr_is_active() ? static_cast<int>(std::clamp(CVarGetFloat("gVRMenuOpacity", .5f), .3f, 1.f) * 255) : 248;
-    gDisplayListHead = draw_box_wide(gDisplayListHead, 8, 3, 312, 238, 8, 16, 32, alpha);
-    gDisplayListHead = draw_box_fill(gDisplayListHead, 16, 36, 304, 38, 224, 184, 56, 255);
+    const int alpha = vr_is_active() ? static_cast<int>(std::clamp(CVarGetFloat("gVRMenuOpacity", .5f), .3f, 1.f) * 255)
+                                    : fromPause ? 160 : 100;
+    race_mods_draw_native_backdrop(fromPause, alpha);
     set_text_color(TEXT_YELLOW);
-    race_mods_text_fit_center(160, 27, PageTitle(frame.page), .78f, 275);
+    race_mods_text_fit_center(160, 29, PageTitle(frame.page), .9f, 275);
     if (frame.page == Page::Bindings) {
-        set_text_color(TEXT_BLUE);
-        race_mods_text_fit_center(60, 229, "BACK", .6f, 70);
+        race_mods_draw_native_button(18, 211, 90, 27, "BACK", 0);
         menu_pointer_target(PointerContext(), Back, 18, 211, 90, 27);
         return;
     }
@@ -588,10 +587,12 @@ extern "C" void game_options_draw(void) {
         int y = 59 + (i - first) * 25;
         bool selected = i == frame.cursor.selected;
         if (selected) gDisplayListHead = draw_flash_select_case_slow(gDisplayListHead, 20, y - 15, 300, y + 9);
-        set_text_color(!row.enabled ? TEXT_RED : selected ? TEXT_GREEN : TEXT_BLUE);
+        else gDisplayListHead = draw_box_fill(gDisplayListHead, 20, y - 15, 300, y + 9, 0, 0, 0, 255);
+        if (!row.enabled) set_text_color(TEXT_RED);
+        else set_text_color_rainbow_if_selected(selected, 1, TEXT_YELLOW);
         const auto value = RowValue(row);
-        race_mods_text_fit(26, y, row.label.c_str(), .56f, value.empty() ? 250.f : 156.f);
-        if (!value.empty()) race_mods_text_fit_center(242, y, value.c_str(), .52f, 84);
+        race_mods_text_fit(26, y, row.label.c_str(), .62f, value.empty() ? 250.f : 156.f);
+        if (!value.empty()) race_mods_text_fit_center(242, y, value.c_str(), .56f, 84);
         if (row.enabled) {
             menu_pointer_target(PointerContext(), i * 3, 20, y - 15, 280, 25);
             if (Adjustable(row)) {
@@ -613,9 +614,8 @@ extern "C" void game_options_draw(void) {
     if (status.empty() && rows.size() > Cursor::PageRows)
         status = std::to_string(first / Cursor::PageRows + 1) + " / " + std::to_string((rows.size() + Cursor::PageRows - 1) / Cursor::PageRows);
     if (!status.empty()) race_mods_text_fit_center(160, 207, status.c_str(), .45f, 276);
-    set_text_color(TEXT_BLUE);
-    race_mods_text_fit_center(60, 230, "BACK", .6f, 70);
-    race_mods_text_fit_center(253, 230, fromPause ? "RESUME" : "DONE", .6f, 82);
+    race_mods_draw_native_button(18, 212, 83, 26, "BACK", 0);
+    race_mods_draw_native_button(207, 212, 95, 26, fromPause ? "RESUME" : "DONE", 0);
     menu_pointer_target(PointerContext(), Back, 18, 212, 83, 26);
     menu_pointer_target(PointerContext(), Done, 207, 212, 95, 26);
     if (first > 0) {
@@ -640,8 +640,18 @@ void DrawOptionsBindings(float x, float y, float width, float height) {
     const float scale = height / 240.f;
     const float center = x + width * .5f;
     ImGui::SetCursorScreenPos(ImVec2(center - 138.f * scale, y + 44.f * scale));
-    ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32(8, 16, 32, 255));
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.f);
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32(0, 0, 0, 240));
+    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 240, 96, 255));
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(24, 24, 24, 255));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, IM_COL32(72, 72, 72, 255));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, IM_COL32(100, 100, 100, 255));
+    ImGui::PushStyleColor(ImGuiCol_Button, IM_COL32(32, 32, 32, 255));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, IM_COL32(80, 80, 80, 255));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, IM_COL32(112, 112, 112, 255));
+    ImGui::PushStyleColor(ImGuiCol_Header, IM_COL32(40, 40, 40, 255));
+    ImGui::PushStyleColor(ImGuiCol_HeaderHovered, IM_COL32(80, 80, 80, 255));
+    ImGui::PushStyleColor(ImGuiCol_HeaderActive, IM_COL32(112, 112, 112, 255));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.f);
     if (ImGui::BeginChild("GameControllerBindings", ImVec2(276.f * scale, 161.f * scale), false)) {
         if (entering) ImGui::SetWindowFocus();
         ImGui::SetWindowFontScale(std::clamp(scale * .65f, 1.f, 2.f));
@@ -650,6 +660,6 @@ void DrawOptionsBindings(float x, float y, float width, float height) {
     }
     ImGui::EndChild();
     ImGui::PopStyleVar();
-    ImGui::PopStyleColor();
+    ImGui::PopStyleColor(11);
 }
 } // namespace GameUI
