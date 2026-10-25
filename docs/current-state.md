@@ -12,6 +12,8 @@ Updated: 2026-10-25. Living summary; replace stale facts rather than accumulatin
   GP/VS and human-only Battle are enabled; see the topic doc for coverage and receipts.
 - Shared native menus retain stock art and Options / Data / Back / Quit, with no
   dedicated L/R/Z shortcuts. Gameplay testing remains with the user.
+- Latest APK installed on SM-S908U on 2026-10-25; settings digest unchanged.
+  App not launched during deployment. Rediscover the wireless endpoint next time.
 
 ## Keep These Behaviors
 - Phone: controls inward, HUD outward. Lap times top-right; RPM/gear bottom-right;

@@ -52,8 +52,15 @@ exposed; account usage was not treated as task billing.
 
 Primary cryptographic API references: [AEAD](https://monocypher.org/manual/aead),
 [password derivation](https://monocypher.org/manual/argon2), and the pinned source
-in `cmake/dependencies/monocypher.cmake`. Existing phone installations remain
-unchanged. Both devices need the new protocol-v3 application for this flow.
+in `cmake/dependencies/monocypher.cmake`. Both devices need the new protocol-v3
+application for this flow.
+
+Subsequent deployment on 2026-10-25 at 17:58 phone time: the release APK installed
+successfully on SM-S908U through the newly supplied wireless endpoint using
+`adb install -r`. Existing game archives were present and left untouched. The
+normal settings SHA-256 matched before/after installation. No app launch or
+gameplay test followed. Paid service/image credits used: zero; per-task token
+billing is not exposed.
 
 ### Verification
 
