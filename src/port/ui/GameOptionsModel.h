@@ -83,6 +83,22 @@ namespace GameUI::Lobby {
 inline int Wrap(int index, int count) {
     return count > 0 ? (index % count + count) % count : 0;
 }
+struct MenuRect { int x, y, w, h; };
+constexpr MenuRect MainModeRect(int mode) { return {48 + mode * 80, 91, 64, 54}; }
+constexpr MenuRect MainPlayerRect(int player) { return {player % 2 ? 232 : 16, player < 2 ? 14 : 164, 72, 28}; }
+inline int SetupModeDirection(int mode, int direction, bool singlePlayer) {
+    return singlePlayer ? (mode == 0 ? 1 : 0) - mode : direction;
+}
+enum class PartyAction { None, Join, Leave, Ready, Character, Transmission };
+inline PartyAction ResolvePartyAction(bool joined, bool inLobby, bool start, bool cancel,
+                                     bool confirm, bool horizontal, bool vertical) {
+    if (!joined) return start ? PartyAction::Join : PartyAction::None;
+    if (cancel) return PartyAction::Leave;
+    if (!inLobby) return PartyAction::None;
+    if (confirm || start) return PartyAction::Ready;
+    if (horizontal) return PartyAction::Character;
+    return vertical ? PartyAction::Transmission : PartyAction::None;
+}
 inline int PageFirst(int selected, int rows = 6) { return std::max(0, selected) / rows * rows; }
 inline bool PartyFits(int party, int occupied, int capacity) {
     return party > 0 && party <= 4 && occupied >= 0 && capacity <= 8 && occupied + party <= capacity;

@@ -44,3 +44,13 @@ remove the Battle pending label without another frontend edit. Local features
 remain available independently; Battle CPU fill remains off.
 GP and VS both display the shared Laps setting; Battle uses Balloons instead.
 Backend mode normalization clears Battle mirror mode and CPU fill.
+
+Main-menu revision, 2026-10-25: three 64x54 tiles (1P, Local, Online) reuse the stock
+1P art, Game Select heading, selection arrow and flash. Four padded corner badges
+only join/leave; character, transmission and readiness edits stay in the lobby.
+1P locks the local party to its primary controller. Local preparation no longer
+auto-starts: it enters an unready lobby. Switching 1P GP/VS skips Battle directly,
+retaining CPU-fill/mirror settings. Geometry and input-routing regression checks
+run in this suite; the opt-in Python runner follows the revised pointer IDs and
+explicit local lobby. No game was launched for this revision. Stock assets were
+reused; paid image/service credits: zero. Per-task token billing is not exposed.

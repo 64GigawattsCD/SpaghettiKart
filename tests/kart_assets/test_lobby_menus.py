@@ -44,13 +44,12 @@ class LobbySession(MenuSession):
         main = self.page('MAIN')
         require(sum(p['joined'] for p in main['party']) == 1, main)
         for port in (1, 2, 3):
-            self.click('join-' + str(port), self.page('MAIN')['context'], 402 + port)
-            self.page('LOCAL DRIVER')
-            self.back('LOCAL DRIVER')
+            self.click('join-' + str(port), self.page('MAIN')['context'], 410 + port)
+            self.page('MAIN')
         main = self.page('MAIN')
         require(all(p['joined'] for p in main['party']), main)
         self.checkpoint('main-four-local')
-        self.click('online', main['context'], 401)
+        self.click('online', main['context'], 402)
         self.lobby_click('ONLINE', 'LAN SERVER BROWSER')
         self.page('LAN SERVER BROWSER')
         self.checkpoint('lan-browser')
@@ -73,12 +72,19 @@ class LobbySession(MenuSession):
         require(all(p['joined'] for p in self.page('MAIN')['party']), 'Party survives submenu navigation')
 
     def local_race(self):
-        self.click('local', self.page('MAIN')['context'], 400)
+        self.click('local', self.page('MAIN')['context'], 401)
         setup = self.page('LOCAL RACE SETUP')
         require(matching_row(setup, 'RACE TYPE')['value'] == 'GRAND PRIX', setup)
         if matching_row(setup, 'CPU FILL')['value'] != 'ON':
             self.lobby_click('LOCAL RACE SETUP', 'CPU FILL')
-        self.lobby_click('LOCAL RACE SETUP', 'START LOCAL RACE')
+        self.lobby_click('LOCAL RACE SETUP', 'CONTINUE TO LOBBY')
+        lobby = self.page('LOBBY')
+        require(lobby['phase'] == 2, lobby)
+        for port in range(4):
+            self.click('driver-' + str(port), self.page('LOBBY')['context'], 400 + port)
+            self.lobby_click('LOCAL DRIVER', 'READY')
+            self.back('LOCAL DRIVER')
+        self.click('start-local-race', self.page('LOBBY')['context'], 1003)
         report = self.wait(lambda r: r['state']['gamestate'] == RACING
                            and r['state']['network']['phase'] == 'Racing')
         require(report['state']['network']['viewports'] == 4, report)

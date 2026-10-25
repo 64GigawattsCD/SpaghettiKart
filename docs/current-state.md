@@ -7,11 +7,13 @@ Updated: 2026-10-25. Living summary; replace stale facts rather than accumulatin
 - Android/UI, cockpit, LAN and renderer work was pushed to the user forks on
   2026-10-25. Verify live status; this sentence is not a cleanliness assertion.
 - User said "All working" after the phone radial controls, before the menu pass.
-- Local/Online menus now retain four-player local parties and eight-racer sessions,
+- 1P/Local/Online menus retain four-player local parties and eight-racer sessions,
   full GP progression, LAN discovery, encrypted inputs and stock item replication.
   GP/VS and human-only Battle are enabled; see the topic doc for coverage and receipts.
 - Shared native menus retain stock art and Options / Data / Back / Quit, with no
   dedicated L/R/Z shortcuts. Gameplay testing remains with the user.
+- Main uses stock-sized mode tiles and padded corner join badges, no character
+  or Ready controls. 1P/Local enter the lobby before character selection and racing.
 - Latest APK installed on SM-S908U on 2026-10-25; settings digest unchanged.
   App not launched during deployment. Rediscover the wireless endpoint next time.
 

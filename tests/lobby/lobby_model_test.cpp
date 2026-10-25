@@ -11,6 +11,39 @@ static void Require(bool condition) {
     if (!condition) { std::fprintf(stderr, "Lobby check %d failed\n", checks); std::abort(); }
 }
 int main() {
+    const auto overlaps = [](MenuRect a, MenuRect b) {
+        return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+    };
+    const MenuRect footer{16, 202, 288, 28}, title{60, 47, 200, 32};
+    for (int player = 0; player < 4; ++player) {
+        const auto badge = MainPlayerRect(player);
+        Require(badge.x >= 16 && badge.x + badge.w <= 304 && badge.y >= 14);
+        Require(!overlaps(badge, footer) && !overlaps(badge, title));
+        for (int other = 0; other < player; ++other) Require(!overlaps(badge, MainPlayerRect(other)));
+        for (int mode = 0; mode < 3; ++mode) Require(!overlaps(badge, MainModeRect(mode)));
+    }
+    for (int mode = 0; mode < 3; ++mode) {
+        const auto tile = MainModeRect(mode);
+        Require(tile.w == 64 && tile.h == 54);
+        Require(!overlaps(tile, title) && !overlaps(tile, footer));
+        for (int other = 0; other < mode; ++other) Require(!overlaps(tile, MainModeRect(other)));
+    }
+    for (unsigned bits = 0; bits < 256; ++bits) {
+        const bool joined = bits & 1, lobby = bits & 2;
+        const auto action = ResolvePartyAction(joined, lobby, bits & 4, bits & 8, bits & 16, bits & 32, bits & 64);
+        if (!lobby) Require(action == PartyAction::None || action == PartyAction::Join || action == PartyAction::Leave);
+        if (!joined) Require(action == (bits & 4 ? PartyAction::Join : PartyAction::None));
+    }
+    Require(ResolvePartyAction(true, true, false, false, false, true, false) == PartyAction::Character);
+    Require(ResolvePartyAction(true, true, false, false, false, false, true) == PartyAction::Transmission);
+    Require(ResolvePartyAction(true, true, true, false, false, false, false) == PartyAction::Ready);
+    for (int direction : {-1, 1}) {
+        Require(SetupModeDirection(0, direction, true) == 1);
+        Require(SetupModeDirection(1, direction, true) == -1);
+        Require(SetupModeDirection(2, direction, true) == -2);
+        Require(SetupModeDirection(0, direction, false) == direction);
+        Require(SetupModeDirection(1, direction, false) == direction);
+    }
     Require(PartyFits(4, 4, 8));
     Require(!PartyFits(4, 5, 8));
     Require(!PartyFits(0, 0, 8));

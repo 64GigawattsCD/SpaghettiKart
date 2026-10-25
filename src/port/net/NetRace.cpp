@@ -44,6 +44,7 @@ uint32_t loadedEpoch = ~0u;
 int command = 0;
 char address[64] = "192.168.1.1";
 int port = 54777, character = 0;
+int localPartyLimit = 4;
 KartNet::Party party{{0, 0, KART_TRANSMISSION_AUTOMATIC, true}};
 KartNet::RaceSettings settings;
 char password[64]{};
@@ -280,7 +281,8 @@ extern "C" int net_party_info(int controller, NetPartyInfo* info) {
     return 0;
 }
 extern "C" void net_party_join(int controller) {
-    if ((session.Active() && session.phase != KartNet::Phase::Lobby) || controller < 0 || controller >= 4 || party.size() >= 4) return;
+    if ((session.Active() && session.phase != KartNet::Phase::Lobby) || controller < 0 || controller >= 4 ||
+        controller >= localPartyLimit || party.size() >= size_t(localPartyLimit)) return;
     NetPartyInfo info{}; if (net_party_info(controller, &info)) return;
     int selected = 0;
     while (std::any_of(party.begin(), party.end(), [selected](const auto& p) { return p.character == selected; })) ++selected;
@@ -289,6 +291,13 @@ extern "C" void net_party_join(int controller) {
     std::sort(party.begin(), party.end(), [](const auto& a, const auto& b) { return a.controller < b.controller; });
     settings.maxPlayers = std::max(settings.maxPlayers, uint8_t(party.size()));
     if (session.Active() && !session.UpdateParty(party)) party = oldParty;
+}
+extern "C" void net_party_set_limit(int count) {
+    if (session.Active()) return;
+    localPartyLimit = std::clamp(count, 1, 4);
+    party.erase(std::remove_if(party.begin(), party.end(), [](const auto& p) {
+        return p.controller >= localPartyLimit;
+    }), party.end());
 }
 extern "C" void net_party_leave(int controller) {
     if ((session.Active() && session.phase != KartNet::Phase::Lobby) || controller == 0) return;
@@ -388,8 +397,8 @@ extern "C" void net_read_inputs(void) {
     if (command == NET_LOCAL && gGamestate != RACING) {
         raceActive = loadConsumed = false; loadedEpoch = ~0u; resetRace();
         settings.scope = 0;
-        for (auto& p : party) p.ready = true;
-        if (startRulesAvailable(settings) && session.Local(contentHash(), party, settings)) { if (session.Start()) loadConsumed = false; }
+        for (auto& p : party) p.ready = false;
+        if (startRulesAvailable(settings)) session.Local(contentHash(), party, settings);
     }
     if (command == NET_START) {
         if (startRulesAvailable(session.settings) && session.Start()) loadConsumed = false;

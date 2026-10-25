@@ -64,6 +64,20 @@ billing is not exposed.
 
 ### Verification
 
+Main-menu revision: 1P, Local and Online now occupy stock-sized player-count tiles.
+Player join badges occupy padded corners above the existing footer. Main/setup
+pages no longer route to character/transmission/Ready editing. 1P locks secondary
+joins, defaults to CPU fill and enters the same pre-race local lobby as Local.
+Local preparation now stops unready in the lobby instead of immediately loading
+a race. Characters and transmission remain editable there before Ready/Start.
+This revision passed 79,357 lobby/model checks, both Python helper tests and the
+six network suites. PC Debug and Android release compilation passed; local logs:
+`corner-menu-final-pc-20261025-182449-26303053.log` and
+`corner-menu-final-phone-20261025-182529-513a48f5.log` under `build/agent-logs`.
+The revised APK installed on SM-S908U at 18:27 phone time. Settings SHA-256 was
+unchanged; no app launch or gameplay test followed. Paid service/image credits:
+zero. Per-task token billing is not exposed.
+
 - Six native network suites cover malformed/transactional decoding, encrypted
   4+4 admission and racing, eight-system input/results, four network GP rounds,
   readiness/capacity/ownership, expired input, loading/racing/finished reconnect,
