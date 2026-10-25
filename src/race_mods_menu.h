@@ -38,8 +38,16 @@ void race_mods_text_fit(s32 x, s32 y, const char* text, f32 scale, f32 maxWidth)
 void race_mods_text_fit_center(s32 cx, s32 y, const char* text, f32 scale, f32 maxWidth);
 // Small native arrow: -1/+1 horizontal, -2/+2 vertical; x/y is its center.
 void race_mods_draw_pointer_arrow(s32 x, s32 y, s32 direction);
-// Shared stock background, black tiles and animated game-font selections.
+// Shared stock background with an 8-bit alpha dimmer (0..255).
 void race_mods_draw_native_backdrop(int inRace, int alpha);
+// All rectangles use x/y + width/height in native 320x240 coordinates, with 1px clipped corners.
+// Surface: fixed translucent charcoal fill; nonzero selected adds focus, never a flashing slab.
+// Focus: light 1px rim + yellow leading rail only, so it can overlay stock texture art.
+// Neither helper registers input or changes text color; all pixels stay inside the rectangle.
+void race_mods_draw_native_surface(s32 x, s32 y, s32 width, s32 height, int selected);
+void race_mods_draw_native_focus(s32 x, s32 y, s32 width, s32 height);
+// Fitted stock yellow glyphs at baseline y, with two small checker pairs at y+3..y+7.
+void race_mods_draw_native_title(s32 cx, s32 y, const char* label, f32 scale, f32 maxWidth);
 void race_mods_draw_native_button(s32 x, s32 y, s32 width, s32 height, const char* label, int selected);
 // In-race status line (infected mode: the flashing INFECTED warning + the winner banner).
 // Called from the HUD pass in code_80057C60.c.

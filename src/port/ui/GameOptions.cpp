@@ -655,8 +655,7 @@ extern "C" void game_options_draw(void) {
     const int alpha = vr_is_active() ? static_cast<int>(std::clamp(CVarGetFloat("gVRMenuOpacity", .5f), .3f, 1.f) * 255)
                                     : fromPause ? 160 : 100;
     race_mods_draw_native_backdrop(fromPause, alpha);
-    set_text_color(TEXT_YELLOW);
-    race_mods_text_fit_center(160, 29, PageTitle(frame.page), .9f, 275);
+    race_mods_draw_native_title(160, 29, PageTitle(frame.page), .9f, 275);
     if (frame.page == Page::Bindings) {
         race_mods_draw_native_button(18, 211, 90, 27, "BACK", 0);
         menu_pointer_target(PointerContext(), Back, 18, 211, 90, 27);
@@ -667,8 +666,7 @@ extern "C" void game_options_draw(void) {
         const auto& row = rows[i];
         int y = 59 + (i - first) * 25;
         bool selected = i == frame.cursor.selected;
-        if (selected) gDisplayListHead = draw_flash_select_case_slow(gDisplayListHead, 20, y - 15, 300, y + 9);
-        else gDisplayListHead = draw_box_fill(gDisplayListHead, 20, y - 15, 300, y + 9, 0, 0, 0, 255);
+        race_mods_draw_native_surface(20, y - 15, 280, 25, selected);
         if (!row.enabled) set_text_color(TEXT_RED);
         else set_text_color_rainbow_if_selected(selected, 1, TEXT_YELLOW);
         const auto value = RowValue(row);
@@ -721,17 +719,17 @@ void DrawOptionsBindings(float x, float y, float width, float height) {
     const float scale = height / 240.f;
     const float center = x + width * .5f;
     ImGui::SetCursorScreenPos(ImVec2(center - 138.f * scale, y + 44.f * scale));
-    ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32(0, 0, 0, 240));
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32(16, 18, 22, 152));
     ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 240, 96, 255));
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(24, 24, 24, 255));
-    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, IM_COL32(72, 72, 72, 255));
-    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, IM_COL32(100, 100, 100, 255));
-    ImGui::PushStyleColor(ImGuiCol_Button, IM_COL32(32, 32, 32, 255));
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, IM_COL32(80, 80, 80, 255));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, IM_COL32(112, 112, 112, 255));
-    ImGui::PushStyleColor(ImGuiCol_Header, IM_COL32(40, 40, 40, 255));
-    ImGui::PushStyleColor(ImGuiCol_HeaderHovered, IM_COL32(80, 80, 80, 255));
-    ImGui::PushStyleColor(ImGuiCol_HeaderActive, IM_COL32(112, 112, 112, 255));
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(24, 26, 30, 176));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, IM_COL32(72, 74, 78, 192));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, IM_COL32(100, 102, 106, 208));
+    ImGui::PushStyleColor(ImGuiCol_Button, IM_COL32(32, 34, 38, 176));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, IM_COL32(80, 82, 86, 192));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, IM_COL32(112, 114, 118, 208));
+    ImGui::PushStyleColor(ImGuiCol_Header, IM_COL32(40, 42, 46, 176));
+    ImGui::PushStyleColor(ImGuiCol_HeaderHovered, IM_COL32(80, 82, 86, 192));
+    ImGui::PushStyleColor(ImGuiCol_HeaderActive, IM_COL32(112, 114, 118, 208));
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.f);
     if (ImGui::BeginChild("GameControllerBindings", ImVec2(276.f * scale, 161.f * scale), false)) {
         if (entering) ImGui::SetWindowFocus();

@@ -144,9 +144,8 @@ void quit_menu_draw_confirm(void) {
     menu_pointer_clear_targets();
     // Drawn from the tail of the menu-item render pass, so the dialog covers the player-select widgets.
     gDisplayListHead = draw_box_wide(gDisplayListHead, 0, 0, 320, 240, 0, 0, 0, 120);
-    gDisplayListHead = draw_box_fill(gDisplayListHead, 72, 86, 248, 156, 0, 0, 0, 255);
-    set_text_color(TEXT_YELLOW);
-    race_mods_text_fit_center(160, 112, "QUIT GAME?", .8f, 156);
+    race_mods_draw_native_surface(72, 86, 176, 70, 0);
+    race_mods_draw_native_title(160, 110, "QUIT GAME?", .8f, 156);
     race_mods_draw_native_button(86, 125, 72, 26, "YES", sConfirmYes);
     race_mods_draw_native_button(162, 125, 72, 26, "NO", !sConfirmYes);
     menu_pointer_target(quit_pointer_context(), 1, 86, 125, 72, 26);

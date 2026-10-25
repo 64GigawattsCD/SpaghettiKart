@@ -156,6 +156,28 @@ void localCup() {
     check(local.CupComplete() && !local.Start(), "Cup stops after four races");
     check(local.ReturnToLobby() && !local.CupComplete() && local.standings[0] == 0, "New cup resets session standings");
 }
+void soloDriverFlow() {
+    for (int mode = 0; mode < 2; ++mode) {
+        Session local; RaceSettings settings; settings.scope = 0; settings.mode = uint8_t(mode);
+        auto driver = party(1); driver[0].ready = false;
+        check(local.Local(123, driver, settings) && !local.CanStart(), "Solo setup waits for driver choices");
+        driver[0].character = 6;
+        driver[0].transmission = 1;
+        check(local.UpdateParty(driver) && !local.CanStart(), "Solo character and transmission do not start early");
+        local.SetPlayerReady(0, true);
+        check(local.CanStart() && local.Start() && !local.Start(), "Solo confirmation starts exactly once");
+        check(local.roster.size() == 1 && local.roster[0].character == 6 && local.roster[0].transmission == 1,
+              "Solo load retains selected driver and transmission");
+        local.Loaded(); check(local.phase == Phase::Racing, "Solo load has no remote barrier");
+        local.Publish(state(1, 1, true), true);
+        check(local.phase == Phase::Finished, "Solo results remain available");
+        check(local.ReturnToLobby() && !local.CanStart(), "Solo setup return clears readiness");
+        settings.cc = 2;
+        check(local.SetSettings(settings) && !local.CanStart(), "Solo setup can be revised before a new selection");
+        local.SetPlayerReady(0, true);
+        check(local.Start(), "Solo revised setup starts without recreating session");
+    }
+}
 void partyUpdateAcknowledgments(uint16_t port) {
     Session host, client; RaceSettings settings;
     auto joined = party(2, 4); joined[1].controller = 3;
@@ -504,7 +526,7 @@ void lobbyReconnect(uint16_t port) {
 }
 int main() {
     try {
-        codecs(); rosterChecks(); localCup(); partyUpdateAcknowledgments(testPort());
+        codecs(); rosterChecks(); localCup(); soloDriverFlow(); partyUpdateAcknowledgments(testPort());
         eightRace(testPort()); admission(testPort()); eightSystems(testPort()); networkCup(testPort()); lobbyReconnect(testPort());
         std::cout << "Codec, party acknowledgments, malformed packets, local GP, full network GP, eight-system race, admission and reconnect checks passed\n";
     } catch (const std::exception& ex) { std::cerr << ex.what() << '\n'; return 1; }

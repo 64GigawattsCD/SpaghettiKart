@@ -13,8 +13,10 @@ Updated: 2026-10-25. Living summary; replace stale facts rather than accumulatin
 - Shared native menus retain stock art and Options / Data / Back / Quit, with no
   dedicated L/R/Z shortcuts. Gameplay testing remains with the user.
 - Main uses stock-sized mode tiles and padded corner join badges; drivers stay in
-  the lobby. One shared character pool, then local-viewport transmission/Ready prompts.
-- Latest APK installed on SM-S908U on 2026-10-25 at 18:50; settings digest unchanged.
+  the lobby for Local/Online. 1P goes setup > shared characters > transmission > race.
+  Translucent native surfaces, texture focus and quiet checker/color accents are
+  shared across menus. See `docs/native-menu-art-and-solo-2026-10-25.md`.
+- Latest APK installed on SM-S908U on 2026-10-25 at 19:16; settings digest unchanged.
   App not launched during deployment. Rediscover the wireless endpoint next time.
 
 ## Keep These Behaviors

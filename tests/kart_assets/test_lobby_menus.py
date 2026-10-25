@@ -106,6 +106,26 @@ class LobbySession(MenuSession):
             'capture': 'four-local-eight-racers'}])
         self.checkpoint('four-local-gp')
 
+    def solo_race(self):
+        self.click('solo', self.page('MAIN')['context'], 400)
+        setup = self.page('1P RACE SETUP')
+        require(sum(p['joined'] for p in setup['party']) == 1, setup)
+        require(not any(r['label'] == 'PLAYER CAPACITY' for r in setup['rows']), setup)
+        self.click('solo-next', setup['context'], 1003)
+        selection = self.page('CHARACTER SELECT')
+        require(len(selection['driver_selection']['players']) == 1, selection)
+        self.back('CHARACTER SELECT')
+        setup = self.page('1P RACE SETUP')
+        self.click('solo-next-after-back', setup['context'], 1003)
+        self.click('solo-pick', self.page('CHARACTER SELECT')['context'], 3100)
+        self.click('solo-manual', self.page('TRANSMISSION')['context'], 3301)
+        self.click('solo-race', self.page('TRANSMISSION')['context'], 3302)
+        report = self.wait(lambda r: r['state']['gamestate'] == RACING
+                           and r['state']['network']['phase'] == 'Racing')
+        require(report['state']['network']['viewports'] == 1, report)
+        require(not report['state']['menu']['lobby']['open'], report)
+        self.checkpoint('solo-without-lobby-confirmations')
+
 
 class LobbyClientTests(unittest.TestCase):
     def test_semantic_row(self):
@@ -122,7 +142,9 @@ class LobbyClientTests(unittest.TestCase):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--run', action='store_true')
-    parser.add_argument('--race', action='store_true', help='Also load and drive a four-local GP')
+    races = parser.add_mutually_exclusive_group()
+    races.add_argument('--race', action='store_true', help='Also load and drive a four-local GP')
+    races.add_argument('--solo', action='store_true', help='Also check the shortened solo route and load one race')
     parser.add_argument('--backend', choices=('OpenGL', 'DirectX11'), default='OpenGL')
     parser.add_argument('--binary', type=Path, default=ROOT / 'build/x64/Debug/Spaghettify.exe')
     parser.add_argument('--root', type=Path)
@@ -142,6 +164,8 @@ def main():
         session.menus()
         if args.race:
             session.local_race()
+        elif args.solo:
+            session.solo_race()
         config = read(root / 'spaghettify.cfg.json')
         require(all(config['CVars'][key] == 0.0 for key in MUTE_CVARS), 'Muted test configuration')
         (root / 'verification.json').write_text(json.dumps({'status': 'passed', 'checkpoints': session.checkpoints}, indent=2))

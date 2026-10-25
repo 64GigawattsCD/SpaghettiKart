@@ -589,7 +589,7 @@ void race_mods_reset_to_stock(void) {
 }
 
 // The stock CC rows are baked texture art, so the CUSTOM row is drawn by hand in the same slot
-// style: dark box, cycling flash while hovered, solid once chosen. Position and visibility ride
+// style: translucent surface and a light focus rail. Position and visibility ride
 // the 50CC menu item so every player-count layout and screen transition stays in sync.
 void custom_cc_draw_row(void) {
     MenuItem* base = find_menu_items(MAIN_MENU_50CC);
@@ -613,15 +613,8 @@ void custom_cc_draw_row(void) {
     y = base->row + row * 0x12; // the stock 18 px row pitch
     subMode = gGameModeSubMenuColumn[gPlayerCount - 1][gGameModeMenuColumn[gPlayerCount - 1]];
 
-    if (gMainMenuSelection >= MAIN_MENU_MODE_SUB_SELECT && subMode == row) {
-        if (gMainMenuSelection >= MAIN_MENU_OK_SELECT) {
-            gDisplayListHead = draw_box_fill(gDisplayListHead, x, y, x + 0x3F, y + 0x11, 0xFF, 0xF9, 0xDC, 0xFF);
-        } else {
-            gDisplayListHead = draw_flash_select_case_slow(gDisplayListHead, x, y, x + 0x3F, y + 0x11);
-        }
-    } else {
-        gDisplayListHead = draw_box_fill(gDisplayListHead, x, y, x + 0x3F, y + 0x11, 1, 1, 1, 0xFF);
-    }
+    race_mods_draw_native_surface(x, y, 64, 18,
+                                  gMainMenuSelection >= MAIN_MENU_MODE_SUB_SELECT && subMode == row);
     set_text_color(TEXT_YELLOW);
     race_mods_text_fit_center(x + 0x20, y + 0xE, "CUSTOM", 0.55f, 56.0f); // inside the 63-wide row box
     if (gMainMenuSelection == MAIN_MENU_MODE_SUB_SELECT || gMainMenuSelection == MAIN_MENU_MODE_SUB_SELECT_GO_BACK) {
@@ -781,7 +774,7 @@ void race_mods_draw_status_hud(void) {
 // Bottom-left hint on the course select screen: Z rerolls the course (or shuffles the GP cup order).
 void track_roulette_draw_hint(void) {
     menu_pointer_target(menu_pointer_course_context(), 301, 60, 220, 90, 19);
-    gDisplayListHead = draw_box_fill(gDisplayListHead, 60, 220, 149, 238, 12, 20, 40, 230);
+    race_mods_draw_native_surface(60, 220, 90, 19, 0);
     set_text_color(TEXT_YELLOW);
     race_mods_text_fit_center(105, 234, "RANDOM", 0.5f, 80.0f);
 }
@@ -1026,13 +1019,52 @@ void race_mods_draw_native_backdrop(int inRace, int alpha) {
                                        0, 0, 3, 0);
         gSPGrayscale(gDisplayListHead++, false);
     }
-    gDisplayListHead = draw_box_wide(gDisplayListHead, 0, 0, 320, 240, 0, 0, 0, alpha);
+    if (alpha < 0) alpha = 0;
+    if (alpha > 255) alpha = 255;
+    if (alpha) gDisplayListHead = draw_box_wide(gDisplayListHead, 0, 0, 320, 240, 0, 0, 0, alpha);
+}
+
+void race_mods_draw_native_focus(s32 x, s32 y, s32 width, s32 height) {
+    if (width < 4 || height < 4) return;
+    gDisplayListHead = draw_box(gDisplayListHead, x + 1, y, x + width - 1, y + 1, 255, 248, 216, 192);
+    gDisplayListHead = draw_box(gDisplayListHead, x + 1, y + height - 1, x + width - 1, y + height,
+                                255, 248, 216, 112);
+    gDisplayListHead = draw_box(gDisplayListHead, x + width - 1, y + 1, x + width, y + height - 1,
+                                255, 248, 216, 112);
+    gDisplayListHead = draw_box(gDisplayListHead, x, y + 1, x + 2, y + height - 1, 255, 224, 64, 224);
+}
+
+void race_mods_draw_native_surface(s32 x, s32 y, s32 width, s32 height, int selected) {
+    if (width <= 0 || height <= 0) return;
+    // draw_box uses primitive alpha; fill-cycle RGBA5551 boxes only retain one alpha bit.
+    // Disjoint strips leave the corner pixels untouched, without double-blending the fill.
+    if (width < 4 || height < 4) {
+        gDisplayListHead = draw_box(gDisplayListHead, x, y, x + width, y + height, 16, 18, 22, 152);
+        return;
+    }
+    gDisplayListHead = draw_box(gDisplayListHead, x + 1, y, x + width - 1, y + 1, 16, 18, 22, 152);
+    gDisplayListHead = draw_box(gDisplayListHead, x, y + 1, x + width, y + height - 1, 16, 18, 22, 152);
+    gDisplayListHead = draw_box(gDisplayListHead, x + 1, y + height - 1, x + width - 1, y + height,
+                                16, 18, 22, 152);
+    if (selected) race_mods_draw_native_focus(x, y, width, height);
+    else gDisplayListHead = draw_box(gDisplayListHead, x + 1, y, x + width - 1, y + 1, 255, 255, 255, 32);
+}
+
+void race_mods_draw_native_title(s32 cx, s32 y, const char* label, f32 scale, f32 maxWidth) {
+    s32 i;
+    set_text_color(TEXT_YELLOW);
+    race_mods_text_fit_center(cx, y, label, scale, maxWidth);
+    for (i = 0; i < 4; ++i) {
+        s32 top = y + 3 + (i & 1) * 2;
+        gDisplayListHead = draw_box(gDisplayListHead, cx - 4 + i * 2, top, cx - 2 + i * 2, top + 2,
+                                    255, 224, 64, 160);
+    }
 }
 
 void race_mods_draw_native_button(s32 x, s32 y, s32 width, s32 height, const char* label, int selected) {
-    if (selected) gDisplayListHead = draw_flash_select_case_slow(gDisplayListHead, x, y, x + width - 1, y + height - 1);
-    else gDisplayListHead = draw_box_fill(gDisplayListHead, x, y, x + width - 1, y + height - 1, 0, 0, 0, 255);
-    set_text_color_rainbow_if_selected(selected, 1, TEXT_YELLOW);
+    if (width <= 0 || height <= 0) return;
+    race_mods_draw_native_surface(x, y, width, height, selected);
+    set_text_color_rainbow_if_selected(selected != 0, 1, TEXT_YELLOW);
     race_mods_text_fit_center(x + width / 2, y + height / 2 + 5, label, .62f, width - 10);
 }
 
@@ -1049,8 +1081,7 @@ void race_mods_draw(void) {
     menu_pointer_clear_targets();
     if (end > rowCount) end = rowCount;
     race_mods_draw_native_backdrop(0, 100);
-    set_text_color(TEXT_YELLOW);
-    race_mods_text_fit_center(160, 30, sBattle ? "BATTLE SETUP" : "RACE SETUP", 0.85f, 270.0f);
+    race_mods_draw_native_title(160, 29, sBattle ? "BATTLE SETUP" : "RACE SETUP", 0.85f, 270.0f);
 
     for (i = start; i < end; i++) {
         s32 y = 54 + (i - start) * SETUP_ROW_PITCH;
@@ -1059,9 +1090,7 @@ void race_mods_draw(void) {
         if (!sBattle && i == ROW_BALLOON_OUT && CVarGetInteger("gRaceMode", 0) == 4) {
             label = "TREASURE BOX"; // the mode-option row wears the treasure hat in mode 4
         }
-        if (i == sSel) {
-            gDisplayListHead = draw_flash_select_case_slow(gDisplayListHead, 26, y - 16, 294, y + 7);
-        } else gDisplayListHead = draw_box_fill(gDisplayListHead, 26, y - 16, 294, y + 7, 0, 0, 0, 255);
+        race_mods_draw_native_surface(26, y - 16, 268, SETUP_ROW_PITCH, i == sSel);
         set_text_color_rainbow_if_selected(i, sSel, TEXT_YELLOW);
         race_mods_text_fit(32, y, label, 0.6f, i == (sBattle ? BROW_B_START : ROW_START) ? 256.0f : 118.0f);
 
