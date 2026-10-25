@@ -126,7 +126,14 @@ if(SPAGHETTIKART_IOS)
 
 endif()
 
-add_executable(${PROJECT_NAME} ${ALL_FILES})
+if(ANDROID)
+  add_library(${PROJECT_NAME} SHARED ${ALL_FILES})
+  set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME main)
+  set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+  include(cmake/dependencies/android.cmake)
+else()
+  add_executable(${PROJECT_NAME} ${ALL_FILES})
+endif()
 if(WIN32)
   find_package(OpenXR CONFIG REQUIRED)
   find_package(GLEW REQUIRED)
@@ -163,6 +170,8 @@ if(MSVC)
 endif()
 
 include(cmake/dependencies/common.cmake)
+include(cmake/dependencies/enet.cmake)
+target_link_libraries(${PROJECT_NAME} PRIVATE enet)
 
 include(cmake/dependencies/FindLib.cmake)
 
@@ -225,7 +234,7 @@ add_custom_command(
   VERBATIM)
 endif()
 
-if(NOT CMAKE_SYSTEM_NAME STREQUAL "NintendoSwitch")
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "NintendoSwitch" AND NOT ANDROID)
   include(ExternalProject)
   # Torch's pinned spdlog bundles an fmt that trips a consteval error under
   # newer AppleClang (Xcode 16+): "call to consteval function

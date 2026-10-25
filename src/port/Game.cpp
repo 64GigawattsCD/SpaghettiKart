@@ -2,6 +2,7 @@
 #include <typeinfo>
 
 #include "Game.h"
+#include "net/NetRace.h"
 #include "port/Engine.h"
 #include "port/vr/vr.h"
 
@@ -503,6 +504,7 @@ Camera* CM_AddTourCamera(Vec3f spawn, s16 rot, u32 mode) {
 }
 
 bool CM_IsTourEnabled() {
+    if (net_race_active()) return false;
     if (nullptr != GetWorld()->GetTrack()) {
         if ((GetWorld()->GetTrack()->bTourEnabled) && (gTourComplete == false)) {
             return true;
@@ -1219,8 +1221,9 @@ void CM_ThrowRuntimeError(const char* fmt, ...) {
 // src/port/Engine.cpp - releases OpenXR, closes the --console, and hard-exits so quit fully terminates.
 extern "C" void GameEngine_TerminateProcess(void);
 
-#ifdef _WIN32
-int SDL_main(int argc, char** argv) {
+#include "AndroidPhone.h"
+#if defined(_WIN32) || defined(__ANDROID__)
+extern "C" int SDL_main(int argc, char** argv) {
 #else
 #if defined(__cplusplus) && defined(PLATFORM_IOS)
 extern "C"
@@ -1248,6 +1251,7 @@ extern "C"
     // overwrite=0 keeps any SHIP_HOME the user already set.
     setenv("SHIP_HOME", "~/Library/Application Support/SpaghettiKart", 0);
 #endif
+    android_phone_init(argc, argv);
     // load_wasm();
 
     // VR enable decision (mirrors the SM64 VR build): --vr forces VR on, --novr forces it off,

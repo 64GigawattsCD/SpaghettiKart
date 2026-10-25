@@ -139,6 +139,7 @@ typedef struct HudLayoutWidget {
     s32 firstSlot;
     s32 lastSlot;
     s32 slotCount;
+    HudWidgetId parent;
     union {
         struct {
             f32 spacing;

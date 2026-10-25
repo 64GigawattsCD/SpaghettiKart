@@ -1,0 +1,29 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'dev.spaghettikart.phone'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'dev.spaghettikart.touchpreview'
+        minSdk 29
+        targetSdk 35
+        versionCode 1
+        versionName '1.0'
+    }
+    sourceSets.main {
+        java.srcDir layout.buildDirectory.dir('touch-source')
+        res.srcDir '../../../android/app/src/main/res'
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+// Compile the real overlay, not a separately maintained imitation of its renderer.
+tasks.register('copyTouchSource', Sync) {
+    from '../../../android/app/src/main/java'
+    include '**/TouchControls.java', '**/ShifterGate.java'
+    into layout.buildDirectory.dir('touch-source')
+}
+tasks.named('preBuild').configure { dependsOn 'copyTouchSource' }

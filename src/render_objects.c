@@ -4,6 +4,7 @@
  **/
 
 #include <libultraship.h>
+#include "port/net/NetRace.h"
 #include <libultra/gbi.h>
 #include <libc/math.h>
 #include <stdio.h>
@@ -22,6 +23,7 @@
 #include "waypoints.h"
 #include "bomb_kart.h"
 #include <assets/models/common_data.h>
+#include <assets/models/data_segment2.h>
 #include "render_player.h"
 #include "animation.h"
 #include "code_80005FD0.h"
@@ -49,6 +51,10 @@
 #include "kart_transmission.h"
 #include "kart_character_stats.h"
 #include "hud_layout.h"
+#include "hud_rpm.h"
+#include "hud_race_layout.h"
+#include "port/AndroidPhone.h"
+#include "port/vr/vr.h"
 
 #define KART_RPM_DISPLAY_MULTIPLIER_DEFAULT 4.5f
 #define KART_RPM_METER_MOTION_MAX_DEFAULT 7200.0f
@@ -2092,12 +2098,12 @@ static s32 get_arcadekart_texture_delta(s32 sourceSize, s32 destSize, s32 copyMo
 
 static void render_texture_rectangle_scaled_copy_mode(s32 x, s32 y, s32 destWidth, s32 destHeight, s32 sourceWidth,
                                                       s32 sourceHeight, s32 s, s32 t, s32 copyMode) {
-    s32 xh = (((x + destWidth) - 1) << 2);
-    s32 yh = (((y + destHeight) - 1) << 2);
-    s32 xl = x << 2;
-    s32 yl = y << 2;
+    s32 xh = ((x + destWidth) - 1) * 4;
+    s32 yh = ((y + destHeight) - 1) * 4;
+    s32 xl = x * 4;
+    s32 yl = y * 4;
 
-    gSPTextureRectangle(gDisplayListHead++, xl, yl, xh, yh, G_TX_RENDERTILE, s << 5, t << 5,
+    gSPWideTextureRectangle(gDisplayListHead++, xl, yl, xh, yh, G_TX_RENDERTILE, s << 5, t << 5,
                         get_arcadekart_texture_delta(sourceWidth, destWidth, copyMode, true),
                         get_arcadekart_texture_delta(sourceHeight, destHeight, copyMode, false));
 }
@@ -2669,17 +2675,7 @@ void draw_simplified_lap_count(s32 playerId) {
 #define ARCADEKART_HUD_SAFE_ZONE_TOP_DEFAULT 0.0f
 #define ARCADEKART_HUD_SAFE_ZONE_BOTTOM_DEFAULT 10.0f
 #define ARCADEKART_HUD_SAFE_ZONE_SCALE_DEFAULT 1.0f
-#define ARCADEKART_HUD_MINIMAP_RIGHT_PAD 2.0f
-#define ARCADEKART_HUD_RPM_METER_RIGHT_PAD 2.0f
-#define ARCADEKART_HUD_RPM_METER_BOTTOM_PAD 2.0f
-#define ARCADEKART_HUD_MINIMAP_SCALE 0.8f
-#define ARCADEKART_HUD_RPM_METER_SCALE 0.8f
-#define ARCADEKART_HUD_TIME_LAP_SCALE 0.8f
-#define ARCADEKART_HUD_LAP_TIMES_SCALE 0.8f
 #define ARCADEKART_HUD_TOP_X_OFFSET 0.0f
-#define ARCADEKART_HUD_TOP_Y 17.0f
-#define ARCADEKART_HUD_LAP_TIMES_RIGHT_PAD 4.0f
-#define ARCADEKART_HUD_LAP_TIMES_TOP_PAD 18.0f
 
 // Anchor padding is expressed as a ratio of the current player view so split-screen gets proportional margins.
 static HudRect get_arcadekart_hud_player_view_rect(UNUSED s32 playerId) {
@@ -2732,6 +2728,23 @@ static f32 get_arcadekart_hud_safe_zone_scale(void) {
         CVarGetFloat("gArcadeKart.Hud.SafeZoneScale", ARCADEKART_HUD_SAFE_ZONE_SCALE_DEFAULT), 0.25f, 3.0f);
 }
 
+void get_race_hud_layout(s32 playerId, HudRaceLayout* result) {
+    // HUD vertices in VR live on a fixed reference plane, not the desktop viewport.
+    f32 aspect = vr_is_active() ? 4.0f / 3.0f : OTRGetAspectRatio();
+    HudRect view = hud_race_viewport(aspect, gScreenModeSelection, playerId);
+    *result = hud_race_layout(view, get_arcadekart_hud_safe_zone_scale(),
+        hud_layout_vec2(CM_GetProps()->Minimap.Width, CM_GetProps()->Minimap.Height),
+        gModeSelection != BATTLE, D_801657E6 != 0);
+    if (android_phone_active() && android_phone_touch_layout() == 1) {
+        f32 inset = 3.4f * fminf(240.0f / 7.5f, (240.0f * aspect) / 14.0f);
+        result->column.x -= inset;
+        result->laps.x -= inset;
+        result->rpm.x -= inset;
+        result->map.x -= inset;
+        result->mapSlot.x -= inset;
+    }
+}
+
 static f32 get_arcadekart_hud_safe_zone_units(f32 referenceUnits) {
     return referenceUnits * get_arcadekart_hud_safe_zone_scale();
 }
@@ -2756,11 +2769,6 @@ static f32 get_arcadekart_hud_safe_zone_bottom_units(void) {
     return get_arcadekart_hud_safe_zone_units(ARCADEKART_HUD_SAFE_ZONE_BOTTOM_DEFAULT);
 }
 
-static f32 get_arcadekart_hud_minimap_right_edge(HudRect viewRect) {
-    return viewRect.x + viewRect.w -
-           get_arcadekart_hud_view_x(viewRect, get_arcadekart_hud_safe_zone_units(ARCADEKART_HUD_MINIMAP_RIGHT_PAD));
-}
-
 static HudPadding get_arcadekart_hud_safe_zone_padding(HudRect viewRect) {
     f32 safeX = get_arcadekart_hud_safe_zone_x_units();
     f32 safeTop = get_arcadekart_hud_safe_zone_units(ARCADEKART_HUD_SAFE_ZONE_TOP_DEFAULT);
@@ -2772,30 +2780,14 @@ static HudPadding get_arcadekart_hud_safe_zone_padding(HudRect viewRect) {
                               get_arcadekart_hud_view_y(viewRect, safeBottom));
 }
 
-static HudRect get_arcadekart_hud_safe_rect(HudRect viewRect) {
-    HudPadding padding = get_arcadekart_hud_safe_zone_padding(viewRect);
-    HudRect rect = hud_layout_rect(viewRect.x + padding.left, viewRect.y + padding.top,
-                                   viewRect.w - padding.left - padding.right,
-                                   viewRect.h - padding.top - padding.bottom);
-
-    if (rect.w < 0.0f) {
-        rect.w = 0.0f;
-    }
-    if (rect.h < 0.0f) {
-        rect.h = 0.0f;
-    }
-    return rect;
-}
-
 #define ARCADEKART_PLACE_NUMBER_WIDGET_WIDTH 128.0f
 #define ARCADEKART_PLACE_NUMBER_WIDGET_HEIGHT 64.0f
 #define ARCADEKART_PLACE_NUMBER_DRAW_X 29.0f
 #define ARCADEKART_PLACE_NUMBER_DRAW_Y 12.0f
-#define ARCADEKART_PLACE_NUMBER_SCREEN_PADDING_X 58.0f
-#define ARCADEKART_PLACE_NUMBER_SCREEN_PADDING_Y 12.0f
-#define ARCADEKART_PLACE_NUMBER_SCALE 1.0f
-#define ARCADEKART_PLACE_NUMBER_LEFT_CORRECTION 20.0f
-#define ARCADEKART_PLACE_NUMBER_TOP_CORRECTION 10.0f
+#define ARCADEKART_PLACE_NUMBER_SCREEN_PADDING_X 8.0f
+#define ARCADEKART_PLACE_NUMBER_SCREEN_PADDING_Y 8.0f
+#define ARCADEKART_PLACE_NUMBER_LEFT_CORRECTION 0.0f
+#define ARCADEKART_PLACE_NUMBER_TOP_CORRECTION 0.0f
 
 typedef struct ArcadeKartPlaceNumberLeaf {
     s32 playerId;
@@ -2816,9 +2808,11 @@ static s32 clamp_arcadekart_place_rank_index(s32 rankIndex) {
 static void render_place_number_at(s32 playerId, s32 rankIndex, s32 fadeAlpha, f32 centerX, f32 centerY,
                                    f32 widgetScale) {
     rankIndex = clamp_arcadekart_place_rank_index(rankIndex);
-    func_8004A384((s32) centerX, (s32) centerY, 0U, playerHUD[playerId].rankScaling * widgetScale, 0x000000FF,
-                  fadeAlpha, 0, 0x000000FF, common_texture_hud_place[rankIndex], D_0D0068F0, 0x00000080,
-                  0x00000040, 0x00000080, 0x00000040);
+    f32 rankScale = playerHUD[playerId].rankScaling;
+    func_80042330_unchanged((s32) centerX, (s32) centerY, 0U, rankScale * widgetScale);
+    gSPDisplayList(gDisplayListHead++, D_0D007A60);
+    func_8004B414(255, fadeAlpha, 0, 255);
+    func_80049970(common_texture_hud_place[rankIndex], D_0D0068F0, 128, 64, 128, 64);
 }
 
 static void draw_arcadekart_place_number_leaf(UNUSED const HudLayoutContext* ctx, UNUSED HudWidgetId widgetId,
@@ -2845,8 +2839,9 @@ static void draw_arcadekart_place_number_leaf(UNUSED const HudLayoutContext* ctx
     contentHeight = ARCADEKART_PLACE_NUMBER_WIDGET_HEIGHT * widgetScale;
     contentX = rect.x + ((rect.w - contentWidth) * 0.5f);
     contentY = rect.y + ((rect.h - contentHeight) * 0.5f);
-    centerX = contentX + (ARCADEKART_PLACE_NUMBER_DRAW_X * widgetScale);
-    centerY = contentY + (ARCADEKART_PLACE_NUMBER_DRAW_Y * widgetScale);
+    // Anchor the scaled quad's outer edge, including its finish-line enlargement.
+    centerX = contentX + ARCADEKART_PLACE_NUMBER_WIDGET_WIDTH * .5f * playerHUD[leaf->playerId].rankScaling * widgetScale;
+    centerY = contentY + ARCADEKART_PLACE_NUMBER_WIDGET_HEIGHT * .5f * playerHUD[leaf->playerId].rankScaling * widgetScale;
     render_place_number_at(leaf->playerId, leaf->rankIndex, leaf->fadeAlpha, centerX, centerY, widgetScale);
 }
 
@@ -2856,14 +2851,12 @@ static void render_arcadekart_place_number_layout(s32 playerId, s32 rankIndex, s
     HudWidgetId root;
     HudWidgetId scaleBox;
     HudWidgetId placeNumber;
-    HudRect viewRect = get_arcadekart_hud_player_view_rect(playerId);
-    f32 placeScale = get_arcadekart_hud_cluster_scale(viewRect, ARCADEKART_PLACE_NUMBER_SCALE);
-    f32 edgePaddingX = get_arcadekart_hud_view_x(
-        viewRect, get_arcadekart_hud_safe_zone_units(ARCADEKART_PLACE_NUMBER_SCREEN_PADDING_X +
-                                                     ARCADEKART_PLACE_NUMBER_LEFT_CORRECTION));
-    f32 edgePaddingY = get_arcadekart_hud_view_y(
-        viewRect, get_arcadekart_hud_safe_zone_units(ARCADEKART_PLACE_NUMBER_SCREEN_PADDING_Y +
-                                                     ARCADEKART_PLACE_NUMBER_TOP_CORRECTION));
+    HudRaceLayout raceLayout;
+    get_race_hud_layout(playerId, &raceLayout);
+    HudRect viewRect = raceLayout.viewport;
+    f32 placeScale = raceLayout.scale;
+    f32 edgePaddingX = 8.0f * raceLayout.scale * get_arcadekart_hud_safe_zone_scale();
+    f32 edgePaddingY = edgePaddingX;
 
     leaf.playerId = playerId;
     leaf.rankIndex = rankIndex;
@@ -2890,28 +2883,12 @@ static void render_arcadekart_place_number_layout(s32 playerId, s32 rankIndex, s
 void func_8004E800(s32 playerId) {
     FrameInterpolation_RecordOpenChild("Player place HUD", playerId);
     if (playerHUD[playerId].unk_81 != 0) {
-        if ((gPlayerCountSelection1 == 1) && (playerId == PLAYER_ONE)) {
-            if (playerHUD[playerId].lapCount != 3) {
-                render_arcadekart_place_number_layout(playerId, D_8018CF98[playerId],
-                                                      D_800E55F8[clamp_arcadekart_place_rank_index(
-                                                          D_8018CF98[playerId])]);
-            } else {
-                render_arcadekart_place_number_layout(
-                    playerId, gGPCurrentRaceRankByPlayerId[playerId],
-                    D_800E55F8[clamp_arcadekart_place_rank_index(D_80165594)]);
-            }
-        } else if (playerHUD[playerId].lapCount != 3) {
-            func_8004A384(playerHUD[playerId].rankX + playerHUD[playerId].slideRankX,
-                          playerHUD[playerId].rankY + playerHUD[playerId].slideRankY, 0U,
-                          playerHUD[playerId].rankScaling, 0x000000FF, D_800E55F8[D_8018CF98[playerId]], 0, 0x000000FF,
-                          (u8*) common_texture_hud_place[D_8018CF98[playerId]], D_0D0068F0, 0x00000080, 0x00000040,
-                          0x00000080, 0x00000040);
+        if (playerHUD[playerId].lapCount != race_mods_total_laps()) {
+            render_arcadekart_place_number_layout(playerId, D_8018CF98[playerId],
+                D_800E55F8[clamp_arcadekart_place_rank_index(D_8018CF98[playerId])]);
         } else {
-            func_8004A384(playerHUD[playerId].rankX + playerHUD[playerId].slideRankX,
-                          playerHUD[playerId].rankY + playerHUD[playerId].slideRankY, 0U,
-                          playerHUD[playerId].rankScaling, 0x000000FF, D_800E55F8[D_80165594], 0, 0x000000FF,
-                          (u8*) common_texture_hud_place[gGPCurrentRaceRankByPlayerId[playerId]], D_0D0068F0,
-                          0x00000080, 0x00000040, 0x00000080, 0x00000040);
+            render_arcadekart_place_number_layout(playerId, gGPCurrentRaceRankByPlayerId[playerId],
+                D_800E55F8[clamp_arcadekart_place_rank_index(D_80165594)]);
         }
     }
     FrameInterpolation_RecordCloseChild();
@@ -2983,8 +2960,6 @@ static f32 get_arcadekart_rpm_meter_motion_max(const Player* player) {
 #define ARCADEKART_RPM_METER_READOUT_DIGIT_SCALE 0.40f
 #define ARCADEKART_RPM_METER_READOUT_DIGITS 5
 #define ARCADEKART_RPM_METER_NEEDLE_INPUT_SCALE_DEFAULT 1.0f
-#define ARCADEKART_RPM_METER_NEEDLE_START_DEGREES_DEFAULT 310.8f
-#define ARCADEKART_RPM_METER_NEEDLE_SWEEP_DEGREES_DEFAULT 100.0f
 
 typedef enum ArcadeKartRpmMeterPass {
     ARCADEKART_RPM_METER_PASS_DIAL,
@@ -3118,22 +3093,7 @@ static f32 normalize_arcadekart_rpm_meter_input(s32 playerIdx) {
 }
 
 static u16 get_arcadekart_rpm_needle_rotation(s32 playerIdx) {
-    f32 normalizedRpm = normalize_arcadekart_rpm_meter_input(playerIdx);
-    f32 startDegrees = ARCADEKART_RPM_METER_NEEDLE_START_DEGREES_DEFAULT;
-    f32 sweepDegrees = ARCADEKART_RPM_METER_NEEDLE_SWEEP_DEGREES_DEFAULT;
-    f32 startUnits;
-    f32 sweepUnits;
-
-    if (sweepDegrees < 1.0f) {
-        sweepDegrees = 1.0f;
-    }
-    if (sweepDegrees > 180.0f) {
-        sweepDegrees = 180.0f;
-    }
-
-    startUnits = startDegrees * (65536.0f / 360.0f);
-    sweepUnits = sweepDegrees * (65536.0f / 360.0f);
-    return (u16) (startUnits + (normalizedRpm * sweepUnits));
+    return hud_rpm_needle_rotation(normalize_arcadekart_rpm_meter_input(playerIdx));
 }
 
 static s32 get_arcadekart_rpm_shift_ready(s32 playerIdx) {
@@ -3240,8 +3200,12 @@ static void draw_arcadekart_rpm_gear_glyph(s32 x, s32 y, char letter, s32 cellSi
             if (glyph[row][column] != '0') {
                 s32 left = x + (column * cellSize);
                 s32 top = y + (row * cellSize);
-                gDisplayListHead = draw_box_fill(gDisplayListHead, left, top, left + cellSize - 1,
-                                                 top + cellSize - 1, red, green, blue, 255);
+                // These coordinates already include the player's viewport; do not re-anchor or clamp to 320.
+                gSPDisplayList(gDisplayListHead++, D_02008030);
+                u32 color = GPACK_RGBA5551(red, green, blue, 255);
+                gDPSetFillColor(gDisplayListHead++, (color << 16) | color);
+                gDPFillWideRectangle(gDisplayListHead++, left, top, left + cellSize - 1, top + cellSize - 1);
+                gSPDisplayList(gDisplayListHead++, D_02008058);
             }
         }
     }
@@ -3331,6 +3295,8 @@ static void draw_arcadekart_rpm_meter_leaf(UNUSED const HudLayoutContext* ctx, U
     }
 
     canvas = get_arcadekart_rpm_meter_canvas(rect);
+    // Optional glow must not shift the needle or later HUD matrices onto other draws.
+    FrameInterpolation_RecordOpenChild("RPM meter part", (leaf->playerIdx << 3) | leaf->element);
     switch (leaf->element) {
         case ARCADEKART_RPM_METER_ELEMENT_FACEPLATE:
             render_arcadekart_rpm_faceplate(leaf->playerIdx, &canvas);
@@ -3348,6 +3314,7 @@ static void draw_arcadekart_rpm_meter_leaf(UNUSED const HudLayoutContext* ctx, U
             render_arcadekart_rpm_readout(leaf->playerIdx, &canvas);
             break;
     }
+    FrameInterpolation_RecordCloseChild();
 }
 
 static void render_arcadekart_rpm_meter_layout(s32 playerIdx, ArcadeKartRpmMeterPass pass) {
@@ -3358,24 +3325,12 @@ static void render_arcadekart_rpm_meter_layout(s32 playerIdx, ArcadeKartRpmMeter
     HudWidgetId sizeBox;
     HudWidgetId meterCanvas;
     HudWidgetId meterPart;
-    HudRect viewRect = get_arcadekart_hud_player_view_rect(playerIdx);
-    f32 meterScale = get_arcadekart_hud_cluster_scale(viewRect, ARCADEKART_HUD_RPM_METER_SCALE);
-    f32 rightPadding =
-        get_arcadekart_hud_view_x(viewRect, get_arcadekart_hud_safe_zone_units(ARCADEKART_HUD_RPM_METER_RIGHT_PAD));
-    f32 bottomPadding =
-        get_arcadekart_hud_view_y(viewRect, get_arcadekart_hud_safe_zone_units(ARCADEKART_HUD_RPM_METER_BOTTOM_PAD));
+    HudRaceLayout raceLayout;
     s32 leafCount = 0;
-
-    if (meterScale < 0.25f) {
-        meterScale = 0.25f;
-    }
-    if (meterScale > 2.0f) {
-        meterScale = 2.0f;
-    }
-
-    hud_layout_begin(&layout, viewRect);
+    get_race_hud_layout(playerIdx, &raceLayout);
+    hud_layout_begin(&layout, raceLayout.rpm);
     root = hud_layout_root(&layout);
-    scaleBox = hud_layout_scale_box(&layout, HUD_SCALE_STRETCH_USER, HUD_SCALE_DIRECTION_BOTH, meterScale);
+    scaleBox = hud_layout_scale_box(&layout, HUD_SCALE_STRETCH_FIT, HUD_SCALE_DIRECTION_BOTH, 1);
     sizeBox = hud_layout_size_box(&layout, ARCADEKART_RPM_METER_WIDGET_WIDTH, ARCADEKART_RPM_METER_WIDGET_HEIGHT,
                                   -1.0f, -1.0f, -1.0f, -1.0f,
                                   hud_layout_padding(0.0f, 0.0f, 0.0f, 0.0f), hud_layout_vec2(0.5f, 0.5f));
@@ -3421,9 +3376,8 @@ static void render_arcadekart_rpm_meter_layout(s32 playerIdx, ArcadeKartRpmMeter
 
     hud_layout_canvas_add(
         &layout, root, scaleBox,
-        hud_layout_canvas_slot(hud_layout_anchor(1.0f, 1.0f, 1.0f, 1.0f),
-                               hud_layout_padding(-rightPadding, -bottomPadding, 0.0f, 0.0f),
-                               hud_layout_vec2(1.0f, 1.0f), true, 0));
+        hud_layout_canvas_slot(hud_layout_anchor(0, 0, 1, 1),
+                               hud_layout_padding(0, 0, 0, 0), hud_layout_vec2(0, 0), false, 0));
     hud_layout_arrange(&layout);
     hud_layout_draw_tree(&layout);
 }
@@ -3523,74 +3477,12 @@ typedef struct ArcadeKartMinimapLayout {
     f32 scale;
 } ArcadeKartMinimapLayout;
 
-// player is only 0 or 1
-static f32 get_arcadekart_minimap_cluster_scale(s32 playerId) {
-    HudRect viewRect = get_arcadekart_hud_player_view_rect(playerId);
-    return get_arcadekart_hud_cluster_scale(viewRect, ARCADEKART_HUD_MINIMAP_SCALE);
-}
-
 static ArcadeKartMinimapLayout get_arcadekart_minimap_layout(s32 playerId) {
     ArcadeKartMinimapLayout layout;
-    HudRect viewRect = get_arcadekart_hud_player_view_rect(playerId);
-    HudRect safeRect = get_arcadekart_hud_safe_rect(viewRect);
-    f32 rightEdge;
-    f32 centerX;
-    f32 centerY = (f32) CM_GetProps()->Minimap.Pos[playerId].Y;
-    f32 sourceWidth = (f32) CM_GetProps()->Minimap.Width;
-    f32 sourceHeight = (f32) CM_GetProps()->Minimap.Height;
-    f32 fitScaleX;
-    f32 fitScaleY;
-    f32 fitScale;
-
-    if (sourceWidth < 1.0f) {
-        sourceWidth = 1.0f;
-    }
-    if (sourceHeight < 1.0f) {
-        sourceHeight = 1.0f;
-    }
-
-    layout.scale = get_arcadekart_minimap_cluster_scale(playerId);
-    fitScaleX = (safeRect.w > 0.0f) ? (safeRect.w / sourceWidth) : layout.scale;
-    fitScaleY = (safeRect.h > 0.0f) ? (safeRect.h / sourceHeight) : layout.scale;
-    fitScale = (fitScaleX < fitScaleY) ? fitScaleX : fitScaleY;
-    if ((fitScale > 0.0f) && (layout.scale > fitScale)) {
-        layout.scale = fitScale;
-    }
-    layout.rect.w = sourceWidth * layout.scale;
-    layout.rect.h = sourceHeight * layout.scale;
-
-    if (gPlayerCount == 3) {
-        centerX = ((OTRGetDimensionFromRightEdge(SCREEN_WIDTH) - SCREEN_WIDTH) / 2) +
-                  ((SCREEN_WIDTH / 4) + (SCREEN_WIDTH / 2));
-        layout.rect.x = centerX - (layout.rect.w * 0.5f);
-    } else if (gPlayerCount == 1) {
-        rightEdge = get_arcadekart_hud_minimap_right_edge(viewRect);
-        layout.rect.x = rightEdge - layout.rect.w;
-    } else {
-        centerX = (f32) CM_GetProps()->Minimap.Pos[playerId].X;
-        layout.rect.x = centerX - (layout.rect.w * 0.5f);
-    }
-    layout.rect.y = centerY - (layout.rect.h * 0.5f);
-
-    if ((safeRect.w > 0.0f) && (layout.rect.x + layout.rect.w > safeRect.x + safeRect.w)) {
-        layout.rect.x = safeRect.x + safeRect.w - layout.rect.w;
-    }
-    if (layout.rect.x < safeRect.x) {
-        layout.rect.x = safeRect.x;
-    }
-    if ((safeRect.h > 0.0f) && (layout.rect.y + layout.rect.h > safeRect.y + safeRect.h)) {
-        layout.rect.y = safeRect.y + safeRect.h - layout.rect.h;
-    }
-    if (layout.rect.y < safeRect.y) {
-        layout.rect.y = safeRect.y;
-    }
-
-    if (playerId == 0) {
-        CVarSetFloat("gArcadeKart.DebugMinimapRight", layout.rect.x + layout.rect.w);
-        CVarSetFloat("gArcadeKart.DebugMinimapSafeRight", safeRect.x + safeRect.w);
-        CVarSetFloat("gArcadeKart.DebugMinimapScale", layout.scale);
-        CVarSetFloat("gArcadeKart.DebugMinimapWidth", layout.rect.w);
-    }
+    HudRaceLayout raceLayout;
+    get_race_hud_layout(playerId, &raceLayout);
+    layout.rect = raceLayout.map;
+    layout.scale = raceLayout.mapScale;
     return layout;
 }
 
@@ -3773,7 +3665,7 @@ void draw_minimap_character(s32 arg0, s32 playerId, s32 characterId) {
 
         dotCharacterId = (characterId == 8) ? player->characterId : characterId;
         dotColor = get_minimap_character_dot_color(dotCharacterId);
-        FrameInterpolation_RecordOpenChild("minimap_dots", TAG_MINIMAP_DOTS(((arg0 & 0x1) << 6) |
+        FrameInterpolation_RecordOpenChild("minimap_dots", TAG_MINIMAP_DOTS(((arg0 & 0x3) << 6) |
                                                                             ((playerId & 0x7) << 3) |
                                                                             (dotCharacterId & 0x7)));
         drawPlayerIcon = ((characterId != 8) && ((player->type & PLAYER_CPU) != PLAYER_CPU));
@@ -3860,7 +3752,7 @@ void draw_treasure_minimap_marker(s32 arg0) {
     f32 tz;
     s16 x;
     s16 y;
-    s32 center;
+    ArcadeKartMinimapLayout layout;
 
     if (!race_mods_treasure_world_pos(&tx, &tz)) {
         return;
@@ -3871,18 +3763,11 @@ void draw_treasure_minimap_marker(s32 arg0) {
     if (gGlobalTimer & 8) {
         return; // flash so it reads as the objective, not another dot
     }
-    if (gPlayerCount == 3) {
-        center = ((OTRGetDimensionFromRightEdge(SCREEN_WIDTH) - SCREEN_WIDTH) / 2) +
-                 ((SCREEN_WIDTH / 4) + (SCREEN_WIDTH / 2));
-    } else {
-        center = CM_GetProps()->Minimap.Pos[arg0].X;
-    }
-    x = (center - (CM_GetProps()->Minimap.Width / 2)) + CM_GetProps()->Minimap.PlayerX +
-        (s16) (tx * CM_GetProps()->Minimap.PlayerScaleFactor);
-    y = (CM_GetProps()->Minimap.Pos[arg0].Y - (CM_GetProps()->Minimap.Height / 2)) +
-        CM_GetProps()->Minimap.PlayerY + (s16) (tz * CM_GetProps()->Minimap.PlayerScaleFactor);
-
-    draw_hud_2d_texture_8x8(x - 4, y - 4, (u8*) common_texture_minimap_finish_line);
+    layout = get_arcadekart_minimap_layout(arg0);
+    x = layout.rect.x + (CM_GetProps()->Minimap.PlayerX + tx * CM_GetProps()->Minimap.PlayerScaleFactor) * layout.scale;
+    y = layout.rect.y + (CM_GetProps()->Minimap.PlayerY + tz * CM_GetProps()->Minimap.PlayerScaleFactor) * layout.scale;
+    draw_hud_2d_texture_scaled_copy_mode(x, y, 8, 8, layout.scale,
+                                       (u8*) common_texture_minimap_finish_line, false);
 }
 
 s32 func_8004F674(s32* arg0, s32 arg1) {
@@ -4068,10 +3953,8 @@ static void draw_arcadekart_hud_timer_glyph_leaf(UNUSED const HudLayoutContext* 
     gSPDisplayList(gDisplayListHead++, D_0D007EB8);
 }
 
-static void draw_arcadekart_timer_value_scaled(s32 x, s32 y, s32 timerValue, f32 scale) {
-    s32 destWidth = get_arcadekart_scaled_size(8.0f * scale);
-    s32 destHeight = get_arcadekart_scaled_size(16.0f * scale);
-    s32 cursorX = x;
+static void draw_arcadekart_timer_value_scaled(HudRect rect, s32 timerValue) {
+    s32 destHeight = get_arcadekart_scaled_size(rect.h);
     s32 digitIndex;
 
     gSPDisplayList(gDisplayListHead++, D_0D008108);
@@ -4080,8 +3963,10 @@ static void draw_arcadekart_timer_value_scaled(s32 x, s32 y, s32 timerValue, f32
     load_texture_block_rgba16_mirror((u8*) common_texture_hud_normal_digit, 104, 16);
     func_8004F6D0(timerValue);
     for (digitIndex = 0; digitIndex < 8; digitIndex++) {
-        render_texture_rectangle_scaled(cursorX, y, destWidth, destHeight, 8, 16, D_801657D0[digitIndex] * 8, 0);
-        cursorX += destWidth;
+        s32 x = (s32) roundf(rect.x + rect.w * digitIndex / 8.0f);
+        s32 end = (s32) roundf(rect.x + rect.w * (digitIndex + 1) / 8.0f);
+        render_texture_rectangle_scaled(x, (s32) roundf(rect.y), end - x, destHeight, 8, 16,
+                                        D_801657D0[digitIndex] * 8, 0);
     }
     gSPDisplayList(gDisplayListHead++, D_0D007EB8);
 }
@@ -4089,14 +3974,12 @@ static void draw_arcadekart_timer_value_scaled(s32 x, s32 y, s32 timerValue, f32
 static void draw_arcadekart_hud_timer_value_leaf(UNUSED const HudLayoutContext* ctx, UNUSED HudWidgetId widgetId,
                                                  HudRect rect, void* userData) {
     ArcadeKartHudTimerValueLeaf* leaf = (ArcadeKartHudTimerValueLeaf*) userData;
-    f32 scale;
 
     if (leaf == NULL) {
         return;
     }
 
-    scale = get_arcadekart_rect_scale(rect, 64.0f, 16.0f);
-    draw_arcadekart_timer_value_scaled((s32) rect.x, (s32) rect.y, leaf->timerValue, scale);
+    draw_arcadekart_timer_value_scaled(rect, leaf->timerValue);
 }
 
 static void render_arcadekart_timer_strip(s32 playerId) {
@@ -4105,24 +3988,19 @@ static void render_arcadekart_timer_strip(s32 playerId) {
     ArcadeKartHudTextureLeaf lapLabelLeaf;
     ArcadeKartHudTimerGlyphLeaf timerGlyphLeaves[8];
     ArcadeKartHudTextureLeaf lapCounterLeaf;
-    ArcadeKartHudTimerValueLeaf splitTimerLeaves[3];
     HudLayoutContext layout;
     HudWidgetId root;
     HudWidgetId topBox;
     HudWidgetId topScaleBox;
     HudWidgetId timerBox;
-    HudWidgetId splitBox;
-    HudWidgetId splitScaleBox;
     HudWidgetId widget;
-    s32 lapIndex;
     s32 digitIndex;
-    HudRect viewRect = get_arcadekart_hud_player_view_rect(playerId);
-    f32 topScale = get_arcadekart_hud_cluster_scale(viewRect, ARCADEKART_HUD_TIME_LAP_SCALE);
-    f32 splitScale = get_arcadekart_hud_cluster_scale(viewRect, ARCADEKART_HUD_LAP_TIMES_SCALE);
+    HudRaceLayout raceLayout;
+    get_race_hud_layout(playerId, &raceLayout);
+    HudRect viewRect = raceLayout.viewport;
+    f32 topScale = raceLayout.scale;
     const f32 topX = ARCADEKART_HUD_TOP_X_OFFSET;
-    const f32 topY = get_arcadekart_hud_safe_zone_units(ARCADEKART_HUD_TOP_Y);
-    const f32 splitRightPadding = get_arcadekart_hud_safe_zone_units(ARCADEKART_HUD_LAP_TIMES_RIGHT_PAD);
-    const f32 splitTopPadding = get_arcadekart_hud_safe_zone_units(ARCADEKART_HUD_LAP_TIMES_TOP_PAD);
+    const f32 topY = 8.0f * get_arcadekart_hud_safe_zone_scale();
 
     if ((playerHUD[playerId].blinkTimer != 0) && (playerHUD[playerId].blinkState == 0)) {
         timerValue = playerHUD[playerId].someTimer1;
@@ -4184,8 +4062,22 @@ static void render_arcadekart_timer_strip(s32 playerId) {
                                                                     0.0f),
                                                  hud_layout_vec2(0.5f, 0.0f), true, 0));
 
-    splitBox = hud_layout_vertical_box(&layout, 0.0f, hud_layout_padding(0.0f, 0.0f, 0.0f, 0.0f));
-    splitScaleBox = hud_layout_scale_box(&layout, HUD_SCALE_STRETCH_USER, HUD_SCALE_DIRECTION_BOTH, 1.0f);
+    hud_layout_arrange(&layout);
+    hud_layout_draw_tree(&layout);
+}
+
+void render_race_hud_lap_times(s32 playerId) {
+    HudRaceLayout raceLayout;
+    HudLayoutContext layout;
+    ArcadeKartHudTimerValueLeaf splitTimerLeaves[3];
+    HudWidgetId splitBox, splitScaleBox, widget;
+    s32 lapIndex;
+    get_race_hud_layout(playerId, &raceLayout);
+    if (gModeSelection == BATTLE) return;
+    render_arcadekart_timer_strip(playerId);
+    hud_layout_begin(&layout, raceLayout.laps);
+    splitBox = hud_layout_vertical_box(&layout, 0.0f, hud_layout_padding(0, 0, 0, 0));
+    splitScaleBox = hud_layout_scale_box(&layout, HUD_SCALE_STRETCH_FIT, HUD_SCALE_DIRECTION_BOTH, 1);
     for (lapIndex = 0; lapIndex < 3; lapIndex++) {
         s32 lapDuration = playerHUD[playerId].lapDurations[lapIndex];
 
@@ -4194,7 +4086,7 @@ static void render_arcadekart_timer_strip(s32 playerId) {
         }
 
         splitTimerLeaves[lapIndex].timerValue = lapDuration;
-        widget = hud_layout_draw(&layout, hud_layout_vec2(64.0f * splitScale, 16.0f * splitScale), draw_arcadekart_hud_timer_value_leaf,
+        widget = hud_layout_draw(&layout, hud_layout_vec2(64.0f, 16.0f), draw_arcadekart_hud_timer_value_leaf,
                                  &splitTimerLeaves[lapIndex]);
         hud_layout_box_add(&layout, splitBox, widget,
                            hud_layout_auto_slot(hud_layout_padding(0.0f, 0.0f, 0.0f, 0.0f),
@@ -4204,12 +4096,9 @@ static void render_arcadekart_timer_strip(s32 playerId) {
     hud_layout_single_child_add(&layout, splitScaleBox, splitBox,
                                 hud_layout_single_child_slot(hud_layout_padding(0.0f, 0.0f, 0.0f, 0.0f),
                                                              hud_layout_vec2(1.0f, 0.0f), false, false));
-    hud_layout_canvas_add(&layout, root, splitScaleBox,
-                          hud_layout_canvas_safe_slot(
-                              hud_layout_anchor(1.0f, 0.0f, 1.0f, 0.0f),
-                              hud_layout_padding(-get_arcadekart_hud_view_x(viewRect, splitRightPadding),
-                                                 get_arcadekart_hud_view_y(viewRect, splitTopPadding), 0.0f, 0.0f),
-                              hud_layout_vec2(1.0f, 0.0f), true, 1));
+    hud_layout_canvas_add(&layout, hud_layout_root(&layout), splitScaleBox,
+                          hud_layout_canvas_slot(hud_layout_anchor(0, 0, 1, 1),
+                              hud_layout_padding(0, 0, 0, 0), hud_layout_vec2(0, 0), false, 1));
 
     hud_layout_arrange(&layout);
     hud_layout_draw_tree(&layout);
@@ -4410,6 +4299,7 @@ static void render_arcadekart_ranking_portrait_stack(void) {
 
         playerId = gGPCurrentRacePlayerIdByRank[i];
         characterId = gGPCurrentRaceCharacterIdByRank[i];
+        if (net_race_active() && !(gPlayers[playerId].type & PLAYER_EXISTS)) continue;
         lapCount = gLapCountByPlayerId[playerId];
         leaves[leafCount].rankIndex = i;
         leaves[leafCount].lapCount = lapCount;

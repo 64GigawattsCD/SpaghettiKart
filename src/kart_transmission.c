@@ -1,4 +1,5 @@
 #include "kart_transmission.h"
+#include "port/net/NetRace.h"
 
 #include <libultraship.h>
 #include <limits.h>
@@ -935,6 +936,7 @@ void kart_transmission_apply_speed_limits(Player* player, s32 playerIndex) {
 }
 
 s32 kart_transmission_get_gear(s32 playerIndex) {
+    if (net_race_active() && !net_is_host()) return net_gear(playerIndex);
     playerIndex = kart_transmission_clamp_player_index(playerIndex);
     kart_transmission_init_player(playerIndex);
     return sKartGear[playerIndex];
@@ -953,6 +955,7 @@ f32 kart_transmission_get_clutch_amount(s32 playerIndex) {
 }
 
 f32 kart_transmission_get_engine_rpm(const Player* player, s32 playerIndex) {
+    if (net_race_active() && !net_is_host()) return net_rpm(playerIndex);
     f32 gearLoad;
     f32 clutchAmount;
     f32 rpm;

@@ -12,6 +12,8 @@
 #include "code_800029B0.h"
 #include "menu_items.h"
 #include "vr_pause_menu.h"
+#include "menu_pointer.h"
+#include "menus.h"
 #include "race_mods_menu.h" // the shared fit-to-width text helpers
 
 // --- externs we lean on (declared here to keep this file's includes light) -------------------------------
@@ -37,6 +39,7 @@ extern void reset_cycle_flash_menu(void);
 static s32 sOpen   = 0;
 static s32 sSel    = 0;
 static s32 sAction = 0; // 0 none / 2 restart / 3 quit - returned to func_800ADF48 which runs the real transition
+enum { OPTIONS_PAGE_ROWS = 6, OPTIONS_ROW_PITCH = 24 };
 
 enum {
     ROW_VIEWMODE,
@@ -151,6 +154,35 @@ static s32 row_hidden(s32 row) {
     }
 }
 
+static s32 options_pointer_context(void) {
+    s32 flat = menu_is_flat();
+    s32 mode = CVarGetInteger(flat ? "gFlatViewMode" : "gVRViewMode", 0) & 3;
+    return 110000 + flat * 4096 + mode * 512 + sSel * 16 +
+           (race_mods_has_setup() ? 8 : 0) + gIsGamePaused;
+}
+
+static s32 options_row_adjustable(s32 row) {
+    f32 lo, hi, step;
+    if (row == ROW_SCALE || row == ROW_DISTANCE || row == ROW_EYEHEIGHT) {
+        return mode_cvar(row, &lo, &hi, &step) != NULL;
+    }
+    return row < ROW_DEFAULTS;
+}
+
+static s32 options_entry_context(void) {
+    return 100000 + gModeSelection * 8 + gIsGamePaused;
+}
+
+void vr_pause_menu_draw_entry(void) {
+    // Player two's horizontal GP pause rows reach the bottom footer.
+    s32 baseline = gModeSelection == GRAND_PRIX && gIsGamePaused == 2 ? 24 : 226;
+    set_text_color(TEXT_BLUE);
+    race_mods_text_fit_center(160, baseline, "R VIEW OPTIONS", 0.48f, 272.0f);
+    if (!is_screen_being_faded()) {
+        menu_pointer_target(options_entry_context(), 0, 85, baseline - 12, 150, 20);
+    }
+}
+
 // Reset the CURRENT view mode's tuning (plus the shared knobs) back to the defaults. The view mode
 // itself and the other modes' tuning are left alone - resetting while dialing in Diorama shouldn't
 // dump you back into Third Person or wipe your First Person setup.
@@ -252,6 +284,8 @@ int vr_pause_menu_input(void) {
     // Stick edges count as d-pad presses so the menu navigates with the thumbstick too - that's
     // the only d-pad a VR motion controller has. (stickPressed carries the same U/D/L/R_JPAD bits.)
     u16 pressed = gControllers[0].buttonPressed | gControllers[0].stickPressed;
+    if (is_screen_being_faded()) return sOpen != 0;
+    if (!sOpen && menu_pointer_take(options_entry_context()) == 0) pressed = R_TRIG;
 
     if (pressed & R_TRIG) {            // R1 toggles the overlay
         sOpen = !sOpen;
@@ -264,6 +298,29 @@ int vr_pause_menu_input(void) {
     if (!sOpen) return 0;
 
     sAction = 0;
+    s32 hit = menu_pointer_take(options_pointer_context());
+    if (hit == ROW_COUNT * 3) {
+        pressed = B_BUTTON;
+    } else if (hit == ROW_COUNT * 3 + 1) {
+        sSel = ROW_RESUME;
+        pressed = A_BUTTON;
+    } else if (hit == ROW_COUNT * 3 + 2 || hit == ROW_COUNT * 3 + 3) {
+        s32 vis[ROW_COUNT], count = 0, pos = 0, row;
+        for (row = 0; row < ROW_COUNT; row++) {
+            if (row_hidden(row)) continue;
+            if (row == sSel) pos = count;
+            vis[count++] = row;
+        }
+        pos += hit == ROW_COUNT * 3 + 2 ? -OPTIONS_PAGE_ROWS : OPTIONS_PAGE_ROWS;
+        if (pos < 0) pos = 0;
+        if (pos >= count) pos = count - 1;
+        sSel = vis[pos];
+        reset_cycle_flash_menu();
+        return 1;
+    } else if (hit >= 0 && hit < ROW_COUNT * 3 && !row_hidden(hit / 3)) {
+        sSel = hit / 3;
+        pressed = hit % 3 == 1 ? L_JPAD : hit % 3 == 2 ? R_JPAD : A_BUTTON;
+    }
     if (pressed & U_JPAD)   { do { sSel = (sSel + ROW_COUNT - 1) % ROW_COUNT; } while (row_hidden(sSel)); reset_cycle_flash_menu(); }
     if (pressed & D_JPAD)   { do { sSel = (sSel + 1) % ROW_COUNT; } while (row_hidden(sSel)); reset_cycle_flash_menu(); }
     if (pressed & L_JPAD)   { row_change(-1); reset_cycle_flash_menu(); }
@@ -313,6 +370,8 @@ static void value_string(s32 row, char* out) {
 
 void vr_pause_menu_draw(void) {
     if (!sOpen) return;
+    menu_pointer_clear_targets();
+    s32 context = options_pointer_context();
 
     // Backing panel. Its opacity follows gVRMenuOpacity - this IS the VR menu (drawn into the eyes), so the
     // "Menu Opacity" row makes THIS panel see-through over the race. draw_box_wide ALPHA-BLENDS (draw_box_fill
@@ -325,9 +384,7 @@ void vr_pause_menu_draw(void) {
     set_text_color(TEXT_YELLOW);
     race_mods_text_fit_center(160, 30, menu_is_flat() ? "VIEW OPTIONS" : "VR OPTIONS", 0.72f, 276.0f);
 
-    // Gather the visible (non-hidden) rows, then draw a SCROLLING window of them at a readable 12px
-    // pitch. The list grows past what fits, so instead of cramming we slide the window to keep the
-    // selected row on screen. Footer always sits just below the last drawn row (never overlaps it).
+    // Hidden rows are compacted before paging; controller selection determines the visible page.
     s32 vis[ROW_COUNT];
     s32 nvis   = 0;
     s32 selPos = 0;
@@ -338,37 +395,53 @@ void vr_pause_menu_draw(void) {
         vis[nvis++] = i;
     }
 
-    enum { MAXSHOW = 14, PITCH = 12, ROW0Y = 48 };
-    s32 start = 0;
-    if (nvis > MAXSHOW) {
-        start = selPos - MAXSHOW / 2;           // center the selection
-        if (start < 0) start = 0;
-        if (start > nvis - MAXSHOW) start = nvis - MAXSHOW;
-    }
-    s32 end = start + MAXSHOW;
+    s32 start = (selPos / OPTIONS_PAGE_ROWS) * OPTIONS_PAGE_ROWS;
+    s32 end = start + OPTIONS_PAGE_ROWS;
     if (end > nvis) end = nvis;
 
     s32 k;
     for (k = start; k < end; k++) {
         s32 row = vis[k];
-        s32 y = ROW0Y + (k - start) * PITCH;
+        s32 y = 54 + (k - start) * OPTIONS_ROW_PITCH;
         if (row == sSel) {
             // print_text's y is ~the baseline (glyphs draw UPWARD from y), so the highlight sits ABOVE y.
-            gDisplayListHead = draw_flash_select_case_slow(gDisplayListHead, 26, y - 10, 294, y + 2);
+            gDisplayListHead = draw_flash_select_case_slow(gDisplayListHead, 26, y - 16, 294, y + 7);
         }
         set_text_color(row == sSel ? TEXT_GREEN : TEXT_BLUE);
-        race_mods_text_fit(38, y, kRowLabels[row], 0.55f, 136.0f); // the value column starts at 178
+        race_mods_text_fit(32, y, kRowLabels[row], 0.6f, row >= ROW_DEFAULTS ? 256.0f : 118.0f);
+
+        if (options_row_adjustable(row)) {
+            menu_pointer_target(context, row * 3, 26, y - 16, 126, OPTIONS_ROW_PITCH);
+            menu_pointer_target(context, row * 3 + 1, 152, y - 16, 28, OPTIONS_ROW_PITCH);
+            menu_pointer_target(context, row * 3, 180, y - 16, 86, OPTIONS_ROW_PITCH);
+            menu_pointer_target(context, row * 3 + 2, 266, y - 16, 28, OPTIONS_ROW_PITCH);
+            race_mods_draw_pointer_arrow(166, y - 4, -1);
+            race_mods_draw_pointer_arrow(280, y - 4, 1);
+        } else if (row >= ROW_DEFAULTS) {
+            menu_pointer_target(context, row * 3, 26, y - 16, 268, OPTIONS_ROW_PITCH);
+        }
 
         char val[32];
         value_string(row, val);
         if (val[0] != '\0') {
-            race_mods_text_fit(178, y, val, 0.55f, 114.0f); // the panel edge is 294
+            race_mods_text_fit(182, y, val, 0.6f, 82.0f);
         }
     }
 
-    // Footer just below the last drawn row.
+    // Fixed controls remain reachable when the action rows are outside the scroll window.
     set_text_color(TEXT_BLUE);
-    race_mods_text_fit_center(160, ROW0Y + (end - start) * PITCH + 6, "DPAD MOVE   LR CHANGE   A SELECT   R1 CLOSE", 0.46f, 276.0f);
+    race_mods_text_fit_center(66, 230, "BACK", 0.6f, 72.0f);
+    race_mods_text_fit_center(248, 230, "RESUME", 0.6f, 84.0f);
+    menu_pointer_target(context, ROW_COUNT * 3, 26, 212, 80, 26);
+    menu_pointer_target(context, ROW_COUNT * 3 + 1, 202, 212, 92, 26);
+    if (start > 0) {
+        race_mods_draw_pointer_arrow(132, 225, -2);
+        menu_pointer_target(context, ROW_COUNT * 3 + 2, 114, 212, 36, 26);
+    }
+    if (end < nvis) {
+        race_mods_draw_pointer_arrow(178, 225, 2);
+        menu_pointer_target(context, ROW_COUNT * 3 + 3, 160, 212, 36, 26);
+    }
 }
 
 int vr_pause_menu_is_open(void) {

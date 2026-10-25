@@ -7,6 +7,7 @@
 #include "Properties.h"
 #include "TrackProperties.h"
 #include "ContentBrowser.h"
+#include "LanRaceWindow.h"
 
 #include <spdlog/spdlog.h>
 #include <imgui.h>
@@ -48,6 +49,7 @@ void SetupGuiElements() {
 
     mPortMenu = std::make_shared<PortMenu>("gOpenMenu", "Port Menu");
     gui->SetMenu(mPortMenu);
+    gui->AddGuiWindow(std::make_shared<LanRaceWindow>("gNet.Window", "LAN Race"));
 
     mStatsWindow = gui->GetGuiWindow("Stats");
     if (mStatsWindow == nullptr) {

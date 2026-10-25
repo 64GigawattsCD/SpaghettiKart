@@ -17,6 +17,8 @@ int vr_pause_menu_input(void);
 // Draw the overlay if open. Call from the pause render path, AFTER the 3D world has rendered (so the VR HUD
 // remap puts it on the head-locked plane). No-op when closed.
 void vr_pause_menu_draw(void);
+// Stock pause menu's clickable entry into the options overlay.
+void vr_pause_menu_draw_entry(void);
 
 // Is the overlay currently open? (lets the stock pause menu hide its own input/visuals while ours is up)
 int vr_pause_menu_is_open(void);

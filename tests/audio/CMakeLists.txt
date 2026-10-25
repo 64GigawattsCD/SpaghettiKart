@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.20)
+project(KartAudioTests LANGUAGES CXX)
+enable_testing()
+add_executable(audio_test audio_test.cpp)
+target_compile_features(audio_test PRIVATE cxx_std_17)
+add_test(NAME audio_mix_and_queue COMMAND audio_test)

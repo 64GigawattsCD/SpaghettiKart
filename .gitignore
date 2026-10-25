@@ -60,6 +60,8 @@ xml/*
 
 # Torch
 # include/assets/*
+# Duplicate headers emitted under an extra assets prefix by local extraction.
+/include/assets/assets/
 torch/*
 debug/*
 /debug/*

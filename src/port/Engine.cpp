@@ -1,4 +1,7 @@
 #include "Engine.h"
+#include "KartTestBridge.h"
+#include "audio/AudioProbe.h"
+#include "audio/AudioMix.h"
 
 #include <cstdlib>
 #include "ship/utils/StringHelper.h"
@@ -96,7 +99,7 @@ static void MigrateFirstPersonViewInputMappings() {
             StringHelper::Sprintf("gControllers.Port%d.Buttons.First Person ViewButtonMappingIds", portIndex + 1);
         const std::string sdlMappingId = StringHelper::Sprintf("P%d-B%d-SDLB%d", portIndex,
                                                                KART_TOGGLE_FIRST_PERSON_BUTTON,
-                                                               SDL_CONTROLLER_BUTTON_X);
+                                                               SDL_CONTROLLER_BUTTON_BACK);
         const std::string keyboardMappingId = StringHelper::Sprintf("P%d-B%d-KB%d", portIndex,
                                                                     KART_TOGGLE_FIRST_PERSON_BUTTON,
                                                                     Ship::KbScancode::LUS_KB_I);
@@ -111,7 +114,7 @@ static void MigrateFirstPersonViewInputMappings() {
         cvars->SetString(mappingIdsKey.c_str(), (sdlMappingId + "," + keyboardMappingId + ",").c_str());
         cvars->SetString((sdlMappingKey + ".ButtonMappingClass").c_str(), "SDLButtonToButtonMapping");
         cvars->SetInteger((sdlMappingKey + ".Bitmask").c_str(), KART_TOGGLE_FIRST_PERSON_BUTTON);
-        cvars->SetInteger((sdlMappingKey + ".SDLControllerButton").c_str(), SDL_CONTROLLER_BUTTON_X);
+        cvars->SetInteger((sdlMappingKey + ".SDLControllerButton").c_str(), SDL_CONTROLLER_BUTTON_BACK);
         cvars->SetString((keyboardMappingKey + ".ButtonMappingClass").c_str(), "KeyboardKeyToButtonMapping");
         cvars->SetInteger((keyboardMappingKey + ".Bitmask").c_str(), KART_TOGGLE_FIRST_PERSON_BUTTON);
         cvars->SetInteger((keyboardMappingKey + ".KeyboardScancode").c_str(), Ship::KbScancode::LUS_KB_I);
@@ -165,6 +168,60 @@ static void ClearSDLButtonMapping(const std::shared_ptr<Ship::ConsoleVariable>& 
     cvars->ClearVariable((mappingKey + ".ButtonMappingClass").c_str());
     cvars->ClearVariable((mappingKey + ".Bitmask").c_str());
     cvars->ClearVariable((mappingKey + ".SDLControllerButton").c_str());
+}
+
+static void MigrateSelectCameraAndItemMappings() {
+    auto cvars = Ship::Context::GetRawInstance()->GetConsoleVariables();
+    bool changed = false;
+    for (int port = 0; port < 4; ++port) {
+        const auto prefix = StringHelper::Sprintf("gControllers.Port%d.", port + 1);
+        const auto versionKey = prefix + "SelectCameraItemDefaultsVersion";
+        if (!cvars->GetInteger((prefix + "HasConfig").c_str(), 0) ||
+            cvars->GetInteger(versionKey.c_str(), 0) >= 1) continue;
+
+        auto key = [&](const char* action) { return prefix + "Buttons." + action + "ButtonMappingIds"; };
+        auto id = [&](int32_t mask, int button) { return StringHelper::Sprintf("P%d-B%d-SDLB%d", port, mask, button); };
+        auto contains = [&](const std::string& idsKey, const std::string& mappingId) {
+            const std::string ids = cvars->GetString(idsKey.c_str(), "");
+            for (const auto& entry : StringHelper::Split(ids, ","))
+                if (entry == mappingId) return true;
+            return false;
+        };
+        auto add = [&](const std::string& idsKey, int32_t mask, int button) {
+            const auto mappingId = id(mask, button);
+            if (contains(idsKey, mappingId)) return;
+            std::string ids = cvars->GetString(idsKey.c_str(), "");
+            if (!ids.empty() && ids.back() != ',') ids += ',';
+            cvars->SetString(idsKey.c_str(), (ids + mappingId + ",").c_str());
+            const auto mappingKey = "gControllers.ButtonMappings." + mappingId;
+            cvars->SetString((mappingKey + ".ButtonMappingClass").c_str(), "SDLButtonToButtonMapping");
+            cvars->SetInteger((mappingKey + ".Bitmask").c_str(), mask);
+            cvars->SetInteger((mappingKey + ".SDLControllerButton").c_str(), button);
+        };
+        auto remove = [&](const std::string& idsKey, const std::string& mappingId) {
+            RemoveMappingIdFromButton(cvars, idsKey, mappingId);
+            ClearSDLButtonMapping(cvars, mappingId);
+        };
+        const auto cameraKey = key("First Person View");
+        const auto oldCamera = id(KART_TOGGLE_FIRST_PERSON_BUTTON, SDL_CONTROLLER_BUTTON_X);
+        if (contains(cameraKey, oldCamera)) {
+            remove(cameraKey, oldCamera);
+            add(cameraKey, KART_TOGGLE_FIRST_PERSON_BUTTON, SDL_CONTROLLER_BUTTON_BACK);
+        }
+        if (contains(cameraKey, id(KART_TOGGLE_FIRST_PERSON_BUTTON, SDL_CONTROLLER_BUTTON_BACK)))
+            remove(key("Capture Screenshot"), id(KART_CAPTURE_SCREENSHOT_BUTTON, SDL_CONTROLLER_BUTTON_BACK));
+
+        const auto debugKey = key("Ceremony Debug Select DK");
+        const auto oldB = id(BTN_CDOWN, SDL_CONTROLLER_BUTTON_B);
+        // Upgrade known defaults, without replacing a completely customized item binding.
+        if (contains(debugKey, oldB) || contains(key("Use Item"), id(BTN_Z, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER))) {
+            remove(debugKey, oldB);
+            add(key("Use Item"), BTN_Z, SDL_CONTROLLER_BUTTON_B);
+        }
+        cvars->SetInteger(versionKey.c_str(), 1);
+        changed = true;
+    }
+    if (changed) cvars->Save();
 }
 
 static void MigrateRightStickShiftInputMappings() {
@@ -244,7 +301,11 @@ static void MigrateRightStickClickInputMappings() {
 
 GameEngine::GameEngine() {
     // Initialize context properties early to recognize paths properly for non-portable builds
-    this->context = Ship::Context::CreateUninitializedInstance("Spaghetti Kart", "spaghettify", "spaghettify.cfg.json");
+    const char* configPath = "spaghettify.cfg.json";
+#ifdef __ANDROID__
+    if (kart_test_active()) configPath = "kart-test/spaghettify.cfg.json";
+#endif
+    this->context = Ship::Context::CreateUninitializedInstance("Spaghetti Kart", "spaghettify", configPath);
 
 #ifdef __SWITCH__
     Ship::Switch::Init(Ship::PreInitPhase);
@@ -258,8 +319,21 @@ GameEngine::GameEngine() {
     this->context->InitConsoleVariables(); // without this line the controldeck constructor failes in
                                            // ShipDeviceIndexMappingManager::UpdateControllerNamesFromConfig()
     MigrateFirstPersonViewInputMappings();
+    MigrateSelectCameraAndItemMappings();
     MigrateRightStickShiftInputMappings();
     MigrateRightStickClickInputMappings();
+
+#ifdef __ANDROID__
+    if (kart_test_active()) {
+        // Set before audio/window initialization; the phone runner restores preferences afterward.
+        CVarSetInteger("gSkipIntro", kart_test_menu_boot() ? 3 : 2);
+        CVarSetInteger("gArcadeKart.DebugQuickBootHudRace", kart_test_menu_boot() ? 0 : 1);
+        CVarSetInteger("gFlatViewMode", 1);
+        CVarSetInteger("gArcadeKart.ControllerRumble.Enabled", 0);
+        for (const char* key : {"gGameMasterVolume", "gMainMusicVolume", "gSFXMusicVolume", "gEnvironmentVolume"})
+            CVarSetFloat(key, KartAudio::ProbeEnabled() ? 1.0f : 0.0f);
+    }
+#endif
 
     // Unlimited draw distance everywhere, flat and VR alike: nothing should fade out, LOD-swap or
     // pop in. No Culling + Disable LOD + Far Frustum forced on at every boot. The far plane is the
@@ -343,15 +417,13 @@ GameEngine::GameEngine() {
             { KART_MENU_CANCEL_BUTTON, { SDL_CONTROLLER_BUTTON_B } },
             { BTN_START, { SDL_CONTROLLER_BUTTON_START } },
             { BTN_CLEFT, { SDL_CONTROLLER_BUTTON_Y, SDL_CONTROLLER_BUTTON_RIGHTSTICK } },
-            { KART_TOGGLE_FIRST_PERSON_BUTTON, { SDL_CONTROLLER_BUTTON_X } },
-            { BTN_CDOWN, { SDL_CONTROLLER_BUTTON_B } },
+            { KART_TOGGLE_FIRST_PERSON_BUTTON, { SDL_CONTROLLER_BUTTON_BACK } },
             { BTN_DUP, { SDL_CONTROLLER_BUTTON_DPAD_UP } },
             { BTN_DDOWN, { SDL_CONTROLLER_BUTTON_DPAD_DOWN } },
             { BTN_DLEFT, { SDL_CONTROLLER_BUTTON_DPAD_LEFT } },
             { BTN_DRIGHT, { SDL_CONTROLLER_BUTTON_DPAD_RIGHT } },
             { BTN_R, { SDL_CONTROLLER_BUTTON_LEFTSHOULDER } },
-            { BTN_Z, { SDL_CONTROLLER_BUTTON_RIGHTSHOULDER } },
-            { KART_CAPTURE_SCREENSHOT_BUTTON, { SDL_CONTROLLER_BUTTON_BACK } }
+            { BTN_Z, { SDL_CONTROLLER_BUTTON_RIGHTSHOULDER, SDL_CONTROLLER_BUTTON_B } }
         },
         // SDLButtonToAxisDirectionMappings - use built-in LUS defaults
         std::unordered_map<Ship::StickIndex, std::vector<std::pair<Ship::Direction, SDL_GameControllerButton>>>(),
@@ -901,6 +973,7 @@ void GameEngine::RunCommands(Gfx* pool, const std::vector<std::unordered_map<Mtx
                         interpreter->RunVrEye(pool, mtx, vr_eye_viewproj(e), vr_sky_viewproj(e),
                                               vr_hud_viewproj(e), vr_full2d_viewproj(e), gVrSkyDomeGfx,
                                               vr_eye_width(e), vr_eye_height(e));
+                        KartTest::Capture(interpreter, interpreter->GetVrFbId(), vr_eye_width(e), vr_eye_height(e), e == 0 ? "left" : "right");
                         vr_submit_eye_texture(e, interpreter->GetVrFbTextureId(), vr_eye_width(e), vr_eye_height(e));
                     }
                 }
@@ -940,6 +1013,7 @@ void GameEngine::RunCommands(Gfx* pool, const std::vector<std::unordered_map<Mtx
                         interpreter->RunVrEye(pool, mtx, vr_eye_viewproj(e), vr_sky_viewproj(e),
                                               vr_hud_viewproj(e), vr_full2d_viewproj(e), gVrSkyDomeGfx,
                                               vr_eye_width(e), vr_eye_height(e));
+                        KartTest::Capture(interpreter, interpreter->GetVrFbId(), vr_eye_width(e), vr_eye_height(e), e == 0 ? "left" : "right");
                         vr_submit_eye_texture(e, interpreter->GetVrFbTextureId(), vr_eye_width(e), vr_eye_height(e));
                     }
                 } else {
@@ -969,11 +1043,39 @@ void GameEngine::RunCommands(Gfx* pool, const std::vector<std::unordered_map<Mtx
 #endif
     {
         for (const auto& mtxStack : mtx_replacements) {
-            wnd->DrawAndRunGraphicsCommands(pool, mtxStack);
+            if (kart_test_active()) {
+                // Same draw sequence, with a renderer readback before presentation.
+                wnd->GetMouseStateManager()->StartFrame();
+                wnd->GetGui()->StartDraw();
+                interpreter->StartFrame();
+                if (KartTest::WantsStereo()) {
+                    // Synthetic eyes exercise the real stereo interpreter without claiming HMD tracking.
+                    const float nearZ = 0.35f, farZ = 6800.0f, f = 1.7320508f;
+                    for (int eye = 0; eye < 2; ++eye) {
+                        float p[16] = {0};
+                        p[0] = f * 0.75f; p[5] = f;
+                        p[10] = -(farZ + nearZ) / (farZ - nearZ); p[11] = -1.0f;
+                        p[12] = (eye == 0 ? 0.64f : -0.64f) * p[0];
+                        p[14] = -2.0f * farZ * nearZ / (farZ - nearZ);
+                        interpreter->RunVrEye(pool, mtxStack, p, p, p, p, nullptr, 960, 720);
+                        KartTest::Capture(interpreter, interpreter->GetVrFbId(), 960, 720, eye == 0 ? "left" : "right");
+                    }
+                    interpreter->StartFrame();
+                }
+                interpreter->Run(pool, mtxStack);
+                wnd->GetGui()->EndDraw();
+                uint32_t w, h; int32_t x, y;
+                interpreter->GetDimensions(&w, &h, &x, &y);
+                KartTest::Capture(interpreter, 0, w, h, "desktop");
+                interpreter->EndFrame();
+            } else {
+                wnd->DrawAndRunGraphicsCommands(pool, mtxStack);
+            }
             interpreter->mInterpolationIndex++;
         }
     }
 
+    KartTest::Publish();
     bool curAltAssets = CVarGetInteger("gEnhancements.Mods.AlternateAssets", 0);
     if (prevAltAssets != curAltAssets) {
         prevAltAssets = curAltAssets;
@@ -1036,27 +1138,48 @@ void GameEngine::ProcessGfxCommands(Gfx* pool) {
 
 // Audio
 void GameEngine::HandleAudioThread() {
-    while (audio.running) {
-        {
-            std::unique_lock<std::mutex> Lock(audio.mutex);
-            while (!audio.processing && audio.running) {
-                audio.cv_to_thread.wait(Lock);
-            }
-
-            if (!audio.running) {
-                break;
-            }
-        }
+    KartAudio::Probe probe;
+#ifdef __ANDROID__
+    bool started = false;
+    uint64_t audioBlock = 0;
+#endif
+    for (;;) {
         std::unique_lock<std::mutex> Lock(audio.mutex);
+#ifdef __ANDROID__
+        const bool deviceClock = Instance->context->GetAudio()->GetCurrentAudioBackend() == Ship::AudioBackend::SDL;
+        // Wait for the first game frame (audio_init), then follow device consumption.
+        // A slow renderer must not insert silence between 30 Hz sound blocks.
+        if (started && deviceClock) {
+            audio.cv_to_thread.wait_for(Lock, std::chrono::milliseconds(8), [] {
+                return audio.processing || !audio.running;
+            });
+        } else {
+            audio.cv_to_thread.wait(Lock, [] { return audio.processing || !audio.running; });
+        }
+#else
+        audio.cv_to_thread.wait(Lock, [] { return audio.processing || !audio.running; });
+#endif
+        if (!audio.running) break;
 
+        const auto audioStarted = std::chrono::steady_clock::now();
         int samples_left = AudioPlayerBuffered();
+#ifdef __ANDROID__
+        started = true;
+        if (deviceClock && !KartAudio::NeedsRefill(samples_left, AudioPlayerGetDesiredBuffered())) {
+            audio.processing = false;
+            audio.cv_from_thread.notify_one();
+            continue;
+        }
+        u32 num_audio_samples = deviceClock ? KartAudio::AndroidSamplesPerTick(audioBlock++) : SAMPLES_HIGH;
+#else
         u32 num_audio_samples = samples_left < AudioPlayerGetDesiredBuffered() ? SAMPLES_HIGH : SAMPLES_LOW;
+#endif
 
         s16 nas_buffer[SAMPLES_PER_FRAME] = { 0 };
         f32 hmas_buffer[SAMPLES_PER_FRAME] = { 0 };
         s16 mix_buffer[SAMPLES_PER_FRAME] = { 0 };
 
-        for (size_t i = 0; i < NUM_AUDIO_CHANNELS; i++) {
+        for (size_t i = 0; i < AUDIO_FRAMES_PER_UPDATE; i++) {
             create_next_audio_buffer(nas_buffer + i * (num_audio_samples * 2), num_audio_samples);
         }
 
@@ -1064,10 +1187,16 @@ void GameEngine::HandleAudioThread() {
 
         float master_vol = CVarGetFloat("gGameMasterVolume", 1.0f);
 
-        for (size_t i = 0; i < SAMPLES_PER_FRAME; i++) {
-            mix_buffer[i] = nas_buffer[i] + ((int16_t)(hmas_buffer[i] * 32767.0f) * master_vol);
+        uint64_t overrange = 0;
+        for (size_t i = 0; i < num_audio_samples * NUM_AUDIO_CHANNELS * AUDIO_FRAMES_PER_UPDATE; i++) {
+            float mixed = nas_buffer[i] + hmas_buffer[i] * 32767.0f * master_vol;
+            overrange += !std::isfinite(mixed) || mixed < -32768.0f || mixed > 32767.0f;
+            mix_buffer[i] = KartAudio::MixSample(nas_buffer[i], hmas_buffer[i], master_vol);
         }
 
+        probe.record(samples_left, mix_buffer, 4 * num_audio_samples, overrange,
+                     GameEngine_GetSampleRate(), SDL_GetCurrentAudioDriver(), audioStarted);
+        if (KartAudio::ProbeEnabled()) std::fill_n(mix_buffer, SAMPLES_PER_FRAME, 0);
         AudioPlayerPlayFrame((u8*) mix_buffer, 2 * num_audio_samples * 4);
 
         audio.processing = false;

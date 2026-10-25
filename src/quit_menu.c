@@ -13,6 +13,8 @@
 #include "menus.h"
 #include "audio/external.h"
 #include "quit_menu.h"
+#include "menu_pointer.h"
+#include "race_mods_menu.h"
 
 extern Gfx* gDisplayListHead;
 
@@ -31,9 +33,20 @@ extern void GameEngine_RequestQuit(void);
 static s32 sQuitCountdown = 0;
 static s32 sConfirm = 0; // A YES / B NO dialog up
 
+static s32 quit_pointer_context(void) {
+    return 150000 + gMainMenuSelection * 2 + sConfirm;
+}
+
 int quit_menu_input(unsigned short btnAndStick) {
     if (sQuitCountdown > 0) {
         return 1; // quit pending - the wipe gates input too, but don't let the stock chain race it
+    }
+    s32 hit = menu_pointer_take(quit_pointer_context());
+    if (sConfirm) {
+        if (hit == 1) btnAndStick = A_BUTTON;
+        if (hit == 2) btnAndStick = B_BUTTON;
+    } else if (hit == 0) {
+        btnAndStick = CONT_G;
     }
     if (sConfirm) {
         if (btnAndStick & A_BUTTON) {
@@ -90,6 +103,9 @@ void quit_menu_draw_box(void) {
     if (p == 0) { // label only when fully expanded (the texture boxes collapse their art; text can't)
         set_text_color(TEXT_YELLOW);
         print_text1_center_mode_1(QUIT_X + QUIT_W / 2, QUIT_Y + QUIT_H - 4, "Z QUIT", 0, 0.6f, 0.6f);
+        if (gMainMenuSelection == MAIN_MENU_PLAYER_SELECT && !sConfirm && !sQuitCountdown && !is_screen_being_faded()) {
+            menu_pointer_target(quit_pointer_context(), 0, QUIT_X, QUIT_Y, QUIT_W, QUIT_H);
+        }
     }
 }
 
@@ -97,10 +113,14 @@ void quit_menu_draw_confirm(void) {
     if (!sConfirm) {
         return;
     }
+    menu_pointer_clear_targets();
     // Drawn from the tail of the menu-item render pass, so the dialog covers the player-select widgets.
     gDisplayListHead = draw_box_wide(gDisplayListHead, 84, 94, 236, 150, 0, 0, 40, 235);
     set_text_color(TEXT_YELLOW);
     print_text1_center_mode_1(160, 118, "QUIT GAME?", 0, 0.8f, 0.8f);
     set_text_color(TEXT_BLUE);
-    print_text1_center_mode_1(160, 142, "A YES   B NO", 0, 0.7f, 0.7f);
+    race_mods_text_fit_center(120, 142, "A YES", 0.7f, 66.0f);
+    race_mods_text_fit_center(200, 142, "B NO", 0.7f, 66.0f);
+    menu_pointer_target(quit_pointer_context(), 1, 86, 125, 72, 24);
+    menu_pointer_target(quit_pointer_context(), 2, 162, 125, 72, 24);
 }

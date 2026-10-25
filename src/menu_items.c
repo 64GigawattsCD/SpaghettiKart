@@ -11,6 +11,7 @@
 #include "code_800029B0.h"
 #include "menu_items.h"
 #include "vr_pause_menu.h"
+#include "menu_pointer.h"
 #include "quit_menu.h"
 #include "race_mods_menu.h"
 #include "code_80005FD0.h"
@@ -6512,6 +6513,9 @@ void render_menus(MenuItem* arg0) {
                 break;
             case MAIN_MENU_OPTION_GFX:
             case MAIN_MENU_DATA_GFX:
+                if (gMainMenuSelection == MAIN_MENU_PLAYER_SELECT && arg0->param1 == 0)
+                    menu_pointer_target(menu_pointer_main_context(),
+                        arg0->type == MAIN_MENU_OPTION_GFX ? 301 : 302, arg0->column, arg0->row, 58, 19);
                 var_a1 = arg0->type - MENU_ITEM_UI_OK;
                 var_v1 = arg0->type - MENU_ITEM_UI_GAME_SELECT;
                 if (arg0->param1 < 0x20) {
@@ -6579,6 +6583,8 @@ void render_menus(MenuItem* arg0) {
                 if (var_v1 == -1) {
                     break;
                 }
+                if (gMainMenuSelection == MAIN_MENU_MODE_SUB_SELECT || gMainMenuSelection == MAIN_MENU_MODE_SUB_SELECT_GO_BACK)
+                    menu_pointer_target(menu_pointer_main_context(), 200+arg0->type-var_a1, arg0->column, arg0->row, 64, 18);
                 if ((gMainMenuSelection >= 5) && (var_v1 == (arg0->type - var_a1))) {
                     if (gMainMenuSelection >= 6) {
                         gDisplayListHead =
@@ -6634,6 +6640,9 @@ void render_menus(MenuItem* arg0) {
             case CHARACTER_SELECT_MENU_DK:
             case CHARACTER_SELECT_MENU_WARIO:
             case CHARACTER_SELECT_MENU_BOWSER:
+                if (menu_pointer_character_can_pick(arg0->type-CHARACTER_SELECT_MENU_MARIO+1))
+                    menu_pointer_target(menu_pointer_character_context(), arg0->type-CHARACTER_SELECT_MENU_MARIO+1,
+                        arg0->column, arg0->row, 64, 76);
                  func_800A12BC(arg0, D_800E7D54[arg0->type - CHARACTER_SELECT_MENU_MARIO]);
                 /* fallthrough */
             case MENU_ITEM_TYPE_0A0:
@@ -7210,6 +7219,8 @@ void func_800A1500(MenuItem* arg0) {
 }
 
 void func_800A15EC(MenuItem* arg0) {
+    if (gMenuSelection == DATA_MENU && gSubMenuSelection == SUB_MENU_DATA)
+        menu_pointer_target(600, arg0->type-0x7C, arg0->column, arg0->row, 64, 48);
     s16 trackId = cup_course_at((arg0->type - 0x7C) / 4, (arg0->type - 0x7C) % 4);
     gDisplayListHead =
          func_8009C204(gDisplayListHead, D_800E7D74[trackId], arg0->column, arg0->row, 2);
@@ -7333,6 +7344,8 @@ void menu_item_data_course_selectable(MenuItem* arg0) {
         } else {
             set_text_color(var_s2);
             print_text_mode_1(0x00000025, 0x3F + (0xD * i), gTextMenuOption[i], 0, 0.6f, 0.6f);
+            if (gSubMenuSelection == SUB_MENU_DATA_OPTIONS)
+                menu_pointer_target(650+gSubMenuSelection, i, 32, 51+13*i, 122, 13);
         }
     }
     sp78.column = 0x001F;
@@ -7369,6 +7382,7 @@ void func_800A1DE0(MenuItem* arg0) {
         }
         set_text_color(var_a0);
         print_text_mode_1(0x00000043, 0x6E + (0xD * var_s1), D_800E7840[var_s1], 0, 0.65f, 0.65f);
+        menu_pointer_target(650+gSubMenuSelection, var_s1, 62, 98+13*var_s1, 90, 13);
     }
 
     sp58.column = 0x003B;
@@ -7409,6 +7423,7 @@ void func_800A1FB0(MenuItem* arg0) {
             for (i = 0; i < ARRAY_COUNT(gTextOptionMenu); i++) {
                 set_text_color_rainbow_if_selected(gSubMenuSelection - SUB_MENU_OPTION_MIN, i, 3);
                 print_text_mode_1(0x00000032, 0x55 + (0x23 * i), gTextOptionMenu[i], 0, 0.9f, 1.0f);
+                menu_pointer_target(500+gSubMenuSelection, SUB_MENU_OPTION_MIN+i, 45, 67+35*i, 245, 30);
                 if (i == (gSubMenuSelection - SUB_MENU_OPTION_MIN)) {
                     spE0.column = 0x0032;
                     spE0.row = 0x55 + (0x23 * i);
@@ -7426,6 +7441,7 @@ void func_800A1FB0(MenuItem* arg0) {
             for (i = 0; i < ARRAY_COUNT(D_800E7840); i++) {
                 set_text_color_rainbow_if_selected(gSubMenuSelection - SUB_MENU_ERASE_MIN, i, 1);
                 print_text_mode_1(0x00000084, 0x96 + (0x19 * i), D_800E7840[i], 0, 1.0f, 1.0f);
+                menu_pointer_target(500+gSubMenuSelection, SUB_MENU_ERASE_MIN+i, 125, 132+25*i, 100, 23);
                 if (i == (gSubMenuSelection - SUB_MENU_ERASE_MIN)) {
                     spE0.column = 0x0084;
                     spE0.row = 0x96 + (0x19 * i);
@@ -7737,6 +7753,43 @@ void func_800A32B4(s32 arg0, s32 arg1, s32 characterId, s32 rank) {
     func_800939C8(arg0 + 0x6A, arg1, sp3C, 0, 0.7f, 0.7f);
 }
 
+// Results targets are tied to the item, its current dialog/selection, and disabled rows.
+static s32 results_pointer_context(MenuItem* item) {
+    return 200000 + item->type * 1024 + item->state * 8 +
+           (gPostTimeTrialReplayCannotSave == 1 ? 1 : 0) + (bPlayerGhostDisabled ? 2 : 0);
+}
+
+static void results_pointer_row(MenuItem* item, s32 id, s32 x, s32 y, s32 width, s32 height) {
+    if (!is_screen_being_faded()) {
+        menu_pointer_target(results_pointer_context(item), id, x, y, width, height);
+    }
+}
+
+static void results_pointer_back(MenuItem* item) {
+    set_text_color(TEXT_BLUE);
+    race_mods_text_fit_center(68, 230, item->state == 0 ? "STOP REPLAY" : "BACK", 0.5f, 112.0f);
+    results_pointer_row(item, 100, 12, 217, 112, 20);
+}
+
+static u16 results_pointer_pressed(MenuItem* item, u16 pressed, s32 first, s32 last) {
+    s32 hit;
+    if (is_screen_being_faded()) return pressed;
+    hit = menu_pointer_take(results_pointer_context(item));
+    if (hit == 100) return item->state == 0 ? START_BUTTON : B_BUTTON;
+    if (hit < first || hit > last || item->state < first || item->state > last) return pressed;
+    if (item->type == MENU_ITEM_TYPE_0BA &&
+        ((hit == 9 && gPostTimeTrialReplayCannotSave == 1) || (hit == 10 && bPlayerGhostDisabled))) {
+        return pressed;
+    }
+    // Ghost slots locked to this course keep the same selection rule as the d-pad.
+    if ((first == 17 || first == 30) &&
+        func_800B639C((GetCupIndex() * 4) + GetCupCursorPosition()) == item->state - first &&
+        hit != item->state) return pressed;
+    item->state = hit;
+    reset_cycle_flash_menu();
+    return A_BUTTON;
+}
+
 void func_800A34A8(MenuItem* arg0) {
     s8 sp80[8];
     UNUSED s32 stackPadding0;
@@ -7828,6 +7881,11 @@ void func_800A34A8(MenuItem* arg0) {
         print_text1_center_mode_1(
             (temp_s0_3 - arg0->column) + 0xE6, arg0->row + 0xE1,
             D_800E76CC[gGameModeSubMenuColumn[gPlayerCount - 1][gGameModeMenuColumn[gPlayerCount - 1]]], 0, 0.6f, 0.6f);
+        if (arg0->state == 11 && D_800DDB24 != 0) {
+            set_text_color(TEXT_GREEN);
+            race_mods_text_fit_center(72, 226, "CONTINUE", 0.55f, 112.0f);
+            results_pointer_row(arg0, 0, 16, 212, 112, 24);
+        }
     }
 }
 
@@ -7976,6 +8034,10 @@ void func_800A3E60(MenuItem* arg0) {
                 } else {
                     print_text_mode_1(0xB2 - arg0->column, arg0->row + (0xD * var_s1) + 0x93,
                                       gTextPauseButton[var_s1 + 1], 0, 0.75f, 0.75f);
+                    if (arg0->state >= 5 && arg0->state <= 10) {
+                        results_pointer_row(arg0, 5 + var_s1, 0xAE - arg0->column,
+                                            arg0->row + 0x88 + 13 * var_s1, 142, 13);
+                    }
                 }
             }
             break;
@@ -7990,6 +8052,7 @@ void func_800A3E60(MenuItem* arg0) {
             for (var_s1 = 0; var_s1 < 7; var_s1++) {
                 print_text_mode_1(0x000000A2, 0x8C + (0xD * var_s1), D_800E798C[(var_v1 * 7) + var_s1], 0, 0.6f, 0.6f);
             }
+            results_pointer_back(arg0);
             break;
         case 17:
         case 18:
@@ -8001,6 +8064,10 @@ void func_800A3E60(MenuItem* arg0) {
                 text_rainbow_effect(arg0->state - 0x11, var_s1, 1);
                 convert_number_to_ascii(var_s1 + 1, sp60);
                 print_text_mode_1(0xB1 - arg0->column, 0xAA + (0x1E * var_s1), &sp60[1], 0, 0.6f, 0.6f);
+                if (func_800B639C((GetCupIndex() * 4) + GetCupCursorPosition()) != arg0->state - 17 ||
+                    var_s1 == arg0->state - 17) {
+                    results_pointer_row(arg0, 17 + var_s1, 0xAD - arg0->column, 0x9F + 30 * var_s1, 143, 20);
+                }
                 if (D_8018EE10[var_s1].ghostDataSaved == 0) {
                     print_text_mode_1(0xBB - arg0->column, 0xAA + (0x1E * var_s1), D_800E7A44, 0, 0.45f, 0.45f);
                 } else {
@@ -8028,6 +8095,7 @@ void func_800A3E60(MenuItem* arg0) {
             for (var_s1 = 0; var_s1 < 2; var_s1++) {
                 text_rainbow_effect(arg0->state - 0x14, var_s1, 1);
                 print_text_mode_1(0xC8 - arg0->column, 0xB9 + (0xF * var_s1), D_800E7A6C[var_s1], 0, 0.75f, 0.75f);
+                results_pointer_row(arg0, 20 + var_s1, 0xC4 - arg0->column, 0xAE + 15 * var_s1, 120, 15);
             }
             break;
         case 25:
@@ -8041,7 +8109,11 @@ void func_800A3E60(MenuItem* arg0) {
             for (var_s1 = 0; var_s1 < 2; var_s1++) {
                 print_text_mode_1(0x000000AA, (0xD * var_s1) + 0x93, D_800E7A80[var_s1], 0, 0.75f, 0.75f);
             }
+            results_pointer_back(arg0);
             break;
+    }
+    if (arg0->state == 17 || arg0->state == 18 || arg0->state == 20 || arg0->state == 21) {
+        results_pointer_back(arg0);
     }
     switch (arg0->state) {
         case 5:
@@ -8202,8 +8274,22 @@ void render_menu_item_announce_ghost(MenuItem* arg0) {
     print_text1_center_mode_1(arg0->column - 3, arg0->row, gTextMenuAnnounceGhost, 0, 0.85f, 0.85f);
 }
 
+static s32 pause_pointer_context(MenuItem* item) {
+    return 160000 + gModeSelection * 4096 + gScreenModeSelection * 512 +
+           gIsGamePaused * 64 + item->state;
+}
+
+static void pause_pointer_row(MenuItem* item, s32 row, s32 x, s32 baseline) {
+    if (item->state >= D_800F0B50[gModeSelection] && item->state <= D_800F0B54[gModeSelection] &&
+        !is_screen_being_faded()) {
+        menu_pointer_target(pause_pointer_context(item), D_800F0B50[gModeSelection] + row,
+                            x - 4, baseline - 11, 320 - x, 13);
+    }
+}
+
 void render_pause_menu(MenuItem* arg0) {
     if (gIsGamePaused != 0) {
+        menu_pointer_clear_targets();
         // VR: while our VR options overlay is open it REPLACES the stock pause menu - skip the stock render so
         // its background/options don't show behind ours.
         if (!vr_pause_menu_is_open()) {
@@ -8223,8 +8309,7 @@ void render_pause_menu(MenuItem* arg0) {
             }
             // The R1 overlay (view modes + race actions) works on flatscreen too now - say so,
             // or nobody ever finds it without a headset.
-            set_text_color(TEXT_BLUE);
-            race_mods_text_fit_center(160, 226, "R VIEW OPTIONS", 0.48f, 272.0f);
+            vr_pause_menu_draw_entry();
         }
         vr_pause_menu_draw(); // VR: draw our VR options overlay (no-op when closed; replaces the stock menu when open)
     }
@@ -8266,6 +8351,7 @@ void render_pause_menu_time_trials(MenuItem* arg0) {
         text_rainbow_effect(arg0->state - 11, var_s0, TEXT_GREEN);
         print_text_mode_1(D_800E8538[zero].column, D_800E8538[zero].row + (13 * var_s0), gTextPauseButton[var_s0], 0,
                           0.75f, 0.75f);
+        pause_pointer_row(arg0, var_s0, D_800E8538[zero].column, D_800E8538[zero].row + 13 * var_s0);
     }
 }
 
@@ -8331,6 +8417,7 @@ void render_pause_menu_versus(MenuItem* arg0) {
         }
         text_rainbow_effect(arg0->state - 0x15, var_s0, TEXT_YELLOW);
         print_text_mode_1(temp_s3->column - 2, temp_s3->row + (13 * var_s0), gTextPauseButton[var_s1], 0, 0.75f, 0.75f);
+        pause_pointer_row(arg0, var_s0, temp_s3->column - 2, temp_s3->row + 13 * var_s0);
     }
 }
 
@@ -8382,6 +8469,7 @@ void render_pause_grand_prix(MenuItem* arg0) {
     for (var_s0 = 0; var_s0 < 2; var_s0++) {
         text_rainbow_effect(arg0->state - 31, var_s0, TEXT_YELLOW);
         print_text_mode_1(temp_s3->column, temp_s3->row + (var_s0 * 13), gTextPauseButton[var_s0 * 4], 0, 0.75f, 0.75f);
+        pause_pointer_row(arg0, var_s0, temp_s3->column, temp_s3->row + 13 * var_s0);
     }
 }
 
@@ -8447,6 +8535,7 @@ void render_pause_battle(MenuItem* arg0) {
         }
         text_rainbow_effect(arg0->state - 41, var_a1, TEXT_YELLOW);
         print_text_mode_1(temp_s3->column - 2, temp_s3->row + 13 * var_a1, gTextPauseButton[var_s1], 0, 0.75f, 0.75f);
+        pause_pointer_row(arg0, var_a1, temp_s3->column - 2, temp_s3->row + 13 * var_a1);
     }
 }
 
@@ -8507,6 +8596,7 @@ void render_menu_item_end_course_option(MenuItem* arg0) {
     char sp5C[3];
 
     if (arg0->state == 0) {
+        results_pointer_back(arg0);
         if ((arg0->param1 >= 0x1E) && ((gGlobalTimer / 16) % 2)) {
             why = get_string_width(gTextPauseButton[REPLAY]) * 0.8f;
             gDisplayListHead = draw_box_wide_right(gDisplayListHead, 0x000000C0, 0x00000021, (s32) (why) + 0xC6,
@@ -8561,6 +8651,10 @@ void render_menu_item_end_course_option(MenuItem* arg0) {
                     text_rainbow_effect(arg0->state - 0xB, var_s1, TEXT_GREEN);
                     print_text_mode_2(D_800E8538[zero].column, D_800E8538[zero].row + (0xD * var_s1),
                                       gTextPauseButton[var_s1 + 1], 0, 0.75f, 0.75f);
+                    if (arg0->state >= 11 && arg0->state <= 16) {
+                        results_pointer_row(arg0, 11 + var_s1, D_800E8538[zero].column - 4,
+                                            D_800E8538[zero].row + 13 * var_s1 - 11, 188, 13);
+                    }
                 }
                 break;
             case 21:
@@ -8575,6 +8669,7 @@ void render_menu_item_end_course_option(MenuItem* arg0) {
                     print_text_mode_1(0x0000004D, 0x6E + (0xD * var_s1), D_800E798C[(temp_v0 * 7) + var_s1], 0, 0.8f,
                                       0.8f);
                 }
+                results_pointer_back(arg0);
                 break;
             case 30:
             case 31:
@@ -8586,6 +8681,10 @@ void render_menu_item_end_course_option(MenuItem* arg0) {
                     text_rainbow_effect(arg0->state - 0x1E, var_s1, TEXT_GREEN);
                     convert_number_to_ascii(var_s1 + 1, sp5C);
                     print_text_mode_1(0x5A - arg0->column, (0x96 + (0x14 * var_s1)), &sp5C[1], 0, 0.75f, 0.75f);
+                    if (func_800B639C((GetCupIndex() * 4) + GetCupCursorPosition()) != arg0->state - 30 ||
+                        var_s1 == arg0->state - 30) {
+                        results_pointer_row(arg0, 30 + var_s1, 0x56 - arg0->column, 0x8B + 20 * var_s1, 210, 20);
+                    }
                     if (D_8018EE10[var_s1].ghostDataSaved == 0) {
                         print_text_mode_1(0x69 - arg0->column, (0x96 + (0x14 * var_s1)), D_800E7A44, 0, 0.75f, 0.75f);
                     } else {
@@ -8612,6 +8711,7 @@ void render_menu_item_end_course_option(MenuItem* arg0) {
                 for (var_s1 = 0; var_s1 < 2; var_s1++) {
                     text_rainbow_effect(arg0->state - 0x23, var_s1, TEXT_GREEN);
                     print_text_mode_1(0x7D - arg0->column, 0x9B + (0xF * var_s1), D_800E7A6C[var_s1], 0, 0.8f, 0.8f);
+                    results_pointer_row(arg0, 35 + var_s1, 0x79 - arg0->column, 0x90 + 15 * var_s1, 174, 15);
                 }
                 break;
             case 40:
@@ -8625,7 +8725,11 @@ void render_menu_item_end_course_option(MenuItem* arg0) {
                 for (var_s1 = 0; var_s1 < 2; var_s1++) {
                     print_text_mode_1(0x0000005D, (0xD * var_s1) + 0x6E, D_800E7A80[var_s1], 0, 0.8f, 0.8f);
                 }
+                results_pointer_back(arg0);
                 break;
+        }
+        if (arg0->state == 30 || arg0->state == 31 || arg0->state == 35 || arg0->state == 36) {
+            results_pointer_back(arg0);
         }
         switch (arg0->state) {
             case 11:
@@ -8691,6 +8795,9 @@ void func_800A6154(MenuItem* arg0) {
         for (var_s1 = 0, var_s0 = 0x96; var_s1 < 2; var_s1++, var_s0 += 0x14) {
             text_rainbow_effect(arg0->state - 0xB, var_s1, TEXT_YELLOW);
             print_text_mode_1(0x0000008C, var_s0, gTextPauseButton[(var_s1 * 3) + 1], 0, 1.0f, 1.0f);
+            if (arg0->state == 11 || arg0->state == 12) {
+                results_pointer_row(arg0, 11 + var_s1, 136, var_s0 - 16, 180, 20);
+            }
         }
     }
     if (arg0->state >= 0xB) {
@@ -8751,6 +8858,9 @@ void func_800A638C(MenuItem* arg0) {
         for (var_s1 = 0; var_s1 < 4; var_s1++) {
             text_rainbow_effect(arg0->state - 0xA, var_s1, TEXT_GREEN);
             print_text_mode_1(0x00000069, 0xAE + (0xF * var_s1), gTextPauseButton[var_s1 + 1], 0, 0.8f, 0.8f);
+            if (arg0->state <= 13) {
+                results_pointer_row(arg0, 10 + var_s1, 101, 0xA2 + 15 * var_s1, 215, 15);
+            }
         }
         pause_menu_item_box_cursor(arg0, &D_800E7360[arg0->state - 10]);
     }
@@ -9550,6 +9660,7 @@ void handle_menus_with_pri_arg(s32 priSpecial) {
         }
         custom_cc_draw_row();     // port additions: after every menu item so the overlays sit on top
         versus_1p_rival_hint();   // 1P VERSUS character-screen guidance
+        menu_pointer_draw_navigation();
         quit_menu_draw_confirm();
         race_mods_draw();
     }
@@ -9577,6 +9688,8 @@ void func_800A8270(s32 index, MenuItem* arg1) {
         var_s0 = arg1->row;
         var_s3 = column + temp_t6;
         var_s4 = (column - temp_t6) + 63;
+        if (gMainMenuSelection == MAIN_MENU_PLAYER_SELECT && arg1->param1 == 0)
+            menu_pointer_target(menu_pointer_main_context(), index, column, var_s0, 64, 54);
 
         gDPPipeSync(gDisplayListHead++);
         gDPSetRenderMode(gDisplayListHead++, G_RM_OPA_SURF, G_RM_OPA_SURF2);
@@ -9595,6 +9708,8 @@ void func_800A8270(s32 index, MenuItem* arg1) {
         }
 
         for (var_s0 += 65, var_s2 = 0; var_s2 <= gPlayerModeSelection[index]; var_s2++, var_s0 += 18) {
+            if (gMainMenuSelection == MAIN_MENU_MODE_SELECT && index+1 == gPlayerCount && arg1->param1 == 0)
+                menu_pointer_target(menu_pointer_main_context(), 100+var_s2, var_s3, var_s0, var_s4-var_s3+1, 18);
             if ((var_s2 == gGameModeMenuColumn[index]) && ((index + 1) == gPlayerCount) && (gMainMenuSelection >= 4)) {
                 if (gMainMenuSelection == MAIN_MENU_MODE_SELECT) {
                     gDisplayListHead =
@@ -9650,6 +9765,11 @@ void func_800A8564(MenuItem* item) {
         sp34 = (item->param1 << 5) / 64;
         temp_t0 = item->column + var_a0->dX;
         temp_a2 = item->row + var_a0->dY;
+        if (var_a1 && item->param1 == 0) {
+            int context = item->type == MENU_ITEM_UI_OK ? menu_pointer_main_context() :
+                (item->type == CHARACTER_SELECT_MENU_OK ? menu_pointer_character_context() : menu_pointer_course_context());
+            menu_pointer_target(context, 300, temp_t0-3, temp_a2-3, 37, 25);
+        }
         if (var_a1 != 0) {
             gDisplayListHead = draw_flash_select_case_slow(gDisplayListHead, temp_t0 + sp34, temp_a2,
                                                            (temp_t0 - sp34) + 0x1E, temp_a2 + 0x12);
@@ -9699,6 +9819,8 @@ void func_800A890C(s32 arg0, MenuItem* arg1) {
         temp_t7 = (arg1->param1 * 65) / 64;
         temp_t1 = arg1->column;
         temp_a2 = arg1->row;
+        if (gSubMenuSelection == SUB_MENU_MAP_SELECT_CUP && arg1->param1 == 0)
+            menu_pointer_target(menu_pointer_course_context(), arg0, temp_t1, temp_a2, 65, 40);
         gDPPipeSync(gDisplayListHead++);
         gDPSetRenderMode(gDisplayListHead++, G_RM_OPA_SURF, G_RM_OPA_SURF2);
         gDPSetCombineMode(gDisplayListHead++, G_CC_DECALRGBA, G_CC_DECALRGBA);
@@ -9727,6 +9849,12 @@ void func_800A8A98(MenuItem* item) {
     gDPSetCombineMode(gDisplayListHead++, G_CC_DECALRGBA, G_CC_DECALRGBA);
 
     for (i = 0; i < (s32) GetCupSize(); i++) {
+        if (i < 4 && (gSubMenuSelection == SUB_MENU_MAP_SELECT_COURSE ||
+                      gSubMenuSelection == SUB_MENU_MAP_SELECT_BATTLE_COURSE))
+            menu_pointer_target(menu_pointer_course_context(), 100+i,
+                D_800E7208[i][0].column+column, D_800E7208[i][0].row+row,
+                D_800E7208[i][1].column-D_800E7208[i][0].column+1,
+                D_800E7208[i][1].row-D_800E7208[i][0].row+1);
         if ((i == (s32) GetCupCursorPosition()) && (gSubMenuSelection > SUB_MENU_MAP_SELECT_CUP) &&
             (gModeSelection != GRAND_PRIX)) {
             if ((gSubMenuSelection == SUB_MENU_MAP_SELECT_COURSE) ||
@@ -11530,7 +11658,9 @@ void func_800AC458(MenuItem* arg0) {
             }
             break;
         case 11:
-            if ((D_8018D9D8 != 0) && (D_800DDB24 != 0)) {
+            if ((D_800DDB24 != 0) &&
+                ((D_8018D9D8 != 0) || (!is_screen_being_faded() &&
+                 menu_pointer_take(results_pointer_context(arg0)) == 0))) {
                 arg0->state = 0x0000000C;
                 arg0->param2 = arg0->row;
                 play_sound2(SOUND_ACTION_NEXT_COURSE);
@@ -11582,6 +11712,8 @@ void func_800AC978(MenuItem* arg0) {
 }
 
 void func_800ACA14(MenuItem* arg0) {
+    u16 pressed = results_pointer_pressed(arg0, kart_input_get_menu_pressed(gControllerFive), 11, 12);
+
     switch (arg0->state) {
         case 0:
             if (arg0->param2 >= 0xB) {
@@ -11598,7 +11730,7 @@ void func_800ACA14(MenuItem* arg0) {
                 break;
             }
 
-            if (kart_input_get_menu_pressed(gControllerFive) & 0x800) {
+            if (pressed & 0x800) {
                 if (arg0->state >= 0xC) {
                     arg0->state--;
                     play_sound2(SOUND_MENU_CURSOR_MOVE);
@@ -11608,7 +11740,7 @@ void func_800ACA14(MenuItem* arg0) {
                     arg0->subState = -1;
                 }
             }
-            if (kart_input_get_menu_pressed(gControllerFive) & 0x400) {
+            if (pressed & 0x400) {
                 if (arg0->state < 0xC) {
                     arg0->state++;
                     play_sound2(SOUND_MENU_CURSOR_MOVE);
@@ -11618,7 +11750,7 @@ void func_800ACA14(MenuItem* arg0) {
                     arg0->subState = 1;
                 }
             }
-            if (kart_input_get_menu_pressed(gControllerFive) & 0x9000) {
+            if (pressed & 0x9000) {
                 func_8009DFE0(0x0000001E);
                 func_800CA330(0x19U);
                 play_sound2(SOUND_ACTION_CONTINUE_UNKNOWN);
@@ -11637,6 +11769,8 @@ void func_800ACA14(MenuItem* arg0) {
 
 void func_800ACC50(MenuItem* arg0) {
     s32 i;
+
+    u16 pressed = results_pointer_pressed(arg0, kart_input_get_menu_pressed(gControllerFive), 10, 13);
 
     switch (arg0->state) {
         case 0:
@@ -11670,7 +11804,7 @@ void func_800ACC50(MenuItem* arg0) {
         case 12:
         case 13:
             if (is_screen_being_faded() == 0) {
-                if (kart_input_get_menu_pressed(gControllerFive) & 0x800) {
+                if (pressed & 0x800) {
                     if (arg0->state >= 0xB) {
                         arg0->state--;
                         play_sound2(SOUND_MENU_CURSOR_MOVE);
@@ -11680,7 +11814,7 @@ void func_800ACC50(MenuItem* arg0) {
                         arg0->subState = -1;
                     }
                 }
-                if (kart_input_get_menu_pressed(gControllerFive) & 0x400) {
+                if (pressed & 0x400) {
                     if (arg0->state < 0xD) {
                         arg0->state++;
                         play_sound2(SOUND_MENU_CURSOR_MOVE);
@@ -11690,7 +11824,7 @@ void func_800ACC50(MenuItem* arg0) {
                         arg0->subState = 1;
                     }
                 }
-                if (kart_input_get_menu_pressed(gControllerFive) & 0x9000) {
+                if (pressed & 0x9000) {
                     func_8009DFE0(0x0000001E);
                     play_sound2(SOUND_MENU_OK_CLICKED);
                     if (gModeSelection == VERSUS) {
@@ -11824,6 +11958,12 @@ void func_800AD2E8(MenuItem* arg0) {
     s32 var_a1;
     s32 index;
 
+    s32 first = 1, last = 0;
+    if (arg0->state >= 5 && arg0->state <= 10) { first = 5; last = 10; }
+    if (arg0->state == 17 || arg0->state == 18) { first = 17; last = 18; }
+    if (arg0->state == 20 || arg0->state == 21) { first = 20; last = 21; }
+    u16 pressed = results_pointer_pressed(arg0, kart_input_get_menu_pressed(gControllerOne), first, last);
+
     switch (arg0->state) {
         case 0:
             arg0->column = -0x000000A0;
@@ -11863,7 +12003,7 @@ void func_800AD2E8(MenuItem* arg0) {
         case 9:
         case 10:
             if (is_screen_being_faded() == 0) {
-                if (kart_input_get_menu_pressed(gControllerOne) & 0x800) {
+                if (pressed & 0x800) {
                     if (arg0->state >= 6) {
                         arg0->state--;
                         if ((gPostTimeTrialReplayCannotSave == 1) && (arg0->state == 9)) {
@@ -11876,7 +12016,7 @@ void func_800AD2E8(MenuItem* arg0) {
                         arg0->subState = -1;
                     }
                 }
-                if (kart_input_get_menu_pressed(gControllerOne) & 0x400) {
+                if (pressed & 0x400) {
                     if (arg0->state < 0xA) {
                         arg0->state++;
                         if ((gPostTimeTrialReplayCannotSave == 1) && (arg0->state == 9)) {
@@ -11893,7 +12033,7 @@ void func_800AD2E8(MenuItem* arg0) {
                         }
                     }
                 }
-                if (kart_input_get_menu_pressed(gControllerOne) & (A_BUTTON | START_BUTTON)) {
+                if (pressed & (A_BUTTON | START_BUTTON)) {
                     if (arg0->state == 10) {
                         var_v1 = 0;
                         if (arg0->paramf < 4.2) {
@@ -11993,7 +12133,7 @@ void func_800AD2E8(MenuItem* arg0) {
         case 15:
         case 16:
         case 26:
-            if (kart_input_get_menu_pressed(gControllerOne) & 0xD000) {
+            if (pressed & 0xD000) {
                 arg0->state = 0x0000000A;
                 play_sound2(SOUND_MENU_GO_BACK);
                 if (arg0->paramf < 4.2) {
@@ -12005,7 +12145,7 @@ void func_800AD2E8(MenuItem* arg0) {
         case 18:
             arg0->param2 = arg0->state - 0x11;
             if (func_800B639C((GetCupIndex() * 4) + GetCupCursorPosition()) != arg0->param2) {
-                if (kart_input_get_menu_pressed(gControllerOne) & 0x800) {
+                if (pressed & 0x800) {
                     if (arg0->state >= 0x12) {
                         arg0->state--;
                         play_sound2(SOUND_MENU_CURSOR_MOVE);
@@ -12015,7 +12155,7 @@ void func_800AD2E8(MenuItem* arg0) {
                         arg0->subState = -1;
                     }
                 }
-                if (kart_input_get_menu_pressed(gControllerOne) & 0x400) {
+                if (pressed & 0x400) {
                     if (arg0->state < 0x12) {
                         arg0->state++;
                         play_sound2(SOUND_MENU_CURSOR_MOVE);
@@ -12026,12 +12166,12 @@ void func_800AD2E8(MenuItem* arg0) {
                     }
                 }
             }
-            if (kart_input_get_menu_pressed(gControllerOne) & 0x4000) {
+            if (pressed & 0x4000) {
                 arg0->state = 0x0000000A;
                 play_sound2(SOUND_MENU_GO_BACK);
                 return;
             }
-            if (kart_input_get_menu_pressed(gControllerOne) & 0x9000) {
+            if (pressed & 0x9000) {
                 thing = &D_8018EE10[arg0->param2];
                 if (thing->ghostDataSaved == 0) {
                     arg0->state = 0x00000019;
@@ -12060,7 +12200,7 @@ void func_800AD2E8(MenuItem* arg0) {
             break;
         case 20:
         case 21:
-            if ((kart_input_get_menu_pressed(gControllerOne) & 0x800) && (arg0->state >= 21)) {
+            if ((pressed & 0x800) && (arg0->state >= 21)) {
                 arg0->state--;
                 play_sound2(SOUND_MENU_CURSOR_MOVE);
                 if (arg0->paramf < 4.2) {
@@ -12068,7 +12208,7 @@ void func_800AD2E8(MenuItem* arg0) {
                 }
                 arg0->subState = -1;
             }
-            if (kart_input_get_menu_pressed(gControllerOne) & 0x400) {
+            if (pressed & 0x400) {
                 if (arg0->state < 21) {
                     arg0->state++;
                     play_sound2(SOUND_MENU_CURSOR_MOVE);
@@ -12078,12 +12218,12 @@ void func_800AD2E8(MenuItem* arg0) {
                     arg0->subState = 1;
                 }
             }
-            if (kart_input_get_menu_pressed(gControllerOne) & 0x4000) {
+            if (pressed & 0x4000) {
                 arg0->state = arg0->param2 + 0x11;
                 play_sound2(SOUND_MENU_GO_BACK);
                 return;
             }
-            if (kart_input_get_menu_pressed(gControllerOne) & 0x9000) {
+            if (pressed & 0x9000) {
                 if (arg0->state == 21) {
                     arg0->state = 25;
                     arg0->param1 = 0;
@@ -12167,6 +12307,8 @@ void func_800AD2E8(MenuItem* arg0) {
 void func_800ADF48(MenuItem* arg0) {
     UNUSED s32 stackPadding;
     struct Controller* controller;
+    u16 pressed;
+    s32 hit;
 
     if (gIsGamePaused != 0) {
         // VR: R1 opens our native VR options overlay over the pause menu. While it's up it takes the input,
@@ -12214,7 +12356,14 @@ void func_800ADF48(MenuItem* arg0) {
             case 44:
                 if (is_screen_being_faded() == 0) {
                     controller = &gControllers[gIsGamePaused - 1];
-                    if (kart_input_get_menu_pressed(controller) & 0x800) {
+                    pressed = kart_input_get_menu_pressed(controller);
+                    hit = menu_pointer_take(pause_pointer_context(arg0));
+                    if (hit >= D_800F0B50[gModeSelection] && hit <= D_800F0B54[gModeSelection]) {
+                        arg0->state = hit;
+                        pressed = A_BUTTON;
+                        reset_cycle_flash_menu();
+                    }
+                    if (pressed & 0x800) {
                         if (D_800F0B50[gModeSelection] < arg0->state) {
                             arg0->state--;
                             play_sound2(SOUND_MENU_CURSOR_MOVE);
@@ -12224,7 +12373,7 @@ void func_800ADF48(MenuItem* arg0) {
                             arg0->subState = -1;
                         }
                     }
-                    if (kart_input_get_menu_pressed(controller) & 0x400) {
+                    if (pressed & 0x400) {
                         if (arg0->state < D_800F0B54[gModeSelection]) {
                             arg0->state++;
                             play_sound2(SOUND_MENU_CURSOR_MOVE);
@@ -12234,14 +12383,14 @@ void func_800ADF48(MenuItem* arg0) {
                             arg0->subState = 1;
                         }
                     }
-                    if (kart_input_get_menu_pressed(controller) & B_BUTTON) {
+                    if (pressed & B_BUTTON) {
                         if (arg0->state != D_800F0B50[gModeSelection]) {
                             arg0->state = D_800F0B50[gModeSelection];
                             play_sound2(SOUND_MENU_GO_BACK);
                             return;
                         }
                     }
-                    if (kart_input_get_menu_pressed(controller) & (START_BUTTON | A_BUTTON)) {
+                    if (pressed & (START_BUTTON | A_BUTTON)) {
                         if (arg0->state == D_800F0B50[gModeSelection]) {
                             arg0->state = 0;
                             gIsGamePaused = 0;
@@ -12270,6 +12419,12 @@ void func_800AE218(MenuItem* arg0) {
     struct_8018EE10_entry* thing;
     s32 var_v1;
 
+    s32 first = 1, last = 0;
+    if (arg0->state >= 11 && arg0->state <= 16) { first = 11; last = 16; }
+    if (arg0->state == 30 || arg0->state == 31) { first = 30; last = 31; }
+    if (arg0->state == 35 || arg0->state == 36) { first = 35; last = 36; }
+    u16 pressed = results_pointer_pressed(arg0, kart_input_get_menu_pressed(gControllerOne), first, last);
+
     if (arg0->state != 0) {
         D_800DC5B8 = 0;
     }
@@ -12278,7 +12433,7 @@ void func_800AE218(MenuItem* arg0) {
             if (arg0->param1 < 0x1E) {
                 arg0->param1++;
             }
-            if (gControllerOne->buttonPressed & 0x1000) {
+            if (pressed & START_BUTTON) {
                 arg0->state = 0x0000000F;
                 play_sound2(SOUND_ACTION_GO_BACK_2);
             } else if (playerHUD[PLAYER_ONE].raceCompleteBool != 0) {
@@ -12301,7 +12456,7 @@ void func_800AE218(MenuItem* arg0) {
         case 15:
         case 16:
             if (is_screen_being_faded() == 0) {
-                if (kart_input_get_menu_pressed(gControllerOne) & 0x800) {
+                if (pressed & 0x800) {
                     if (arg0->state >= 0xC) {
                         arg0->state--;
                         play_sound2(SOUND_MENU_CURSOR_MOVE);
@@ -12311,7 +12466,7 @@ void func_800AE218(MenuItem* arg0) {
                         arg0->subState = -1;
                     }
                 }
-                if (kart_input_get_menu_pressed(gControllerOne) & 0x400) {
+                if (pressed & 0x400) {
                     if (arg0->state < 0x10) {
                         arg0->state++;
                         play_sound2(SOUND_MENU_CURSOR_MOVE);
@@ -12321,7 +12476,7 @@ void func_800AE218(MenuItem* arg0) {
                         arg0->subState = 1;
                     }
                 }
-                if (kart_input_get_menu_pressed(gControllerOne) & 0x9000) {
+                if (pressed & 0x9000) {
                     if (arg0->state == 0x00000010) {
                         var_v1 = 0;
                         if (arg0->paramf < 4.2) {
@@ -12419,7 +12574,7 @@ void func_800AE218(MenuItem* arg0) {
         case 25:
         case 26:
         case 41:
-            if (kart_input_get_menu_pressed(gControllerOne) & 0xD000) {
+            if (pressed & 0xD000) {
                 arg0->state = 0x00000010;
                 play_sound2(SOUND_MENU_GO_BACK);
                 if (arg0->paramf < 4.2) {
@@ -12431,7 +12586,7 @@ void func_800AE218(MenuItem* arg0) {
         case 31:
             arg0->param2 = (u32) arg0->state - 0x1E;
             if (func_800B639C((GetCupIndex() * 4) + GetCupCursorPosition()) != arg0->param2) {
-                if (kart_input_get_menu_pressed(gControllerOne) & 0x800) {
+                if (pressed & 0x800) {
                     if (arg0->state >= 0x1F) {
                         arg0->state--;
                         play_sound2(SOUND_MENU_CURSOR_MOVE);
@@ -12441,7 +12596,7 @@ void func_800AE218(MenuItem* arg0) {
                         arg0->subState = -1;
                     }
                 }
-                if (kart_input_get_menu_pressed(gControllerOne) & 0x400) {
+                if (pressed & 0x400) {
                     if (arg0->state < 0x1F) {
                         arg0->state++;
                         play_sound2(SOUND_MENU_CURSOR_MOVE);
@@ -12452,10 +12607,10 @@ void func_800AE218(MenuItem* arg0) {
                     }
                 }
             }
-            if (kart_input_get_menu_pressed(gControllerOne) & 0x4000) {
+            if (pressed & 0x4000) {
                 arg0->state = 0x00000010;
                 play_sound2(SOUND_MENU_GO_BACK);
-            } else if (kart_input_get_menu_pressed(gControllerOne) & 0x9000) {
+            } else if (pressed & 0x9000) {
                 thing = &D_8018EE10[arg0->param2];
                 if (thing->ghostDataSaved == 0) {
                     arg0->state = 0x00000028;
@@ -12483,7 +12638,7 @@ void func_800AE218(MenuItem* arg0) {
             break;
         case 35:
         case 36:
-            if ((kart_input_get_menu_pressed(gControllerOne) & 0x800) &&
+            if ((pressed & 0x800) &&
                 ((s32) (u32) arg0->state >= 0x24)) {
                 arg0->state--;
                 play_sound2(SOUND_MENU_CURSOR_MOVE);
@@ -12492,7 +12647,7 @@ void func_800AE218(MenuItem* arg0) {
                 }
                 arg0->subState = -1;
             }
-            if (kart_input_get_menu_pressed(gControllerOne) & 0x400) {
+            if (pressed & 0x400) {
                 if (arg0->state < 0x24) {
                     arg0->state++;
                     play_sound2(SOUND_MENU_CURSOR_MOVE);
@@ -12502,10 +12657,10 @@ void func_800AE218(MenuItem* arg0) {
                     arg0->subState = 1;
                 }
             }
-            if (kart_input_get_menu_pressed(gControllerOne) & 0x4000) {
+            if (pressed & 0x4000) {
                 arg0->state = arg0->param2 + 0x1E;
                 play_sound2(SOUND_MENU_GO_BACK);
-            } else if (kart_input_get_menu_pressed(gControllerOne) & 0x9000) {
+            } else if (pressed & 0x9000) {
                 if (arg0->state == 36) {
                     arg0->state = 40;
                     arg0->param1 = 0;

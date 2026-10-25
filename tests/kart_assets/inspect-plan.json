@@ -1,0 +1,9 @@
+{
+  "id": "inspect",
+  "steps": [
+    {"frames": 180, "capture": "forward"},
+    {"frames": 40, "look_y": -80, "capture": "down"},
+    {"frames": 40, "look_x": 25, "look_y": -80, "capture": "side"},
+    {"frames": 30}
+  ]
+}

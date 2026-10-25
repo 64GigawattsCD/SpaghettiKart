@@ -268,7 +268,6 @@ void func_8006F8CC(void) {
                 D_80165800[0] = D_80165800[1] = 1;
             }
         } else if (gPlayerCount == 3) {
-            D_801657E8 = 0;
             D_801657F8 = 1;
         } else if (gPlayerCount == 2) {
             if (gModeSelection != (s32) 3) {

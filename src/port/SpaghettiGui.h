@@ -16,5 +16,6 @@ namespace Ship {
 
       protected:
         virtual void DrawMenu() override;
+        void DrawGameImageOverlay(ImVec2 imagePos, ImVec2 imageSize) override;
     };
 }

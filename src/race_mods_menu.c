@@ -18,6 +18,7 @@
 #include "save.h"
 #include "race_mods.h"
 #include "race_mods_menu.h"
+#include "menu_pointer.h"
 
 extern Gfx* gDisplayListHead;
 extern s32 gModeSelection; // main.c - VERSUS through the 1P VS menu flow until the course commit
@@ -33,6 +34,7 @@ extern void  CVarSetInteger(const char* name, int value);
 static s32 sOpen = 0;
 static s32 sSel  = 0;
 static s32 sBattle = 0; // the screen wears BATTLE trim (opened off the 1P BATTLE row)
+enum { SETUP_PAGE_ROWS = 6, SETUP_ROW_PITCH = 24 };
 
 // RETURN TO SETUP (the pause-menu R1 overlay's RACE SETUP row): the menu navigation state the
 // setup screen was last opened at, so a mid-race quit can land straight back on it. The settings
@@ -206,6 +208,25 @@ static s32 laps_choice(void) {
 // elimination keeps the lap choice: finish line or last-one-standing, whichever comes first.)
 static s32 laps_locked(void) {
     return CVarGetInteger("gRaceMode", 0) == 4;
+}
+
+static s32 setup_pointer_context(void) {
+    return 120000 + sBattle * 10000 + sSel * 256 + items_choice() * 16 +
+           (CVarGetInteger("gRaceMode", 0) & 7) * 2 + sOpen;
+}
+
+static s32 setup_row_adjustable(s32 row) {
+    if (sBattle) {
+        return row < BROW_B_START && (row != BROW_B_SAME_ITEM || items_choice() == ITEMS_SAME);
+    }
+    if (row == ROW_SAME_ITEM) return items_choice() == ITEMS_SAME;
+    if (row == ROW_CPU_ITEMS) return items_choice() != ITEMS_STOCK && items_choice() != ITEMS_NONE;
+    if (row == ROW_BALLOON_OUT) {
+        s32 mode = CVarGetInteger("gRaceMode", 0);
+        return mode == 2 || mode == 4;
+    }
+    if (row == ROW_LAPS) return !laps_locked();
+    return row < ROW_START;
 }
 
 static void row_change(s32 dir) {
@@ -603,6 +624,9 @@ void custom_cc_draw_row(void) {
     }
     set_text_color(TEXT_YELLOW);
     race_mods_text_fit_center(x + 0x20, y + 0xE, "CUSTOM", 0.55f, 56.0f); // inside the 63-wide row box
+    if (gMainMenuSelection == MAIN_MENU_MODE_SUB_SELECT || gMainMenuSelection == MAIN_MENU_MODE_SUB_SELECT_GO_BACK) {
+        menu_pointer_target(menu_pointer_main_context(), 200 + row, x, y, 64, 18);
+    }
 }
 
 int race_mods_is_open(void) {
@@ -756,8 +780,10 @@ void race_mods_draw_status_hud(void) {
 
 // Bottom-left hint on the course select screen: Z rerolls the course (or shuffles the GP cup order).
 void track_roulette_draw_hint(void) {
+    menu_pointer_target(menu_pointer_course_context(), 301, 60, 220, 90, 19);
+    gDisplayListHead = draw_box_fill(gDisplayListHead, 60, 220, 149, 238, 12, 20, 40, 230);
     set_text_color(TEXT_YELLOW);
-    race_mods_text_fit(18, 226, "Z RANDOM", 0.5f, 80.0f); // off the bottom edge for tall HD fonts
+    race_mods_text_fit_center(105, 234, "RANDOM", 0.5f, 80.0f);
 }
 
 int race_mods_input(unsigned short btnAndStick) {
@@ -766,6 +792,26 @@ int race_mods_input(unsigned short btnAndStick) {
 
     if (!sOpen) {
         return 0;
+    }
+    s32 hit = menu_pointer_take(setup_pointer_context());
+    if (hit == ROW_COUNT * 3) {
+        btnAndStick = B_BUTTON;
+    } else if (hit == ROW_COUNT * 3 + 1) {
+        sSel = startRow;
+        btnAndStick = A_BUTTON;
+    } else if (hit == ROW_COUNT * 3 + 2 || hit == ROW_COUNT * 3 + 3) {
+        sSel += hit == ROW_COUNT * 3 + 2 ? -SETUP_PAGE_ROWS : SETUP_PAGE_ROWS;
+        if (sSel < 0) sSel = 0;
+        if (sSel >= rowCount) sSel = rowCount - 1;
+        reset_cycle_flash_menu();
+        play_sound2(SOUND_MENU_CURSOR_MOVE);
+        return 1;
+    } else if (hit >= 0 && hit < rowCount * 3) {
+        s32 row = hit / 3;
+        if (row == startRow || setup_row_adjustable(row)) {
+            sSel = row;
+            btnAndStick = hit % 3 == 1 ? L_JPAD : hit % 3 == 2 ? R_JPAD : A_BUTTON;
+        }
     }
     if (btnAndStick & B_BUTTON) { // back to the OK button
         sOpen = 0;
@@ -956,33 +1002,60 @@ void race_mods_text_fit_center(s32 cx, s32 y, const char* text, f32 scale, f32 m
     print_text1_center_mode_1(cx, y, (char*) text, 0, scale, scale);
 }
 
-// Layout sized for tall fonts: HD packs ship italic art with real ascenders and descenders, and
-// the stock-font spacing let the title's tails ride the selection bar and the footer's tails sit
-// on the screen edge. Title high with a gap before row 0, baselines at 0.55 inside the 11px
-// pitch, footer well off the 240 line.
+void race_mods_draw_pointer_arrow(s32 x, s32 y, s32 direction) {
+    s32 i;
+    // The menu font has no arrow glyphs. Draw an eleven-pixel triangle in the same projection.
+    for (i = 0; i < 6; i++) {
+        s32 offset = direction < 0 ? i - 3 : 3 - i;
+        if (direction == -1 || direction == 1) {
+            gDisplayListHead = draw_box(gDisplayListHead, x + offset, y - i,
+                                       x + offset + 1, y + i + 1, 255, 224, 64, 255);
+        } else {
+            gDisplayListHead = draw_box(gDisplayListHead, x - i, y + offset,
+                                       x + i + 1, y + offset + 1, 255, 224, 64, 255);
+        }
+    }
+}
+
+// Six touch-sized rows per page; controller selection determines the visible page.
 void race_mods_draw(void) {
     s32 rowCount = sBattle ? BROW_COUNT : ROW_COUNT;
+    s32 context = setup_pointer_context();
+    s32 start = (sSel / SETUP_PAGE_ROWS) * SETUP_PAGE_ROWS;
+    s32 end = start + SETUP_PAGE_ROWS;
     s32 i;
     if (!sOpen) {
         return;
     }
-    gDisplayListHead = draw_box_wide(gDisplayListHead, 20, 20, 300, 234, 0, 0, 40, 235);
+    menu_pointer_clear_targets();
+    if (end > rowCount) end = rowCount;
+    gDisplayListHead = draw_box_wide(gDisplayListHead, 16, 2, 304, 238, 0, 0, 40, 235);
     set_text_color(TEXT_YELLOW);
-    race_mods_text_fit_center(160, 36, sBattle ? "BATTLE SETUP" : "RACE SETUP", 0.7f, 270.0f);
+    race_mods_text_fit_center(160, 30, sBattle ? "BATTLE SETUP" : "RACE SETUP", 0.7f, 270.0f);
 
-    for (i = 0; i < rowCount; i++) {
-        // The race trim packs 16 rows at a 10px pitch; battle's 9 rows breathe at 14.
-        s32 y = sBattle ? (58 + i * 14) : (53 + i * 10);
+    for (i = start; i < end; i++) {
+        s32 y = 54 + (i - start) * SETUP_ROW_PITCH;
         const char* label = sBattle ? kBattleRowLabels[i] : kRowLabels[i];
         char val[32];
         if (!sBattle && i == ROW_BALLOON_OUT && CVarGetInteger("gRaceMode", 0) == 4) {
             label = "TREASURE BOX"; // the mode-option row wears the treasure hat in mode 4
         }
         if (i == sSel) {
-            gDisplayListHead = draw_flash_select_case_slow(gDisplayListHead, 28, y - 8, 292, y + 2);
+            gDisplayListHead = draw_flash_select_case_slow(gDisplayListHead, 26, y - 16, 294, y + 7);
         }
         set_text_color(i == sSel ? TEXT_GREEN : TEXT_BLUE);
-        race_mods_text_fit(32, y, label, 0.55f, 122.0f); // the value column starts at 158
+        race_mods_text_fit(32, y, label, 0.6f, i == (sBattle ? BROW_B_START : ROW_START) ? 256.0f : 118.0f);
+
+        if (setup_row_adjustable(i)) {
+            menu_pointer_target(context, i * 3, 26, y - 16, 126, SETUP_ROW_PITCH);
+            menu_pointer_target(context, i * 3 + 1, 152, y - 16, 28, SETUP_ROW_PITCH);
+            menu_pointer_target(context, i * 3, 180, y - 16, 86, SETUP_ROW_PITCH);
+            menu_pointer_target(context, i * 3 + 2, 266, y - 16, 28, SETUP_ROW_PITCH);
+            race_mods_draw_pointer_arrow(166, y - 4, -1);
+            race_mods_draw_pointer_arrow(280, y - 4, 1);
+        } else if (i == (sBattle ? BROW_B_START : ROW_START)) {
+            menu_pointer_target(context, i * 3, 26, y - 16, 268, SETUP_ROW_PITCH);
+        }
 
         if (sBattle) {
             battle_value_string(i, val);
@@ -990,14 +1063,25 @@ void race_mods_draw(void) {
             value_string(i, val);
         }
         if (!sBattle && i == ROW_LAPS && (laps_locked() || laps_choice() == LAP_CHOICES - 1)) {
-            print_infinity(158, y, 0.55f); // unlimited laps draw as an infinity sign
+            print_infinity(182, y, 0.6f); // unlimited laps draw as an infinity sign
         } else if (val[0] != '\0') {
-            race_mods_text_fit(158, y, val, 0.55f, 132.0f); // the panel edge is 292
+            race_mods_text_fit(182, y, val, 0.6f, 82.0f);
         }
     }
 
     set_text_color(TEXT_YELLOW);
-    race_mods_text_fit_center(160, 211, sBattle ? battle_row_help() : row_help(), 0.48f, 272.0f);
+    race_mods_text_fit_center(160, 198, sBattle ? battle_row_help() : row_help(), 0.48f, 272.0f);
     set_text_color(TEXT_BLUE);
-    race_mods_text_fit_center(160, 224, "DPAD MOVE   LR CHANGE   A SELECT   B BACK", 0.48f, 272.0f);
+    race_mods_text_fit_center(66, 230, "BACK", 0.6f, 72.0f);
+    race_mods_text_fit_center(248, 230, "START", 0.6f, 84.0f);
+    menu_pointer_target(context, ROW_COUNT * 3, 26, 212, 80, 26);
+    menu_pointer_target(context, ROW_COUNT * 3 + 1, 202, 212, 92, 26);
+    if (start > 0) {
+        race_mods_draw_pointer_arrow(132, 225, -2);
+        menu_pointer_target(context, ROW_COUNT * 3 + 2, 114, 212, 36, 26);
+    }
+    if (end < rowCount) {
+        race_mods_draw_pointer_arrow(178, 225, 2);
+        menu_pointer_target(context, ROW_COUNT * 3 + 3, 160, 212, 36, 26);
+    }
 }

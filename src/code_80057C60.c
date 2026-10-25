@@ -790,15 +790,8 @@ void func_80058F78(void) {
         set_matrix_hud_screen();
         if ((!gDemoMode) && (gIsHUDVisible != 0) && (D_801657D8 == 0)) {
             draw_item_window(PLAYER_ONE);
-            render_hud_timer(PLAYER_ONE);
             func_8004EB38(0);
             render_shift_feedback_hud(PLAYER_ONE);
-            if (D_801657E6 != false) {
-                if (CVarGetInteger("gEnableDigitalSpeedometer", false) == true) {
-                    render_digital_speedometer(PLAYER_ONE);
-                }
-                render_speedometer(PLAYER_ONE);
-            }
         }
 
         // @port Pop the transform id.
@@ -847,15 +840,15 @@ void func_800590D4(void) {
                     func_8004E800(PLAYER_TWO);
                     break;
                 case 3:
-                    func_8004E998(PLAYER_ONE);
-                    func_8004E998(PLAYER_TWO);
-                    func_8004E998(PLAYER_THREE);
+                    func_8004E800(PLAYER_ONE);
+                    func_8004E800(PLAYER_TWO);
+                    func_8004E800(PLAYER_THREE);
                     break;
                 case 4:
-                    func_8004E998(PLAYER_ONE);
-                    func_8004E998(PLAYER_TWO);
-                    func_8004E998(PLAYER_THREE);
-                    func_8004E998(PLAYER_FOUR);
+                    func_8004E800(PLAYER_ONE);
+                    func_8004E800(PLAYER_TWO);
+                    func_8004E800(PLAYER_THREE);
+                    func_8004E800(PLAYER_FOUR);
                     break;
             }
         }
@@ -877,22 +870,18 @@ void func_800591B4(void) {
                 if (D_801657F0 != false) {
                     func_800514BC();
                 }
-                if ((!gDemoMode) && (D_801657E8 != false) && (CVarGetInteger("gVRHideHud", 0) == 0)) {
-                    if (D_80165800[0] != 0) {
-                        func_8004EE54(0);
-                        if (gModeSelection != BATTLE) {
-                            set_minimap_finishline_position(0);
+                extern int vr_pause_menu_is_open(void);
+                if ((!gDemoMode) && !vr_pause_menu_is_open() && (CVarGetInteger("gVRHideHud", 0) == 0)) {
+                    // One global projection, with explicit rectangles for each player's HUD.
+                    for (s32 playerId = 0; playerId < gPlayerCountSelection1; ++playerId) {
+                        render_race_hud_lap_times(playerId);
+                        if (D_801657E6) render_speedometer(playerId);
+                        if (D_801657E8) {
+                            func_8004EE54(playerId);
+                            if (gModeSelection != BATTLE) set_minimap_finishline_position(playerId);
+                            func_8004F3E4(playerId);
+                            draw_treasure_minimap_marker(playerId);
                         }
-                        func_8004F3E4(0);
-                        draw_treasure_minimap_marker(0); // treasure hunt's flashing prize marker
-                    }
-                    if ((gScreenModeSelection == SCREEN_MODE_2P_SPLITSCREEN_HORIZONTAL) && (D_80165800[1] != 0)) {
-                        func_8004EE54(1);
-                        if (gModeSelection != BATTLE) {
-                            set_minimap_finishline_position(1);
-                        }
-                        func_8004F3E4(1);
-                        draw_treasure_minimap_marker(1);
                     }
                 }
             }
@@ -923,12 +912,7 @@ void func_80059358(void) {
 
 void render_hud_2p_horizontal_player_two_horizontal_player_one(void) {
     if (gHUDDisable == 0) {
-        render_hud_timer(PLAYER_ONE);
         if (playerHUD[PLAYER_ONE].lapCount != race_mods_total_laps()) {
-            draw_hud_2d_texture_32x8(playerHUD[PLAYER_ONE].lapX, playerHUD[PLAYER_ONE].lapY,
-                                     (u8*) common_texture_hud_lap); // draw the lap word
-            draw_lap_count(playerHUD[PLAYER_ONE].lapX + 0xC, playerHUD[PLAYER_ONE].lapY - 4,
-                           playerHUD[PLAYER_ONE].alsoLapCount);
             draw_item_window(PLAYER_ONE);
         }
     }
@@ -939,25 +923,13 @@ void func_800593F0(void) {
 
 void render_hud_2p_horizontal_player_two(void) {
     if (gHUDDisable == 0) {
-        render_hud_timer(PLAYER_TWO);
         if (playerHUD[PLAYER_TWO].lapCount != race_mods_total_laps()) {
-            draw_hud_2d_texture_32x8(playerHUD[PLAYER_TWO].lapX, playerHUD[PLAYER_TWO].lapY,
-                                     (u8*) common_texture_hud_lap);
-            draw_lap_count(playerHUD[PLAYER_TWO].lapX + 0xC, playerHUD[PLAYER_TWO].lapY - 4,
-                           playerHUD[PLAYER_TWO].alsoLapCount);
             draw_item_window(PLAYER_TWO);
         }
     }
 }
 
 void draw_simplified_hud(s32 playerId) {
-    if ((gModeSelection != BATTLE) && (D_80165800[playerId] == 0) && (gIsHUDVisible != 0)) {
-        render_hud_timer(playerId);
-        if (!(((gPlayerCountSelection1 == 1) || (gPlayerCount == 1) || (gScreenModeSelection == SCREEN_MODE_1P)) &&
-              (playerId == PLAYER_ONE))) {
-            draw_simplified_lap_count(playerId);
-        }
-    }
     draw_item_window(playerId);
 }
 
@@ -981,14 +953,6 @@ void render_hud_2p_vertical_player_two(void) {
 
 void render_hud_lap_3p_4p(s32 playerId) {
     if (gModeSelection != BATTLE) {
-        if (D_801657F8 && gIsHUDVisible) {
-            // draw_hud_2d_texture_32x8(playerHUD[playerId].lapX, playerHUD[playerId].lapY, (u8*)
-            // common_texture_hud_lap);
-            draw_hud_2d_texture(playerHUD[playerId].lapX, playerHUD[playerId].lapY, 32, 8,
-                                (u8*) common_texture_hud_lap);
-            draw_lap_count(playerHUD[playerId].lapX - 12, playerHUD[playerId].lapY + 4,
-                           playerHUD[playerId].alsoLapCount);
-        }
         if (gHUDModes == 2) {
             if (playerHUD[playerId].unk_74 && D_80165608) {
                 func_80047910(playerHUD[playerId].unk_6C, playerHUD[playerId].unk_6E, 0, 1.0f,

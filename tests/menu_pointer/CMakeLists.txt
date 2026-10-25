@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.20)
+project(menu_pointer_tests C)
+enable_testing()
+add_executable(menu_pointer_test menu_pointer_test.c ../../src/menu_pointer.c)
+set_property(TARGET menu_pointer_test PROPERTY C_STANDARD 11)
+add_test(NAME menu_pointer COMMAND menu_pointer_test)

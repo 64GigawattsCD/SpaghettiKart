@@ -1,5 +1,7 @@
 #include <libultraship.h>
 #include <stdio.h>
+#include "port/KartTestBridge.h"
+#include "port/net/NetRace.h"
 #include <time.h>
 #include <libultraship/bridge/audiobridge.h>
 #include <stdint.h>
@@ -10,6 +12,7 @@
 #include <stubs.h>
 
 #include "menus.h"
+#include "menu_pointer.h"
 #include "engine/TrackBrowser.h"
 #include "engine/editor/Editor.h"
 #include "main.h"
@@ -177,11 +180,14 @@ const union GameModePack sSoundMenuPack = { { SOUND_STEREO, SOUND_HEADPHONES, SO
 static bool sArcadeKartDebugQuickBootConsumed = false;
 
 static bool arcade_kart_should_debug_quick_boot_hud_race(void) {
+    if (net_active()) return net_take_load() != 0;
     return !sArcadeKartDebugQuickBootConsumed &&
            (CVarGetInteger(ARCADEKART_DEBUG_QUICK_BOOT_HUD_RACE_CVAR, false) != 0);
 }
 
 static u32 arcade_kart_get_debug_quick_boot_random_track_index(void) {
+    if (net_race_active()) return 0;
+    if (kart_test_active()) return (u32) CVarGetInteger("gKartTest.Track", 0) % 16;
     u64 now = osGetTime();
     u32 seed = (u32) (now ^ (now >> 32));
 
@@ -240,6 +246,14 @@ static void arcade_kart_debug_quick_boot_hud_race(void) {
     gPlayerCountSelection1 = 1;
     gScreenModeListIndex = 0;
     gScreenModeSelection = SCREEN_MODE_1P;
+    if (kart_test_active()) {
+        s32 layout = CVarGetInteger("gKartTest.ScreenLayout", 0);
+        if (layout < 0 || layout > 4) layout = 0;
+        gScreenModeListIndex = layout;
+        gPlayerCount = gPlayerCountSelection1 = sScreenModePlayerCount[layout];
+        gScreenModeSelection = sScreenModePlayerTable[layout];
+        if (gPlayerCount > 2) gModeSelection = VERSUS;
+    }
     gDebugMenuSelection = DEBUG_MENU_OPTION_SELECTED;
     D_8016556E = 0;
     kart_transmission_reset_modes_for_player_count(gPlayerCount);
@@ -255,6 +269,7 @@ static void arcade_kart_debug_quick_boot_hud_race(void) {
         gCharacterGridIsSelected[i] = false;
     }
 
+    if (net_race_active()) net_configure_race();
     arcade_kart_set_debug_quick_boot_random_track();
 
     for (i = 0; i < ARRAY_COUNT(gGPPointsByCharacterId); i++) {
@@ -273,6 +288,81 @@ static void arcade_kart_debug_quick_boot_hud_race(void) {
 /**
  * Includes opening logo and splash screens
  */
+int menu_pointer_main_context(void) { return 100 + gMainMenuSelection; }
+
+static int menu_pointer_character_slot(void) {
+    if (versus_1p_flow_active()) return gCharacterGridIsSelected[0] ? 1 : 0;
+    for (int i = 0; i < gPlayerCount; ++i)
+        if (!gCharacterGridIsSelected[i]) return i;
+    return 0;
+}
+int menu_pointer_character_context(void) {
+    int slot = menu_pointer_character_slot();
+    return 200 + gPlayerSelectMenuSelection + slot*10 +
+        (gCharacterGridCharacterLocked[slot] ? 50 : 0);
+}
+int menu_pointer_character_can_pick(int grid) {
+    int slot = menu_pointer_character_slot();
+    return gPlayerSelectMenuSelection == PLAYER_SELECT_MENU_MAIN && !gCharacterGridCharacterLocked[slot] &&
+        (is_character_spot_free(grid) || gCharacterGridSelections[slot] == grid);
+}
+int menu_pointer_course_context(void) { return 400 + gSubMenuSelection; }
+
+static void pointer_nav_button(int id, int x, int width, const char* label) {
+    // Records extend to the bottom edge; their unused middle band holds navigation.
+    const int y = gMenuSelection == COURSE_DATA_MENU ? 100 : 220;
+    menu_pointer_target(800 + gMenuSelection, id, x, y, width, 19);
+    gDisplayListHead = draw_box_fill(gDisplayListHead, x, y, x+width-1, y+18, 12, 20, 40, 230);
+    if (id == L_JPAD || id == R_JPAD || id == U_JPAD || id == D_JPAD) {
+        race_mods_draw_pointer_arrow(x+width/2,y+9,id == L_JPAD ? -1 : id == R_JPAD ? 1 : id == U_JPAD ? -2 : 2);
+        return;
+    }
+    set_text_color(TEXT_YELLOW);
+    race_mods_text_fit_center(x+width/2, y+14, label, .55f, width-6);
+}
+
+void menu_pointer_draw_navigation(void) {
+    if (gGamestate == RACING || is_screen_being_faded()) return;
+    if (gMenuSelection == START_MENU || gMenuSelection == START_MENU_FROM_QUIT ||
+        gMenuSelection == LOGO_INTRO_MENU || gMenuSelection == HARBOUR_MASTERS_MENU) {
+        menu_pointer_target(800+gMenuSelection, A_BUTTON, 0, 0, 320, 240);
+        return;
+    }
+    pointer_nav_button(B_BUTTON, 5, 48, "BACK");
+    if (gMenuSelection == CHARACTER_SELECT_MENU || gMenuSelection == PLAYER_SELECT_MENU_FROM_QUIT) {
+        int slot = menu_pointer_character_slot();
+        if (gPlayerSelectMenuSelection == PLAYER_SELECT_MENU_MAIN && gCharacterGridCharacterLocked[slot] &&
+            !gCharacterGridIsSelected[slot] && !(versus_1p_flow_active() && slot == 1)) {
+            const char* labels[] = {"AUTO", "MANUAL"};
+            menu_pointer_clear_targets();
+            gDisplayListHead = draw_box_wide(gDisplayListHead, 0,0,320,240,0,0,0,135);
+            gDisplayListHead = draw_box_fill(gDisplayListHead, 54,70,266,183,12,20,40,255);
+            set_text_color(TEXT_YELLOW);
+            race_mods_text_fit_center(160,94,"TRANSMISSION",.7f,190);
+            for (int i=0;i<2;++i) {
+                int x=66+i*97;
+                menu_pointer_target(menu_pointer_character_context(), 100+i, x, 108, 91, 38);
+                gDisplayListHead = draw_box_fill(gDisplayListHead, x,108,x+90,145,0,0,0,255);
+                set_text_color(kart_transmission_get_mode(slot)==(i == 0 ? KART_TRANSMISSION_AUTOMATIC : KART_TRANSMISSION_MANUAL) ? TEXT_YELLOW : TEXT_GREEN);
+                race_mods_text_fit_center(x+45,133,labels[i],.7f,82);
+            }
+            menu_pointer_target(800+gMenuSelection, B_BUTTON, 116,153,88,25);
+            set_text_color(TEXT_BLUE);
+            race_mods_text_fit_center(160,171,"BACK",.6f,78);
+        }
+    }
+    // Less-frequent record/Controller Pak dialogs retain their original controls,
+    // with a compact navigation strip instead of driving pedals and sticks.
+    if (gMenuSelection == DATA_MENU || gMenuSelection == COURSE_DATA_MENU ||
+        gMenuSelection == CONTROLLER_PAK_MENU || gMenuSelection == OPTIONS_MENU) {
+        pointer_nav_button(L_JPAD, 57, 30, "<");
+        pointer_nav_button(R_JPAD, 91, 30, ">");
+        pointer_nav_button(U_JPAD, 125, 38, "UP");
+        pointer_nav_button(D_JPAD, 167, 48, "DOWN");
+        pointer_nav_button(A_BUTTON, 240, 73, "CONFIRM");
+    }
+}
+
 void update_menus(void) {
     u16 controllerIdx;
 
@@ -285,6 +375,16 @@ void update_menus(void) {
     race_mods_menu_reopen_poll();
 
     if (gFadeModeSelection == FADE_MODE_NONE) {
+        if (!is_screen_being_faded()) {
+            int pointer = menu_pointer_take(800 + gMenuSelection);
+            if (pointer >= 0) {
+                int slot = (gMenuSelection == CHARACTER_SELECT_MENU && !versus_1p_flow_active())
+                    ? menu_pointer_character_slot() : 0;
+                if (pointer & A_BUTTON) pointer |= KART_MENU_CONFIRM_BUTTON;
+                if (pointer & B_BUTTON) pointer |= KART_MENU_CANCEL_BUTTON;
+                gControllers[slot].buttonPressed |= pointer;
+            }
+        }
         for (controllerIdx = 0; controllerIdx < 4; controllerIdx++) {
             // Debug, quick jump through menus using the start button.
             if ((is_screen_being_faded() == 0) && (gEnableDebugMode) &&
@@ -363,6 +463,24 @@ void options_menu_act(struct Controller* controller, u16 controllerIdx) {
     UNUSED u32 pad;
 
     btnAndStick = kart_input_get_menu_pressed(controller);
+    if (controllerIdx == 0 && !is_screen_being_faded()) {
+        int hit = menu_pointer_take(500+gSubMenuSelection);
+        if (hit >= SUB_MENU_OPTION_MIN && hit <= SUB_MENU_OPTION_MAX &&
+            gSubMenuSelection >= SUB_MENU_OPTION_MIN && gSubMenuSelection <= SUB_MENU_OPTION_MAX) {
+            if (hit != gSubMenuSelection && gSaveData.main.saveInfo.soundMode != gSoundMode) {
+                gSaveData.main.saveInfo.soundMode = gSoundMode;
+                write_save_data_grand_prix_points_and_sound_mode();
+                update_save_data_backup();
+                find_menu_items_dupe(0xF0)->state = gSoundMode;
+            }
+            gSubMenuSelection = hit;
+            btnAndStick |= A_BUTTON;
+        } else if ((hit == SUB_MENU_ERASE_QUIT || hit == SUB_MENU_ERASE_ERASE) &&
+                   (gSubMenuSelection == SUB_MENU_ERASE_QUIT || gSubMenuSelection == SUB_MENU_ERASE_ERASE)) {
+            gSubMenuSelection = hit;
+            btnAndStick |= A_BUTTON;
+        }
+    }
 
     if (!gEnableDebugMode && (btnAndStick & START_BUTTON)) {
         btnAndStick |= A_BUTTON;
@@ -752,6 +870,10 @@ void options_menu_act(struct Controller* controller, u16 controllerIdx) {
  */
 void data_menu_act(struct Controller* controller, UNUSED u16 controllerIdx) {
     u16 btnAndStick = kart_input_get_menu_pressed(controller);
+    if (controllerIdx == 0 && !is_screen_being_faded() && gSubMenuSelection == SUB_MENU_DATA) {
+        int hit = menu_pointer_take(600);
+        if (hit >= 0 && hit < 16) { gTimeTrialDataCourseIndex = hit; btnAndStick |= A_BUTTON; }
+    }
 
     // Make pressing Start have the same effect as pressing A
     if ((gEnableDebugMode == 0) && ((btnAndStick & START_BUTTON) != 0)) {
@@ -820,6 +942,16 @@ void course_data_menu_act(struct Controller* controller, UNUSED u16 controllerId
     s32 res;
 
     btnAndStick = kart_input_get_menu_pressed(controller);
+    if (controllerIdx == 0 && !is_screen_being_faded()) {
+        int hit = menu_pointer_take(650+gSubMenuSelection);
+        if (hit >= 0 && hit <= 2 && gSubMenuSelection == SUB_MENU_DATA_OPTIONS) {
+            gCourseRecordsMenuSelection = hit;
+            btnAndStick |= A_BUTTON;
+        } else if (hit >= 0 && hit <= 1 && gSubMenuSelection == SUB_MENU_DATA_ERASE_CONFIRM) {
+            gCourseRecordsSubMenuSelection = hit;
+            btnAndStick |= A_BUTTON;
+        }
+    }
 
     if (!gEnableDebugMode && (btnAndStick & START_BUTTON)) {
         btnAndStick |= A_BUTTON;
@@ -1449,6 +1581,22 @@ void main_menu_act(struct Controller* controller, u16 controllerIdx) {
     s32 newMode;
 
     btnAndStick = kart_input_get_menu_pressed(controller);
+    if (controllerIdx == 0 && !is_screen_being_faded() && !race_mods_is_open()) {
+        int hit = menu_pointer_take(menu_pointer_main_context());
+        if (hit >= 0 && hit < 4 && gMainMenuSelection == MAIN_MENU_PLAYER_SELECT) {
+            gPlayerCount = hit+1;
+            btnAndStick |= A_BUTTON;
+        } else if (hit >= 100 && hit < 104 && gMainMenuSelection == MAIN_MENU_MODE_SELECT) {
+            gGameModeMenuColumn[gPlayerCount-1] = hit-100;
+            btnAndStick |= A_BUTTON;
+        } else if (hit >= 200 && hit < 205 && (gMainMenuSelection == MAIN_MENU_MODE_SUB_SELECT ||
+                   gMainMenuSelection == MAIN_MENU_MODE_SUB_SELECT_GO_BACK)) {
+            gGameModeSubMenuColumn[gPlayerCount-1][gGameModeMenuColumn[gPlayerCount-1]] = hit-200;
+            btnAndStick |= A_BUTTON;
+        } else if (hit == 300) btnAndStick |= A_BUTTON;
+        else if (hit == 301) btnAndStick |= CONT_L;
+        else if (hit == 302) btnAndStick |= CONT_R;
+    }
     if (!gEnableDebugMode && (btnAndStick & START_BUTTON)) {
         btnAndStick |= A_BUTTON;
     }
@@ -1758,6 +1906,18 @@ void player_select_menu_act(struct Controller* controller, u16 controllerIdx) {
     u16 btnAndStick;
 
     btnAndStick = kart_input_get_menu_pressed(controller);
+    int pointerSlot = menu_pointer_character_slot();
+    if (!is_screen_being_faded() && controllerIdx == (versus_1p_flow_active() ? 0 : pointerSlot)) {
+        int hit = menu_pointer_take(menu_pointer_character_context());
+        if (hit >= 1 && hit <= 8 && !gCharacterGridCharacterLocked[pointerSlot] &&
+            (is_character_spot_free(hit) || gCharacterGridSelections[pointerSlot] == hit)) {
+            gCharacterGridSelections[pointerSlot] = hit;
+            btnAndStick |= A_BUTTON;
+        } else if ((hit == 100 || hit == 101) && gCharacterGridCharacterLocked[pointerSlot]) {
+            kart_transmission_set_mode(pointerSlot, hit == 100 ? KART_TRANSMISSION_AUTOMATIC : KART_TRANSMISSION_MANUAL);
+            btnAndStick |= A_BUTTON;
+        } else if (hit == 300) btnAndStick |= A_BUTTON;
+    }
     if (!gEnableDebugMode && btnAndStick & CONT_START) {
         btnAndStick |= A_BUTTON;
     }
@@ -2227,6 +2387,21 @@ void course_select_menu_act(struct Controller* controller, u16 controllerIdx) {
             roulette_spin_tick();
         }
         return;
+    }
+
+    if (controllerIdx == 0 && !is_screen_being_faded()) {
+        int hit = menu_pointer_take(menu_pointer_course_context());
+        if (hit >= 0 && hit < 4 && gSubMenuSelection == SUB_MENU_MAP_SELECT_CUP) {
+            gCupSelection = sTempCupSelection = WorldSetCupWrapped(hit);
+            btnAndStick |= A_BUTTON;
+        } else if (hit >= 100 && hit < 100+(int)GetCupSize() &&
+                   (gSubMenuSelection == SUB_MENU_MAP_SELECT_COURSE ||
+                    gSubMenuSelection == SUB_MENU_MAP_SELECT_BATTLE_COURSE)) {
+            gCourseIndexInCup = hit-100;
+            SetCupCursorPosition(hit-100);
+            btnAndStick |= A_BUTTON;
+        } else if (hit == 300) btnAndStick |= A_BUTTON;
+        else if (hit == 301) btnAndStick |= CONT_G;
     }
 
     if ((!gEnableDebugMode) && ((btnAndStick & START_BUTTON) != 0)) {

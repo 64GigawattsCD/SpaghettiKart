@@ -18,6 +18,9 @@
 #include <sounds.h>
 #include <actor_types.h>
 #include "race_mods.h"
+#include "port/net/NetRace.h"
+#include "racing/math_util.h"
+#include "racing/actors.h"
 
 extern f32 gTrackDirection; // -1 in mirror mode - spawners flip x by it for course-data coords
 extern s16 gCurrentCourseId; // code_800029B0.c - the TRACKS enum id; custom courses sit outside it
@@ -279,6 +282,7 @@ static s32 pick_random_human_target(void) {
 }
 
 int race_mods_total_laps(void) {
+    if (net_race_active()) return 3;
     // A treasure hunt runs until the box is found - a lap total must never end it, so it pins
     // NO LIMIT regardless of the LAPS row (which the setup screen locks to match). Balloon
     // elimination deliberately does NOT pin: a lap count plus eliminations makes a fun race

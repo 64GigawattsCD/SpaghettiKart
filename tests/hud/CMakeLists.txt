@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.20)
+project(hud_tests LANGUAGES C CXX)
+enable_testing()
+add_executable(hud_test hud_test.cpp ../../src/hud_layout.c ../../src/hud_race_layout.c)
+target_include_directories(hud_test PRIVATE ../../src ../../libultraship/include/libultraship ../../libultraship/include)
+target_compile_features(hud_test PRIVATE cxx_std_17)
+add_test(NAME hud_layout COMMAND hud_test)

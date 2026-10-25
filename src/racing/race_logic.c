@@ -26,6 +26,7 @@
 #include "menus.h"
 #include "sounds.h"
 #include "port/Game.h"
+#include "port/net/NetRace.h"
 #include "port/audio/HMAS.h"
 #include "engine/editor/Editor.h"
 
@@ -462,6 +463,7 @@ void func_8028EC98(void) {
 }
 
 void start_race(void) {
+    if (net_race_active() && !net_running()) return;
     s32 i;
 
     D_8015011E = -1;
@@ -878,6 +880,10 @@ void func_8028FC34(void) {
 }
 
 void func_8028FCBC(void) {
+    if (net_race_active() && gRaceState >= RACE_IN_PROGRESS) {
+        if (net_is_host()) update_race_position_data();
+        return;
+    }
     Player* ply = &gPlayers[0];
     s32 i;
     u32 phi_v0_4;
@@ -934,7 +940,7 @@ void func_8028FCBC(void) {
                 gRaceState = RACE_STAGING;
                 D_800DC5B0 = 0;
                 D_800DC5B8 = 1;
-                CM_SpawnStarterLakitu(); // func_80078F64();
+                if (!net_race_active()) CM_SpawnStarterLakitu(); // LAN starts at the shared load barrier.
                 if ((gModeSelection == TIME_TRIALS) && (bCourseGhostDisabled == 0)) {
                     phi_v0_4 = 0x1;
                     //! @warning this used to be < gCurrentCourseId

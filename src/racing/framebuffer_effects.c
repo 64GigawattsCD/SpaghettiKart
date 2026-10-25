@@ -37,7 +37,8 @@ static void FB_ClearFramebuffer(Gfx** gfxP, s32 fb, u32 fillColor) {
     gDPSetScissor(gfx++, G_SC_NON_INTERLACE, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
     gDPSetCycleType(gfx++, G_CYC_FILL);
     gDPSetFillColor(gfx++, fillColor);
-    gDPFillRectangle(gfx++, 0, 0, OTRGetDimensionFromRightEdge(SCREEN_WIDTH) - 1, SCREEN_HEIGHT - 1);
+    gDPFillWideRectangle(gfx++, OTRGetRectDimensionFromLeftEdge(0), 0,
+                         OTRGetRectDimensionFromRightEdge(SCREEN_WIDTH) - 1, SCREEN_HEIGHT - 1);
     gDPPipeSync(gfx++);
     gDPSetCycleType(gfx++, G_CYC_1CYCLE);
     gsSPResetFB(gfx++);

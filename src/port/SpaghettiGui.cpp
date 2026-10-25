@@ -1,6 +1,8 @@
 #include <libultraship.h>
 #include "libultraship/controller/wheel/WheelDevice.h"
 #include "SpaghettiGui.h"
+#include "Engine.h"
+#include "AndroidPhone.h"
 #include <ship/window/gui/Gui.h>
 #include <ship/window/Window.h>
 #include "ship/controller/controldeck/ControlDeck.h"
@@ -23,7 +25,7 @@
 #endif
 
 #if defined(__ANDROID__) || defined(__IOS__)
-#include "port/mobile/MobileImpl.h"
+#include "ship/port/mobile/MobileImpl.h"
 #endif
 
 #ifdef ENABLE_OPENGL
@@ -54,9 +56,54 @@ extern "C" {
 #include "mk64.h"
 #include "kart_input.h"
 #include "kart_character_stats.h"
+#include "menu_pointer.h"
+#include "menus.h"
+#include "port/KartTestBridge.h"
+#include "port/vr/vr.h"
 }
 
 namespace Ship {
+    void SpaghettiGui::DrawGameImageOverlay(ImVec2 pos, ImVec2 size) {
+        // Use the actual rendered image rectangle, including docking and letterboxing.
+        ImGuiWindow* game = ImGui::GetCurrentWindow();
+        if (vr_is_active() || size.x <= 0 || size.y <= 0) return;
+        const bool blocked = GetMenuOrMenubarVisible() || is_screen_being_faded();
+        const bool active = menu_pointer_count() > 0 && !blocked;
+        auto wnd = Context::GetRawInstance()->GetWindow();
+        if (active) { wnd->SetMouseCapture(false); wnd->SetCursorVisibility(true); }
+        float testX, testY; int testDown;
+        const bool testPointer = kart_test_pointer_ui(&testX, &testY, &testDown) != 0;
+        if (kart_test_active() && !testPointer && !android_phone_touch_dispatch_test()) return;
+        if (!active || (!testPointer && ImGui::GetIO().AppFocusLost)) {
+            menu_pointer_cancel(); return;
+        }
+        ImGuiIO& io = ImGui::GetIO();
+        const ImVec2 pointer = testPointer ? ImVec2(pos.x+testX*size.x,pos.y+testY*size.y) : io.MousePos;
+        const bool down = testPointer ? testDown != 0 : ImGui::IsMouseDown(0);
+        const float scale = size.y / 240.0f;
+        const float scaleX = size.x / (240.0f * OTRGetAspectRatio());
+        const float origin = pos.x + size.x*.5f - 160.0f*scaleX;
+        const bool inside = pointer.x >= pos.x && pointer.y >= pos.y &&
+            pointer.x < pos.x+size.x && pointer.y < pos.y+size.y;
+        // Floating settings windows own their pointer, even while native menus are visible.
+        if (!testPointer && ImGui::GetCurrentContext()->HoveredWindow != game) {
+            menu_pointer_cancel(); return;
+        }
+        const float x = inside ? (pointer.x-origin)/scaleX : -10000;
+        const float y = inside ? (pointer.y-pos.y)/scale : -10000;
+        menu_pointer_inject(x, y, down);
+        for (int i=menu_pointer_count()-1; i>=0; --i) {
+            int context,id; float tx,ty,w,h;
+            menu_pointer_get(i,&context,&id,&tx,&ty,&w,&h);
+            if (x >= tx && y >= ty && x < tx+w && y < ty+h) {
+                ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+                game->DrawList->AddRect(ImVec2(origin+tx*scaleX,pos.y+ty*scale),
+                    ImVec2(origin+(tx+w)*scaleX,pos.y+(ty+h)*scale), IM_COL32(255,225,100,220),
+                    2.0f,0,down?3.0f:2.0f);
+                break;
+            }
+        }
+    }
 #define TOGGLE_BTN ImGuiKey_F1
 #define TOGGLE_PAD_BTN ImGuiKey_GamepadBack
 

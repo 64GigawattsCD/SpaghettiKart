@@ -27,6 +27,7 @@ enum HMAS_EffectTransition {
 #include <vector>
 #include <cstdint>
 #include <unordered_map>
+#include <mutex>
 #include "audio/miniaudio.h"
 
 struct HMAS_Loop {
@@ -92,6 +93,8 @@ public:
     }
 
 private:
+    // Methods nest (Play -> Stop, effects -> setters); render and audio threads both enter here.
+    std::recursive_mutex mMutex;
     ma_engine gAudioEngine;
     HMAS_ChannelInfo gChannelSound[HMAS_MAX_CHANNELS] = { 0 };
     std::unordered_map<HMAS_AudioId, HMAS_Sample> gRegistry;

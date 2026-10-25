@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "sources": [
+    {"path": "scripts/addons/fast64", "url": "https://github.com/HarbourMasters/fast64.git", "revision": "a1808d8121713b2ab1496baceec3fcf2816625fe", "purpose": "Active Blender F3D authoring/export addon", "license": "GPL-3.0; see LICENSE.txt"},
+    {"path": "references/blender_pop_export", "url": "https://github.com/Litronom/blender_pop_export.git", "revision": "6e738f6c5f74b88de10a0b4d1f21b4953c2ff52a", "purpose": "Active course population exporter; not a racer animation exporter", "license": "No explicit license located; local tooling only"},
+    {"path": "references/OverKartDecomp", "url": "https://github.com/DeadHamster35/OverKartDecomp.git", "revision": "66528ec905821601e419a943b810c0206fb899a9", "sparse": ["src/OverKartLibrary", "tools/blender"], "purpose": "Reference-only animation/runtime source; not linked into the game", "license": "Confirm per-file terms before redistribution"},
+    {"path": "references/Tarmac64", "url": "https://github.com/DeadHamster35/Tarmac64.git", "revision": "33ae67ea0c03702e2f0502ea81cf0818214ea9b2", "purpose": "Reference-only geometry/animation compiler source", "license": "No explicit license located"},
+    {"path": "references/Library", "url": "https://github.com/DeadHamster35/Library.git", "revision": "d3e298aabe9f311599076387edae6135113c2889", "purpose": "Reference-only original OverKart animation and ROM hooks", "license": "No explicit license located"}
+  ]
+}

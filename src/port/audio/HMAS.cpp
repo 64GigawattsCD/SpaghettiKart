@@ -22,6 +22,7 @@ HMAS::HMAS() {
 }
 
 void HMAS::RegisterSound(HMAS_AudioId id, const std::string& filePath, HMAS_Info info) {
+    std::scoped_lock lock(mMutex);
     if (gRegistry.find(id) != gRegistry.end()) {
         SPDLOG_WARN("Sound with ID {} already registered", static_cast<int>(id));
         return;
@@ -44,6 +45,7 @@ void HMAS::RegisterSound(HMAS_AudioId id, const std::string& filePath, HMAS_Info
 }
 
 void HMAS::RegisterSound(HMAS_AudioId id, uint8_t* data, uint32_t size, HMAS_Info info) {
+    std::scoped_lock lock(mMutex);
     if (gRegistry.find(id) != gRegistry.end()) {
         SPDLOG_WARN("Sound with ID {} already registered", static_cast<int>(id));
         return;
@@ -76,6 +78,7 @@ void HMAS::RegisterSound(HMAS_AudioId id, uint8_t* data, uint32_t size, HMAS_Inf
 }
 
 void HMAS::Play(HMAS_ChannelId channelId, HMAS_AudioId id, bool loop) {
+    std::scoped_lock lock(mMutex);
     if(channelId == HMAS_ChannelId::HMAS_MUSIC){
         this->Stop(channelId);
     }
@@ -102,6 +105,7 @@ void HMAS::Play(HMAS_ChannelId channelId, HMAS_AudioId id, bool loop) {
 }
 
 void HMAS::Stop(HMAS_ChannelId channelId) {
+    std::scoped_lock lock(mMutex);
     auto channel = &this->gChannelSound[channelId];
 
     if (channel->sound == nullptr) {
@@ -116,6 +120,7 @@ void HMAS::Stop(HMAS_ChannelId channelId) {
 }
 
 bool HMAS::IsPlaying(HMAS_ChannelId channelId) {
+    std::scoped_lock lock(mMutex);
     auto channel = &this->gChannelSound[channelId];
 
     if (channel->sound == nullptr) {
@@ -126,6 +131,7 @@ bool HMAS::IsPlaying(HMAS_ChannelId channelId) {
 }
 
 void HMAS::SetPitch(HMAS_ChannelId channelId, float pitch) {
+    std::scoped_lock lock(mMutex);
     auto channel = &this->gChannelSound[channelId];
 
     if (channel->sound == nullptr) {
@@ -137,6 +143,7 @@ void HMAS::SetPitch(HMAS_ChannelId channelId, float pitch) {
 }
 
 void HMAS::SetVolume(HMAS_ChannelId channelId, float volume) {
+    std::scoped_lock lock(mMutex);
     auto channel = &this->gChannelSound[channelId];
 
     if (channel->sound == nullptr) {
@@ -148,6 +155,7 @@ void HMAS::SetVolume(HMAS_ChannelId channelId, float volume) {
 }
 
 void HMAS::SetPause(HMAS_ChannelId channelId, bool pause) {
+    std::scoped_lock lock(mMutex);
     auto channel = &this->gChannelSound[channelId];
 
     if (channel->sound == nullptr) {
@@ -168,15 +176,18 @@ void HMAS::SetPause(HMAS_ChannelId channelId, bool pause) {
 }
 
 void HMAS::AddEffect(HMAS_ChannelId channelId, HMAS_EffectType type, HMAS_EffectTransition transition, uint32_t frames, float target) {
+    std::scoped_lock lock(mMutex);
     auto& channel = gChannelSound[channelId];
     channel.effects.push_back({type, transition, frames, target});
 }
 
 bool HMAS::IsIDRegistered(HMAS_AudioId id) {
+    std::scoped_lock lock(mMutex);
     return gRegistry.find(id) != gRegistry.end();
 }
 
 void HMAS::ProcessEffects() {
+    std::scoped_lock lock(mMutex);
     for (size_t i = 0; i < sizeof(gChannelSound) / sizeof(gChannelSound[0]); i++){
         auto& channel = gChannelSound[i];
 
@@ -224,6 +235,7 @@ void HMAS::ProcessEffects() {
 }
 
 void HMAS::CreateBuffer(uint8_t *samples, uint32_t bufferSizeInBytes) {
+    std::scoped_lock lock(mMutex);
     this->ProcessEffects();
     ma_uint32 bufferSizeInFrames = bufferSizeInBytes / ma_get_bytes_per_frame(ma_format_f32, ma_engine_get_channels(&gAudioEngine));
     ma_engine_read_pcm_frames(&gAudioEngine, samples, bufferSizeInFrames, NULL);

@@ -1,0 +1,19 @@
+{
+  "id": "palette",
+  "steps": [
+    {"frames": 45, "character": 0, "look_y": -80, "capture": "mario"},
+    {"frames": 10, "character": 1, "look_y": -80, "capture": "luigi"},
+    {"frames": 10, "character": 2, "look_y": -80, "capture": "yoshi"},
+    {"frames": 10, "character": 3, "look_y": -80, "capture": "toad"},
+    {"frames": 10, "character": 4, "look_y": -80, "capture": "dk"},
+    {"frames": 10, "character": 5, "look_y": -80, "capture": "wario"},
+    {"frames": 10, "character": 6, "look_y": -80, "capture": "peach"},
+    {"frames": 10, "character": 7, "look_y": -80, "capture": "bowser"},
+    {"frames": 30, "character": 0, "look_y": -80, "stick_x": 60, "capture": "steer"},
+    {"frames": 30, "view": 0, "capture": "third-person"},
+    {"frames": 45, "view": 1, "capture": "first-person"},
+    {"frames": 90, "buttons": 32768, "capture": "drive"},
+    {"frames": 30, "buttons": 32768, "stick_x": 45, "capture": "turn"},
+    {"frames": 2}
+  ]
+}

@@ -7,12 +7,15 @@
 #include <mk64.h>
 #include <stubs.h>
 #include "racing/framebuffer_effects.h"
+#include "port/KartTestBridge.h"
+#include "port/net/NetRace.h"
 
 #include "profiler.h"
 #include "main.h"
 #include "race_mods.h"
 #include "racing/memory.h"
 #include "menus.h"
+#include "menu_pointer.h"
 #include <segments.h>
 #include <common_structs.h>
 #include <defines.h>
@@ -415,16 +418,17 @@ static void vr_merge_pad0(void) {
     }
 }
 
+#include "port/AndroidPhone.h"
 void update_controller(s32 index) {
     struct Controller* controller = &gControllers[index];
     u16 stick;
 
     // The unplugged gate must not silence a VR-only player: with motion controllers live, pad 0
     // always updates (the merge below is its input source even with no gamepad attached).
-    if (sIsController1Unplugged && !(index == 0 && vr_controllers_active())) {
+    if (sIsController1Unplugged && !kart_test_active() && !(index == 0 && (vr_controllers_active() || android_phone_active()))) {
         return;
     }
-    if (index == 0) {
+    if (index == 0 && !kart_test_active()) {
         vr_merge_pad0();
     }
 
@@ -477,6 +481,9 @@ void read_controllers(void) {
     osContStartReadData(&gSIEventMesgQueue);
     // osRecvMesg(&gSIEventMesgQueue, &msg, OS_MESG_BLOCK);
     osContGetReadData(gControllerPads);
+    android_phone_merge_pad();
+    kart_test_read_inputs(gControllerPads);
+    net_read_inputs();
     update_controller(0);
     update_controller(1);
     update_controller(2);
@@ -747,6 +754,7 @@ void display_debug_info(void) {
 
 void process_game_tick(void) {
     gTickCounter += 1;
+    if (!net_before_tick()) return;
 
     if (Editor_IsPaused() == false) {
         if (D_8015011E) {
@@ -765,7 +773,7 @@ void process_game_tick(void) {
     }
     
     func_80028F70(); // Player controller
-    race_mods_tick(); // port addition: knockout / turbo laps / kart size / item rain (race_mods.c)
+    if (!net_race_active()) race_mods_tick(); // Offline race modifiers.
     race_mods_action_cam_tick(); // port addition: VR flip cam dramatic-state feed
 
     func_8028F474();
@@ -818,6 +826,7 @@ void race_logic_loop(void) {
             func_80022744();
         }
     }
+    net_update_display();
     func_8005A070();
     CM_TickEditor();
     profiler_log_thread5_time(LEVEL_SCRIPT_EXECUTE);
@@ -1265,9 +1274,12 @@ void thread5_iteration(void) {
     profiler_log_thread5_time(THREAD5_START);
     config_gfx_pool();
     read_controllers();
+    menu_pointer_begin();
     FB_CreateFramebuffers();
     clear_framebuffer(0); // Clear the framebuffer
     game_state_handler();
+    menu_pointer_end();
+    net_after_frame();
 
     // call_render_hook();
 

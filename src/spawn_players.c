@@ -4,6 +4,7 @@
 #include <stdio.h>
 
 #include "spawn_players.h"
+#include "port/net/NetRace.h"
 #include "code_800029B0.h"
 #include "engine/editor/Editor.h"
 #include "kart_attributes.h"
@@ -965,6 +966,7 @@ void spawn_and_set_player_spawns(void) {
         }
     }
 
+    if (net_spawn_players(sp5E, sp5C, sp5A)) { init_players(); return; }
     if ((gModeSelection != BATTLE) && (!IsPodiumCeremony())) {
         switch (gActiveScreenMode) {
             case SCREEN_MODE_1P:
@@ -1382,11 +1384,12 @@ void spawn_players_and_cameras(void) {
 }
 
 void spawn_single_player_camera(u32 mode) {
+    if (net_race_active()) mode = 1;
     Vec3f spawn = {gPlayerOne->pos[0], gPlayerOne->pos[1], gPlayerOne->pos[2]};
     Vec3f spawn2 = {gPlayerTwo->pos[0], gPlayerTwo->pos[1], gPlayerTwo->pos[2]};
 
     // Technically there should be a default case of mode 10 here. Except it never gets used.
-    if (gModeSelection == GRAND_PRIX && !gDemoMode) {
+    if (gModeSelection == GRAND_PRIX && !gDemoMode && !net_race_active()) {
         if (IsToadsTurnpike()) {
             spawn[0] = 0.0f;
             spawn[2] = D_80165230[7];

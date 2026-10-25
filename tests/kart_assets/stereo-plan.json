@@ -1,0 +1,8 @@
+{
+  "id": "stereo",
+  "steps": [
+    {"frames": 45, "view": 1, "look_y": -80, "stereo": true, "capture": "cockpit"},
+    {"frames": 30, "look_y": -80, "look_x": 22, "stereo": true, "capture": "side"},
+    {"frames": 2}
+  ]
+}

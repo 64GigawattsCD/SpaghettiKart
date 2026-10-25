@@ -4,6 +4,7 @@
 #include <mk64.h>
 
 #include "player_controller.h"
+#include "port/net/NetRace.h"
 #include "code_800029B0.h"
 #include "kart_attributes.h"
 #include "racing/memory.h"
@@ -4539,6 +4540,10 @@ void handle_a_press_for_player_during_race(Player* player, struct Controller* co
 }
 
 void handle_a_press_for_all_players_during_race(void) {
+    if (net_race_active()) {
+        for (s32 i = 0; i < 2; ++i) handle_a_press_for_player_during_race(&gPlayers[i], &gControllers[i], i);
+        return;
+    }
     u16 temp_v0_3;
     u16 temp_v0_4;
     u16 temp_v0_5;

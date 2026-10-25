@@ -95,6 +95,16 @@ void PortMenu::AddSettings() {
     // General Settings
     AddSidebarEntry("Settings", "General", 3);
     WidgetPath path = { "Settings", "General", SECTION_COLUMN_1 };
+    AddWidget(path, "LAN Race", WIDGET_WINDOW_BUTTON)
+        .CVar("gNet.Window").WindowName("LAN Race");
+
+#ifdef __ANDROID__
+    static const std::unordered_map<int32_t, const char*> phoneLayouts = {
+        {0, "A: Controls inward"}, {1, "B: HUD inward"}
+    };
+    AddWidget(path, "Phone HUD Layout", WIDGET_CVAR_COMBOBOX)
+        .CVar("gPhone.HudLayout").Options(ComboboxOptions().ComboMap(phoneLayouts));
+#endif
 
     static bool isFullscreen = false;
 #ifndef __SWITCH__

@@ -36,6 +36,8 @@ void versus_1p_rival_hint(void);
 // Every menu string goes through these, never a raw fixed scale.
 void race_mods_text_fit(s32 x, s32 y, const char* text, f32 scale, f32 maxWidth);
 void race_mods_text_fit_center(s32 cx, s32 y, const char* text, f32 scale, f32 maxWidth);
+// Small native arrow: -1/+1 horizontal, -2/+2 vertical; x/y is its center.
+void race_mods_draw_pointer_arrow(s32 x, s32 y, s32 direction);
 // In-race status line (infected mode: the flashing INFECTED warning + the winner banner).
 // Called from the HUD pass in code_80057C60.c.
 void race_mods_draw_status_hud(void);

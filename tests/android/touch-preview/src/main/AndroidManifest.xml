@@ -1,0 +1,5 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application android:theme="@android:style/Theme.Material.NoActionBar" android:label="Kart Touch Art Tests">
+        <activity android:name="dev.spaghettikart.phone.MainActivity" android:exported="true" />
+    </application>
+</manifest>

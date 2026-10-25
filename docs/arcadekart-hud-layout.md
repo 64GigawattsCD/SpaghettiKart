@@ -10,6 +10,15 @@ This note records the intent and current shape of the ArcadeKart HUD layout pass
 - Apply scaling at cluster boundaries using code-side constants. Individual glyphs and textures should keep their native proportions inside the cluster so text does not become vertically squeezed or horizontally stretched.
 - Keep post-process effects below the HUD. The HUD is meant to read clearly even when the game layer has barrel warp, motion blur, screen shake, or overscan.
 
+## Minimap Fit Revision (2026-10-16)
+
+`hud_race_layout.c` uses a fill slot between the lap-time and RPM blocks. The map
+ScaleBox fits that entire remaining area in both scaling directions, preserving
+aspect ratio and perimeter icon padding. Its center is the center of the usable
+gap, not necessarily the exact viewport midpoint. The larger bottom block is no
+longer mirrored above the map. On the phone's Luigi Raceway layout, the track
+height increases from54.04 to88.18 HUD units without moving either corner block.
+
 ## Layout Model
 
 - `HudLayoutContext` owns the full player view and a safe rectangle. The full view is still used for scale math; anchors can resolve inside the safe rectangle.

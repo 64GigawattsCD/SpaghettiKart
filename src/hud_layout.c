@@ -87,6 +87,7 @@ static HudWidgetId hud_layout_alloc_widget(HudLayoutContext* ctx, HudWidgetType 
     widget->visible = true;
     widget->firstSlot = -1;
     widget->lastSlot = -1;
+    widget->parent = HUD_LAYOUT_INVALID_WIDGET;
     return id;
 }
 
@@ -102,10 +103,29 @@ static void hud_layout_add_slot(HudLayoutContext* ctx, HudWidgetId parent, HudWi
     }
 
     parentWidget = hud_layout_get_widget(ctx, parent);
-    if (parentWidget == NULL) {
+    HudLayoutWidget* childWidget = hud_layout_get_widget(ctx, child);
+    if (parentWidget == NULL || childWidget == NULL || child == ctx->rootId || childWidget->parent >= 0 ||
+        (type == HUD_SLOT_CANVAS && parentWidget->type != HUD_WIDGET_CANVAS) ||
+        (type == HUD_SLOT_BOX && parentWidget->type != HUD_WIDGET_HORIZONTAL_BOX && parentWidget->type != HUD_WIDGET_VERTICAL_BOX) ||
+        (type == HUD_SLOT_GRID && parentWidget->type != HUD_WIDGET_GRID_BOX) ||
+        (type == HUD_SLOT_SINGLE_CHILD &&
+         ((parentWidget->type != HUD_WIDGET_SIZE_BOX && parentWidget->type != HUD_WIDGET_SCALE_BOX) || parentWidget->slotCount))) {
         ctx->overflowed = true;
         return;
     }
+    for (HudWidgetId ancestor = parent; ancestor >= 0; ancestor = ctx->widgets[ancestor].parent) {
+        if (ancestor == child) { ctx->overflowed = true; return; }
+    }
+    if (type == HUD_SLOT_GRID) {
+        const HudGridSlot* grid = slotData;
+        if (grid->row < 0 || grid->column < 0 || grid->row >= HUD_LAYOUT_GRID_MAX_TRACKS ||
+            grid->column >= HUD_LAYOUT_GRID_MAX_TRACKS || grid->rowSpan < 1 || grid->columnSpan < 1 ||
+            grid->rowSpan > HUD_LAYOUT_GRID_MAX_TRACKS - grid->row ||
+            grid->columnSpan > HUD_LAYOUT_GRID_MAX_TRACKS - grid->column) {
+            ctx->overflowed = true; return;
+        }
+    }
+    childWidget->parent = parent;
 
     slotIndex = ctx->slotCount++;
     slot = &ctx->slots[slotIndex];
@@ -170,6 +190,7 @@ static HudVec2 hud_layout_measure_box(HudLayoutContext* ctx, HudLayoutWidget* wi
         HudLayoutSlot* slot = &ctx->slots[slotIndex];
         HudVec2 childDesired = hud_layout_measure_widget(ctx, slot->child);
         HudPadding padding = slot->data.box.padding;
+        if (!ctx->widgets[slot->child].visible) continue;
         f32 childMajor;
         f32 childCross;
 
@@ -228,6 +249,32 @@ static HudVec2 hud_layout_measure_size_box(HudLayoutContext* ctx, HudLayoutWidge
     return desired;
 }
 
+static void hud_layout_grid_min_tracks(HudLayoutContext* ctx, HudLayoutWidget* widget, f32* columns, f32* rows) {
+    memset(columns, 0, sizeof(f32) * HUD_LAYOUT_GRID_MAX_TRACKS);
+    memset(rows, 0, sizeof(f32) * HUD_LAYOUT_GRID_MAX_TRACKS);
+    // Single-cell requirements first; spanning children then distribute only their deficit.
+    for (s32 pass = 0; pass < 2; ++pass) {
+        for (s32 index = widget->firstSlot; index >= 0; index = ctx->slots[index].nextSlot) {
+            HudLayoutSlot* slot = &ctx->slots[index];
+            HudGridSlot* grid = &slot->data.grid;
+            if (!ctx->widgets[slot->child].visible) continue;
+            HudVec2 size = hud_layout_get_desired_size(ctx, slot->child);
+            for (s32 axis = 0; axis < 2; ++axis) {
+                s32 start = axis ? grid->row : grid->column;
+                s32 span = axis ? grid->rowSpan : grid->columnSpan;
+                f32* tracks = axis ? rows : columns;
+                if ((span > 1) != (pass == 1)) continue;
+                f32 desired = axis ? size.y + grid->padding.top + grid->padding.bottom :
+                                     size.x + grid->padding.left + grid->padding.right;
+                f32 allocated = 0;
+                for (s32 i = start; i < start + span; ++i) allocated += tracks[i];
+                f32 deficit = hud_layout_maxf(0, desired - allocated) / span;
+                for (s32 i = start; i < start + span; ++i) tracks[i] += deficit;
+            }
+        }
+    }
+}
+
 static HudVec2 hud_layout_measure_grid(HudLayoutContext* ctx, HudLayoutWidget* widget) {
     f32 columns[HUD_LAYOUT_GRID_MAX_TRACKS];
     f32 rows[HUD_LAYOUT_GRID_MAX_TRACKS];
@@ -235,29 +282,10 @@ static HudVec2 hud_layout_measure_grid(HudLayoutContext* ctx, HudLayoutWidget* w
     s32 i;
     HudVec2 desired;
 
-    memset(columns, 0, sizeof(columns));
-    memset(rows, 0, sizeof(rows));
-
     for (slotIndex = widget->firstSlot; slotIndex >= 0; slotIndex = ctx->slots[slotIndex].nextSlot) {
-        HudLayoutSlot* slot = &ctx->slots[slotIndex];
-        HudGridSlot* gridSlot = &slot->data.grid;
-        HudVec2 childDesired = hud_layout_measure_widget(ctx, slot->child);
-        s32 columnSpan = (gridSlot->columnSpan > 0) ? gridSlot->columnSpan : 1;
-        s32 rowSpan = (gridSlot->rowSpan > 0) ? gridSlot->rowSpan : 1;
-        s32 column = gridSlot->column;
-        s32 row = gridSlot->row;
-
-        if ((column >= 0) && (column < HUD_LAYOUT_GRID_MAX_TRACKS)) {
-            columns[column] =
-                hud_layout_maxf(columns[column], (childDesired.x + gridSlot->padding.left + gridSlot->padding.right) /
-                                                      (f32) columnSpan);
-        }
-        if ((row >= 0) && (row < HUD_LAYOUT_GRID_MAX_TRACKS)) {
-            rows[row] =
-                hud_layout_maxf(rows[row], (childDesired.y + gridSlot->padding.top + gridSlot->padding.bottom) /
-                                                (f32) rowSpan);
-        }
+        hud_layout_measure_widget(ctx, ctx->slots[slotIndex].child);
     }
+    hud_layout_grid_min_tracks(ctx, widget, columns, rows);
 
     desired = hud_layout_vec2(widget->data.grid.padding.left + widget->data.grid.padding.right,
                               widget->data.grid.padding.top + widget->data.grid.padding.bottom);
@@ -272,9 +300,10 @@ static HudVec2 hud_layout_measure_widget(HudLayoutContext* ctx, HudWidgetId widg
     HudLayoutWidget* widget = hud_layout_get_widget(ctx, widgetId);
     HudVec2 desired = hud_layout_vec2(0.0f, 0.0f);
 
-    if ((widget == NULL) || !widget->visible) {
+    if (widget == NULL) {
         return desired;
     }
+    if (!widget->visible) { widget->desiredSize = desired; return desired; }
 
     switch (widget->type) {
         case HUD_WIDGET_CANVAS:
@@ -316,6 +345,14 @@ static void hud_layout_arrange_canvas(HudLayoutContext* ctx, HudLayoutWidget* wi
         HudCanvasSlot* canvasSlot = &slot->data.canvas;
         HudVec2 childDesired = hud_layout_get_desired_size(ctx, slot->child);
         HudRect anchorRect = canvasSlot->useSafeZone ? ctx->safeRect : rect;
+        if (canvasSlot->useSafeZone) {
+            f32 right = hud_layout_minf(rect.x + rect.w, anchorRect.x + anchorRect.w);
+            f32 bottom = hud_layout_minf(rect.y + rect.h, anchorRect.y + anchorRect.h);
+            anchorRect.x = hud_layout_maxf(rect.x, anchorRect.x);
+            anchorRect.y = hud_layout_maxf(rect.y, anchorRect.y);
+            anchorRect.w = hud_layout_maxf(0, right - anchorRect.x);
+            anchorRect.h = hud_layout_maxf(0, bottom - anchorRect.y);
+        }
         f32 anchorLeft = anchorRect.x + anchorRect.w * canvasSlot->anchors.min.x;
         f32 anchorTop = anchorRect.y + anchorRect.h * canvasSlot->anchors.min.y;
         f32 anchorRight = anchorRect.x + anchorRect.w * canvasSlot->anchors.max.x;
@@ -383,7 +420,7 @@ static s32 hud_layout_count_box_children(HudLayoutContext* ctx, HudLayoutWidget*
     s32 count = 0;
 
     for (slotIndex = widget->firstSlot; slotIndex >= 0; slotIndex = ctx->slots[slotIndex].nextSlot) {
-        count++;
+        if (ctx->widgets[ctx->slots[slotIndex].child].visible) count++;
     }
     return count;
 }
@@ -402,6 +439,7 @@ static void hud_layout_arrange_box(HudLayoutContext* ctx, HudLayoutWidget* widge
         HudLayoutSlot* slot = &ctx->slots[slotIndex];
         HudBoxSlot* boxSlot = &slot->data.box;
         HudVec2 childDesired = hud_layout_get_desired_size(ctx, slot->child);
+        if (!ctx->widgets[slot->child].visible) continue;
         f32 childMajor = horizontal ? childDesired.x + boxSlot->padding.left + boxSlot->padding.right
                                     : childDesired.y + boxSlot->padding.top + boxSlot->padding.bottom;
 
@@ -425,6 +463,7 @@ static void hud_layout_arrange_box(HudLayoutContext* ctx, HudLayoutWidget* widge
         HudLayoutSlot* slot = &ctx->slots[slotIndex];
         HudBoxSlot* boxSlot = &slot->data.box;
         HudVec2 childDesired = hud_layout_get_desired_size(ctx, slot->child);
+        if (!ctx->widgets[slot->child].visible) continue;
         f32 slotMajor;
         HudRect slotRect;
         HudRect paddedRect;
@@ -494,6 +533,19 @@ static void hud_layout_arrange_size_box(HudLayoutContext* ctx, HudLayoutWidget* 
     hud_layout_arrange_widget(ctx, ctx->slots[slotIndex].child, childRect);
 }
 
+static void hud_layout_transform_tree(HudLayoutContext* ctx, HudWidgetId id, HudRect target, HudVec2 scale) {
+    HudLayoutWidget* widget = hud_layout_get_widget(ctx, id);
+    s32 slotIndex;
+    if (widget == NULL) return;
+    widget->arrangedRect.x = target.x + widget->arrangedRect.x * scale.x;
+    widget->arrangedRect.y = target.y + widget->arrangedRect.y * scale.y;
+    widget->arrangedRect.w *= scale.x;
+    widget->arrangedRect.h *= scale.y;
+    for (slotIndex = widget->firstSlot; slotIndex >= 0; slotIndex = ctx->slots[slotIndex].nextSlot) {
+        hud_layout_transform_tree(ctx, ctx->slots[slotIndex].child, target, scale);
+    }
+}
+
 static void hud_layout_arrange_scale_box(HudLayoutContext* ctx, HudLayoutWidget* widget, HudRect rect) {
     s32 slotIndex = widget->firstSlot;
     HudSingleChildSlot slotData = hud_layout_get_first_single_child_slot(ctx, widget);
@@ -522,9 +574,7 @@ static void hud_layout_arrange_scale_box(HudLayoutContext* ctx, HudLayoutWidget*
             scaleY = 1.0f;
             break;
         case HUD_SCALE_STRETCH_FILL:
-            childRect = inner;
-            hud_layout_arrange_widget(ctx, ctx->slots[slotIndex].child, childRect);
-            return;
+            break;
         case HUD_SCALE_STRETCH_FIT:
             scale = hud_layout_minf(scaleX, scaleY);
             scaleX = scale;
@@ -551,20 +601,23 @@ static void hud_layout_arrange_scale_box(HudLayoutContext* ctx, HudLayoutWidget*
 
     childRect.w = childDesired.x * scaleX;
     childRect.h = childDesired.y * scaleY;
-    if (slotData.fillWidth) {
-        childRect.w = inner.w;
-    }
-    if (slotData.fillHeight) {
-        childRect.h = inner.h;
-    }
     childRect.x = inner.x + (inner.w - childRect.w) * slotData.alignment.x;
     childRect.y = inner.y + (inner.h - childRect.h) * slotData.alignment.y;
-    hud_layout_arrange_widget(ctx, ctx->slots[slotIndex].child, childRect);
+    // Measure/arrange in the child's local units, then scale the complete subtree.
+    // Passing the smaller rect to a box clips its Auto slots instead of scaling them.
+    HudRect savedSafeRect = ctx->safeRect;
+    ctx->safeRect = hud_layout_rect(scaleX > 0 ? (savedSafeRect.x - childRect.x) / scaleX : 0,
+                                    scaleY > 0 ? (savedSafeRect.y - childRect.y) / scaleY : 0,
+                                    scaleX > 0 ? savedSafeRect.w / scaleX : childDesired.x,
+                                    scaleY > 0 ? savedSafeRect.h / scaleY : childDesired.y);
+    hud_layout_arrange_widget(ctx, ctx->slots[slotIndex].child,
+                              hud_layout_rect(0.0f, 0.0f, childDesired.x, childDesired.y));
+    ctx->safeRect = savedSafeRect;
+    hud_layout_transform_tree(ctx, ctx->slots[slotIndex].child, childRect, hud_layout_vec2(scaleX, scaleY));
 }
 
 static void hud_layout_compute_grid_tracks(HudLayoutContext* ctx, HudLayoutWidget* widget, HudRect inner, f32* columns,
                                            f32* rows) {
-    s32 slotIndex;
     s32 i;
     f32 desiredWidth = 0.0f;
     f32 desiredHeight = 0.0f;
@@ -573,28 +626,7 @@ static void hud_layout_compute_grid_tracks(HudLayoutContext* ctx, HudLayoutWidge
     f32 extraWidth;
     f32 extraHeight;
 
-    memset(columns, 0, sizeof(f32) * HUD_LAYOUT_GRID_MAX_TRACKS);
-    memset(rows, 0, sizeof(f32) * HUD_LAYOUT_GRID_MAX_TRACKS);
-
-    for (slotIndex = widget->firstSlot; slotIndex >= 0; slotIndex = ctx->slots[slotIndex].nextSlot) {
-        HudLayoutSlot* slot = &ctx->slots[slotIndex];
-        HudGridSlot* gridSlot = &slot->data.grid;
-        HudVec2 childDesired = hud_layout_get_desired_size(ctx, slot->child);
-        s32 columnSpan = (gridSlot->columnSpan > 0) ? gridSlot->columnSpan : 1;
-        s32 rowSpan = (gridSlot->rowSpan > 0) ? gridSlot->rowSpan : 1;
-
-        if ((gridSlot->column >= 0) && (gridSlot->column < HUD_LAYOUT_GRID_MAX_TRACKS)) {
-            columns[gridSlot->column] =
-                hud_layout_maxf(columns[gridSlot->column],
-                                (childDesired.x + gridSlot->padding.left + gridSlot->padding.right) /
-                                    (f32) columnSpan);
-        }
-        if ((gridSlot->row >= 0) && (gridSlot->row < HUD_LAYOUT_GRID_MAX_TRACKS)) {
-            rows[gridSlot->row] =
-                hud_layout_maxf(rows[gridSlot->row],
-                                (childDesired.y + gridSlot->padding.top + gridSlot->padding.bottom) / (f32) rowSpan);
-        }
-    }
+    hud_layout_grid_min_tracks(ctx, widget, columns, rows);
 
     for (i = 0; i < HUD_LAYOUT_GRID_MAX_TRACKS; i++) {
         desiredWidth += columns[i];
@@ -714,10 +746,14 @@ static void hud_layout_draw_canvas_children(const HudLayoutContext* ctx, const H
 
     for (i = 1; i < count; i++) {
         s32 current = orderedSlots[i];
-        s32 currentZ = ctx->slots[current].data.canvas.zOrder;
+        s32 currentZ = widget->type == HUD_WIDGET_GRID_BOX ? ctx->slots[current].data.grid.layer :
+                                                           ctx->slots[current].data.canvas.zOrder;
         s32 j = i - 1;
 
-        while ((j >= 0) && (ctx->slots[orderedSlots[j]].data.canvas.zOrder > currentZ)) {
+        while (j >= 0) {
+            s32 previousZ = widget->type == HUD_WIDGET_GRID_BOX ? ctx->slots[orderedSlots[j]].data.grid.layer :
+                                                                 ctx->slots[orderedSlots[j]].data.canvas.zOrder;
+            if (previousZ <= currentZ) break;
             orderedSlots[j + 1] = orderedSlots[j];
             j--;
         }
@@ -744,7 +780,7 @@ static void hud_layout_draw_widget(const HudLayoutContext* ctx, HudWidgetId widg
         return;
     }
 
-    if (widget->type == HUD_WIDGET_CANVAS) {
+    if (widget->type == HUD_WIDGET_CANVAS || widget->type == HUD_WIDGET_GRID_BOX) {
         hud_layout_draw_canvas_children(ctx, widget);
         return;
     }
@@ -891,6 +927,7 @@ void hud_layout_arrange(HudLayoutContext* ctx) {
     if (ctx->rootId < 0) {
         return;
     }
+    for (s32 i = 0; i < ctx->widgetCount; ++i) ctx->widgets[i].arrangedRect = hud_layout_rect(0, 0, 0, 0);
     hud_layout_measure_widget(ctx, ctx->rootId);
     ctx->widgets[ctx->rootId].desiredSize = hud_layout_vec2(ctx->rootRect.w, ctx->rootRect.h);
     hud_layout_arrange_widget(ctx, ctx->rootId, ctx->rootRect);
