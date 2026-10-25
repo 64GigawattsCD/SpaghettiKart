@@ -20,4 +20,3 @@
 *.yaml text
 *.toml text
 *.rs text diff=rust
-

@@ -12,6 +12,9 @@
 - GitHub does not accept new LFS objects in this public fork. Blender files
   are archived losslessly with 48 MiB volumes; the original local files stay
   untouched. See the asset folder's README and source SHA256 manifest.
+- Publication succeeded for `VRintegration` and renderer branch
+  `codex/original-vr-draft-oct25`; 7-Zip integrity check passed for all five
+  original Blender files across seven archive volumes.
 
 ## VR Refresh (2026-09-30)
 
