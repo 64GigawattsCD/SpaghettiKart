@@ -119,6 +119,7 @@ void Session::Close() {
     crypto_wipe(tickets.data(), sizeof(tickets));
     remoteAddress.clear(); remotePort = 0; resumeTicket = {}; tickets = {}; reconnectAt = disconnectedAt = 0;
     handshakeRates = {}; handshakeSince = handshakeAttempts = 0;
+    partySent = partyAck = 0;
     reservationAt = {};
 }
 void Session::Fail(const char* text) {
@@ -236,6 +237,7 @@ void Session::Broadcast(Message m, bool reliable) {
 void Session::SendLobby(Peer& p, Kind kind) {
     Message m; m.kind = kind; m.content = contentHash; m.connection = p.connection;
     m.roster = roster; m.settings = settings; m.revision = revision; m.standings = standings; m.cupComplete = cupComplete;
+    m.partyRevision = p.partyRevision;
     m.ready = phase == Phase::Lobby; m.phase = phase; m.ticket = tickets[p.connection];
     Send(p, m);
 }
@@ -393,6 +395,7 @@ void Session::Receive(Peer& p, const Message& m, uint8_t channel) {
         sessionId = m.session; raceId = m.race; connectionId = m.connection; p.connection = 1; p.admitted = true;
         resumeTicket = m.ticket; disconnectedAt = reconnectAt = 0; error.clear();
         roster = m.roster; settings = m.settings; revision = m.revision; standings = m.standings; cupComplete = m.cupComplete;
+        partySent = partyAck = m.partyRevision;
         phase = m.phase;
         if (phase == Phase::Loading && sameRace && localLoaded) {
             Message loaded; loaded.kind = Kind::Loaded; loaded.round = settings.round; Send(p, loaded);
@@ -405,6 +408,7 @@ void Session::Receive(Peer& p, const Message& m, uint8_t channel) {
         if (m.connection != connectionId || m.rules != RulesVersion || m.content != contentHash ||
             (!Newer(m.revision, revision) && m.revision != revision)) { ++rejected; return; }
         roster = m.roster; settings = m.settings; revision = m.revision; standings = m.standings; cupComplete = m.cupComplete;
+        if (Newer(m.partyRevision, partyAck) || m.partyRevision == partyAck) partyAck = m.partyRevision;
         if (phase == Phase::Finished && m.ready) phase = Phase::Lobby;
         return;
     }
@@ -414,15 +418,18 @@ void Session::Receive(Peer& p, const Message& m, uint8_t channel) {
         ++revision; BroadcastLobby(); return;
     }
     if (authority && m.kind == Kind::UpdateParty && phase == Phase::Lobby) {
+        if (!Newer(m.partyRevision, p.partyRevision)) { ++rejected; return; }
         auto backup = roster;
         roster.erase(std::remove_if(roster.begin(), roster.end(), [&p](auto r) { return r.connection == p.connection; }), roster.end());
         if (!Admit(p.connection, m.party)) { roster = std::move(backup); Reject(p, "Party update does not fit"); return; }
         for (auto& r : roster) r.ready = false;
+        p.partyRevision = m.partyRevision;
         ++revision; BroadcastLobby(); return;
     }
     if (!authority && m.kind == Kind::Load && (phase == Phase::Lobby || phase == Phase::Finished) && Newer(m.race, raceId)) {
         if (m.revision != revision) { Fail("Lobby roster changed during loading"); return; }
         settings = m.settings; raceId = m.race; localLoaded = false; phase = Phase::Loading; phaseAt = enet_time_get();
+        partySent = partyAck;
         receivedSnapshots = 0; snapshot = {}; assembling = {}; assembled = 0; worldQueue.clear(); return;
     }
     if (m.race != raceId) { ++rejected; return; }
@@ -486,7 +493,11 @@ void Session::SetPlayerReady(uint8_t controller, bool ready) {
 }
 bool Session::UpdateParty(const Party& party) {
     if (phase != Phase::Lobby || !ValidParty(party)) return false;
-    if (!authority) { Message m; m.kind = Kind::UpdateParty; m.party = party; Send(peers[0], m); localParty = party; return true; }
+    if (!authority) {
+        Message m; m.kind = Kind::UpdateParty; m.party = party; m.partyRevision = partySent + 1;
+        if (!Send(peers[0], m)) return false;
+        partySent = m.partyRevision; localParty = party; return true;
+    }
     auto backup = roster;
     roster.erase(std::remove_if(roster.begin(), roster.end(), [this](auto r) { return r.connection == connectionId; }), roster.end());
     if (!Admit(connectionId, party)) { roster = std::move(backup); return false; }

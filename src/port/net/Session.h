@@ -34,6 +34,7 @@ public:
     void SetReady(bool ready);
     void SetPlayerReady(uint8_t controller, bool ready);
     bool UpdateParty(const Party& party);
+    bool PartyUpdatePending() const { return !authority && partySent != partyAck; }
     bool SetSettings(const RaceSettings& settings);
     bool ReturnToLobby();
     bool Reconnect();
@@ -67,6 +68,7 @@ private:
         std::unique_ptr<SecureChannel> crypto;
         uint16_t connection = 0;
         uint32_t since = 0;
+        uint32_t partyRevision = 0;
         bool admitted = false, loaded = false;
         bool keyPending = false;
         std::array<uint8_t, 32> remoteKey{};
@@ -86,6 +88,7 @@ private:
     uint64_t contentHash = 0, sessionId = 0;
     uint16_t connectionId = 0;
     uint32_t revision = 0, raceId = 0, lastSnapshotAt = 0, phaseAt = 0;
+    uint32_t partySent = 0, partyAck = 0;
     Party localParty;
     std::string password;
     std::string remoteAddress;

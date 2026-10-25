@@ -97,7 +97,7 @@ std::vector<uint8_t> Encode(const Message& m) {
         w.u(m.rules, 4); w.u(m.content, 8); writeParty(w, m.party, m.character);
         w.bytes.insert(w.bytes.end(), m.ticket.begin(), m.ticket.end()); break;
     case Kind::Welcome: case Kind::Lobby:
-        w.u(m.rules, 4); w.u(m.content, 8); w.u(m.connection, 2); w.u(m.revision, 4); writeSettings(w, m.settings);
+        w.u(m.rules, 4); w.u(m.content, 8); w.u(m.connection, 2); w.u(m.revision, 4); w.u(m.partyRevision, 4); writeSettings(w, m.settings);
         w.u(uint8_t(m.phase), 1); w.bytes.insert(w.bytes.end(), m.ticket.begin(), m.ticket.end());
         if (!ValidRoster(m.roster)) throw std::runtime_error("Invalid roster");
         w.u(m.roster.size(), 1);
@@ -110,7 +110,7 @@ std::vector<uint8_t> Encode(const Message& m) {
     case Kind::Load: writeSettings(w, m.settings); w.u(m.revision, 4); break;
     case Kind::Loaded: case Kind::Begin: w.u(m.round, 1); break;
     case Kind::Ready: w.u(m.ready, 1); w.u(m.controller, 1); break;
-    case Kind::UpdateParty: writeParty(w, m.party); break;
+    case Kind::UpdateParty: w.u(m.partyRevision, 4); writeParty(w, m.party); break;
     case Kind::Reject: w.text(m.reason, 96); break;
     case Kind::World:
         if (m.payload.empty() || m.payload.size() > 1100) throw std::length_error("World payload exceeds packet budget");
@@ -143,6 +143,7 @@ bool Decode(const uint8_t* data, size_t length, Message& result) {
             if (m.session || m.race) return false; break;
         case Kind::Welcome: case Kind::Lobby: {
             m.rules = uint32_t(r.u(4)); m.content = r.u(8); m.connection = r.u(2); m.revision = uint32_t(r.u(4));
+            m.partyRevision = uint32_t(r.u(4));
             m.settings = readSettings(r); auto phase = r.u(1); if (phase > uint8_t(Phase::Error)) return false;
             m.phase = Phase(phase); for (auto& b : m.ticket) b = r.u(1);
             size_t count = r.u(1); if (!count || count > MaxRacers) return false;
@@ -162,7 +163,7 @@ bool Decode(const uint8_t* data, size_t length, Message& result) {
             m.ready = r.flag(); m.controller = r.u(1);
             if (m.controller != 255 && m.controller >= MaxLocalPlayers) return false;
             break;
-        case Kind::UpdateParty: m.party = readParty(r); break;
+        case Kind::UpdateParty: m.partyRevision = uint32_t(r.u(4)); m.party = readParty(r); break;
         case Kind::Reject: m.reason = r.text(96); break;
         case Kind::World: {
             size_t size = r.u(2); if (!size || size > 1100 || size > r.size - r.offset) return false;

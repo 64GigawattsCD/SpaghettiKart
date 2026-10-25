@@ -60,6 +60,8 @@ void net_menu_command(int action);
 int net_party_info(int controller, NetPartyInfo* info);
 void net_party_join(int controller);
 void net_party_set_limit(int count);
+int net_party_character_available(int controller, int character);
+int net_party_select_character(int controller, int character);
 void net_party_leave(int controller);
 void net_party_adjust(int controller, int field, int direction); /* 0 character, 1 transmission, 2 ready */
 void net_party_ready(int controller, int ready);

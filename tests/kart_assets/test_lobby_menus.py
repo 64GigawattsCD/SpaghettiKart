@@ -80,10 +80,18 @@ class LobbySession(MenuSession):
         self.lobby_click('LOCAL RACE SETUP', 'CONTINUE TO LOBBY')
         lobby = self.page('LOBBY')
         require(lobby['phase'] == 2, lobby)
+        self.click('drivers', self.page('LOBBY')['context'], 400)
+        require(len(self.page('CHARACTER SELECT')['driver_selection']['players']) == 4, 'Shared pool has four local cursors')
         for port in range(4):
-            self.click('driver-' + str(port), self.page('LOBBY')['context'], 400 + port)
-            self.lobby_click('LOCAL DRIVER', 'READY')
-            self.back('LOCAL DRIVER')
+            self.click('pick-' + str(port), self.page('CHARACTER SELECT')['context'], 3100 + port)
+        transmission = self.page('TRANSMISSION')
+        for slot, player in enumerate(transmission['driver_selection']['players']):
+            require(player['viewport'] == [(slot % 2) * 160, (slot // 2) * 120, 160, 120], player)
+        for port in range(4):
+            self.click('automatic-' + str(port), self.page('TRANSMISSION')['context'], 3300 + port * 10)
+            self.click('confirm-transmission-' + str(port), self.page('TRANSMISSION')['context'], 3302 + port * 10)
+        for port in range(4):
+            self.click('ready-' + str(port), self.page('DRIVER READY')['context'], 3400 + port)
         self.click('start-local-race', self.page('LOBBY')['context'], 1003)
         report = self.wait(lambda r: r['state']['gamestate'] == RACING
                            and r['state']['network']['phase'] == 'Racing')

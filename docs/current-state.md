@@ -12,9 +12,9 @@ Updated: 2026-10-25. Living summary; replace stale facts rather than accumulatin
   GP/VS and human-only Battle are enabled; see the topic doc for coverage and receipts.
 - Shared native menus retain stock art and Options / Data / Back / Quit, with no
   dedicated L/R/Z shortcuts. Gameplay testing remains with the user.
-- Main uses stock-sized mode tiles and padded corner join badges, no character
-  or Ready controls. 1P/Local enter the lobby before character selection and racing.
-- Latest APK installed on SM-S908U on 2026-10-25; settings digest unchanged.
+- Main uses stock-sized mode tiles and padded corner join badges; drivers stay in
+  the lobby. One shared character pool, then local-viewport transmission/Ready prompts.
+- Latest APK installed on SM-S908U on 2026-10-25 at 18:50; settings digest unchanged.
   App not launched during deployment. Rediscover the wireless endpoint next time.
 
 ## Keep These Behaviors

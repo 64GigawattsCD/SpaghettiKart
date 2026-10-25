@@ -54,3 +54,23 @@ retaining CPU-fill/mirror settings. Geometry and input-routing regression checks
 run in this suite; the opt-in Python runner follows the revised pointer IDs and
 explicit local lobby. No game was launched for this revision. Stock assets were
 reused; paid image/service credits: zero. Per-task token billing is not exposed.
+
+Driver selection revision: `DriverSelectModel.h` keeps the eight stock portraits
+in one shared grid, then anchors each local player's Automatic/Manual, confirmation
+and Ready prompts to their race viewport. One player uses the full image, two use
+top/bottom halves, and three/four use quadrants. Gapped physical controller ports
+map to compact local viewport slots; remote racers do not add local regions.
+
+The pure driver-select target covers geometry, all party masks, confirmation
+barriers and Back transitions (28,680 checks). A stage change ends that frame's
+port processing. Local choices include pending party intent; remote ownership is
+read from the roster. Per-party request acknowledgments keep stale lobby updates
+from overwriting unacknowledged choices. Authoritative loading cancels pending
+profile edits. This advances the application protocol to v4; both devices need
+the matching application. No game was launched by these checks.
+
+The bridge exposes `menu.lobby.driver_selection` with stage, physical controller,
+compact slot, lock state and viewport bounds. Its existing per-port input queues
+can drive each player independently when gameplay testing is requested. The
+opt-in Python runner follows the shared grid and per-player prompt targets.
+Stock portraits were reused; no ComfyUI or paid image/service jobs were needed.

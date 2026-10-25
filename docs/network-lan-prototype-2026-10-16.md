@@ -52,8 +52,8 @@ exposed; account usage was not treated as task billing.
 
 Primary cryptographic API references: [AEAD](https://monocypher.org/manual/aead),
 [password derivation](https://monocypher.org/manual/argon2), and the pinned source
-in `cmake/dependencies/monocypher.cmake`. Both devices need the new protocol-v3
-application for this flow.
+in `cmake/dependencies/monocypher.cmake`. Both devices need the matching
+protocol-v4 application for the current driver-selection flow.
 
 Subsequent deployment on 2026-10-25 at 17:58 phone time: the release APK installed
 successfully on SM-S908U through the newly supplied wireless endpoint using
@@ -63,6 +63,24 @@ gameplay test followed. Paid service/image credits used: zero; per-task token
 billing is not exposed.
 
 ### Verification
+
+Driver selection revision: one global stock-portrait grid precedes per-player
+transmission and Ready prompts, centered in the same full/half/quadrant regions
+as each machine's local race views. Remote seats do not shrink those regions.
+Local physical ports remain distinct from compact viewport slots. Character
+availability checks pending local choices plus acknowledged remote ownership.
+Protocol v4 adds per-party update request/acknowledgment counters, so an old
+lobby broadcast does not overwrite a newer local choice. Authoritative Load
+cancels pending profile edits. Both PC and phone need this matching version.
+The revised driver flow passed 28,680 pure geometry/barrier checks, the existing
+lobby and Python helper checks, and all six network suites. Added loopback checks
+cover old-versus-latest party acknowledgments, host-normalized choices and Load
+cancellation of pending edits. No gameplay or pixel checks were run.
+Final compiler logs: `local-driver-ack-pc-20261025-184759-3da2d559.log` and
+`local-driver-ack-phone-20261025-184808-ffb3a086.log` in `build/agent-logs`.
+APK installation succeeded on SM-S908U at 18:50 phone time; normal settings
+SHA-256 was unchanged. App was not launched. Paid service/image credits: zero;
+per-task token billing is not exposed.
 
 Main-menu revision: 1P, Local and Online now occupy stock-sized player-count tiles.
 Player join badges occupy padded corners above the existing footer. Main/setup

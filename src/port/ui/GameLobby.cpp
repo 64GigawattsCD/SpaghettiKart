@@ -1,4 +1,5 @@
 #include "GameOptionsModel.h"
+#include "DriverSelectModel.h"
 #include "game_options.h"
 #include "port/net/NetRace.h"
 #include "port/net/Protocol.h"
@@ -30,14 +31,14 @@ using GameUI::Lobby::Wrap;
 using GameUI::Options::FontText;
 enum class Page { Main, Online, LocalSetup, HostSetup, Browser, Direct, Lobby, Standings, Party, Editor };
 enum Action { Setting, OpenHost, OpenBrowser, OpenDirect, Refresh, JoinServer, Text, Port,
-              OpenParty, Host, Join, StartLocal, Ready, Leave, SessionBack, Character, Transmission };
+              Host, Join, StartLocal, SessionBack };
 struct Row { std::string label, value; Action action; int argument = 0; bool enabled = true; std::string detail; };
 constexpr bool HasRows(Page destination) {
     return destination == Page::Online || destination == Page::LocalSetup || destination == Page::HostSetup ||
-           destination == Page::Browser || destination == Page::Direct || destination == Page::Party;
+           destination == Page::Browser || destination == Page::Direct;
 }
 constexpr bool Adjustable(Action action) {
-    return action == Setting || action == Port || action == Character || action == Transmission;
+    return action == Setting || action == Port;
 }
 constexpr bool CapabilityAvailable(bool local, unsigned int capabilities, unsigned int feature) {
     return local || (capabilities & feature) != 0;
@@ -49,16 +50,22 @@ static_assert(!CapabilityAvailable(false, NET_CAP_ONLINE_BATTLE, NET_CAP_ONLINE_
 static_assert(CapabilityAvailable(false, NET_CAP_ONLINE_BATTLE, NET_CAP_ONLINE_BATTLE));
 static_assert(!HasRows(Page::Main) && !HasRows(Page::Editor) && !HasRows(Page::Lobby) && !HasRows(Page::Standings));
 static_assert(HasRows(Page::Online) && HasRows(Page::LocalSetup) && HasRows(Page::HostSetup) &&
-              HasRows(Page::Browser) && HasRows(Page::Direct) && HasRows(Page::Party));
-static_assert(Adjustable(Setting) && Adjustable(Port) && Adjustable(Character) && Adjustable(Transmission) &&
-              !Adjustable(Text) && !Adjustable(Ready) && !Adjustable(JoinServer));
+              HasRows(Page::Browser) && HasRows(Page::Direct) && !HasRows(Page::Party));
+static_assert(Adjustable(Setting) && Adjustable(Port) && !Adjustable(Text) && !Adjustable(JoinServer));
 Page page = Page::Main, editorReturn = Page::Main, partyReturn = Page::Main;
 Page rowsPage = Page::Main;
 std::vector<Row> rows;
 int selected = 0, mainSelected = 0, generation = 0, partyController = 0, editorField = 0, keyboard = 0;
 bool backRequested = false, lowerCase = false, sawSession = false, singlePlayer = false;
 std::string draft, editorNotice, rowLayout;
-Controller networkPad{};
+std::array<Controller, 4> networkPads{};
+Controller& networkPad = networkPads[0];
+GameUI::DriverSelect::Flow driverFlow;
+std::array<int, 4> lockedCharacters{{-1, -1, -1, -1}};
+constexpr int CharacterFirst = 3000, CharacterConfirm = 3100, CharacterFocus = 3200;
+constexpr int TransmissionFirst = 3300, DriverReady = 3400;
+constexpr int CharacterGrid[] = {0, 1, 6, 3, 2, 4, 5, 7};
+constexpr int PlayerColors[][3] = {{240, 72, 64}, {48, 192, 96}, {64, 144, 248}, {248, 208, 48}};
 constexpr int Back = 1000, Next = 1001, Previous = 1002, Primary = 1003;
 constexpr int KeyDelete = 1100, KeyAccept = 1101, KeyCase = 1102, KeySpace = 1103;
 enum class SessionAction { None, Start, Ready, Return };
@@ -115,6 +122,20 @@ void Sound(bool back = false) { play_sound2(back ? SOUND_MENU_GO_BACK : SOUND_ME
 bool Joined(int controller) { NetPartyInfo info{}; return net_party_info(controller, &info) && info.joined; }
 int PartyCount() { int count = 0; for (int i = 0; i < 4; ++i) count += Joined(i) ? 1 : 0; return count; }
 void EnsureParty() { if (PartyCount() == 0) net_party_join(0); }
+std::vector<int> LocalPorts() {
+    std::vector<int> ports;
+    for (int port = 0; port < 4; ++port) if (Joined(port)) ports.push_back(port);
+    return ports;
+}
+void ClearLocalReady() { for (int port : LocalPorts()) net_party_ready(port, 0); }
+void OpenDriverSelection(int controller) {
+    partyController = controller; partyReturn = Page::Lobby;
+    unsigned mask = 0; for (int port : LocalPorts()) mask |= 1u << port;
+    driverFlow.Reset(mask); lockedCharacters.fill(-1); ClearLocalReady();
+    for (int character = 0; character < 8; ++character)
+        load_menu_img_comp_type(D_800E8320[D_800EFD64[character]][0].mk64Texture, LOAD_MENU_IMG_MIO0_ONCE);
+    Change(Page::Party);
+}
 const char* Course(int course) { return course >= 0 && course < 20 ? Courses[course] : "UNKNOWN COURSE"; }
 std::string Number(int number) { return std::to_string(number); }
 std::string Mask(bool set) { return set ? "SET" : "NONE"; }
@@ -192,19 +213,6 @@ void Rows(const NetMenuState& state) {
                 rows.push_back({FontText(server.name), seats, JoinServer, i, joinable, detail});
             }
             break;
-        case Page::Party:
-            if (!Joined(partyController)) {
-                rows.push_back({"JOIN DRIVER " + Number(partyController + 1), "", OpenParty, partyController});
-            } else {
-                NetPartyInfo player{}; net_party_info(partyController, &player);
-                const bool editable = !state.active || Phase(state, KartNet::Phase::Lobby);
-                rows.push_back({"CHARACTER", PlayerName(player), Character, partyController, editable});
-                rows.push_back({"TRANSMISSION", player.transmission == KART_TRANSMISSION_MANUAL ? "MANUAL" : "AUTO",
-                                Transmission, partyController, editable});
-                rows.push_back({"READY", player.ready ? "YES" : "NO", Ready, partyController});
-                rows.push_back({"LEAVE LOCAL PARTY", "", Leave, partyController, editable && partyController != 0});
-            }
-            break;
         default: break;
     }
     std::string layout = Number(int(page)) + ";";
@@ -264,8 +272,6 @@ void Activate(const Row& row, int direction, const NetMenuState& state) {
             }
             break;
         case Port: net_menu_adjust(1, step); break;
-        case Character: net_party_adjust(row.argument, 0, step); break;
-        case Transmission: net_party_adjust(row.argument, 1, step); break;
         default:
             if (direction) return;
             switch (row.action) {
@@ -290,19 +296,10 @@ void Activate(const Row& row, int direction, const NetMenuState& state) {
                     break;
                 }
                 case Text: Edit(row.argument, state); break;
-                case OpenParty:
-                    if (page == Page::Party) { net_party_join(row.argument); break; }
-                    partyReturn = page; partyController = 0; Change(Page::Party); break;
                 case Host: net_menu_command(1); sawSession = true; Change(Page::Lobby); break;
                 case Join: net_menu_command(2); sawSession = true; Change(Page::Lobby); break;
                 case StartLocal: net_menu_command(5); sawSession = true; Change(Page::Lobby); break;
                 case SessionBack: Change(Page::Lobby); break;
-                case Ready: {
-                    NetPartyInfo player{};
-                    net_party_info(row.argument, &player); net_party_ready(row.argument, !player.ready); break;
-                }
-                case Leave:
-                    net_party_leave(row.argument); break;
                 default: break;
             }
     }
@@ -315,10 +312,12 @@ void PartyInput(int controller, unsigned short buttons, bool inLobby) {
         case PartyAction::Join: net_party_join(controller); break;
         case PartyAction::Leave: net_party_leave(controller); break;
         case PartyAction::Ready: {
-            NetPartyInfo player{}; net_party_info(controller, &player); net_party_ready(controller, !player.ready); break;
+            NetPartyInfo player{}; net_party_info(controller, &player);
+            if (player.ready) net_party_ready(controller, 0); else OpenDriverSelection(controller);
+            break;
         }
-        case PartyAction::Character: net_party_adjust(controller, 0, buttons & L_JPAD ? -1 : 1); break;
-        case PartyAction::Transmission: net_party_adjust(controller, 1, buttons & U_JPAD ? -1 : 1); break;
+        case PartyAction::Character:
+        case PartyAction::Transmission: OpenDriverSelection(controller); break;
         default: break;
     }
 }
@@ -393,7 +392,7 @@ void SessionInput(unsigned short buttons, int hit, const NetMenuState& state) {
     if (hit == Back) { BackPage(state); return; }
     if (hit >= 400 && hit < 404) {
         partyController = hit - 400;
-        if (inLobby && !finished && Joined(partyController)) { partyReturn = page; Change(Page::Party); }
+        if (inLobby && !finished && Joined(partyController)) OpenDriverSelection(partyController);
         return;
     }
     if (hit == 1006 && state.host && !finished && inLobby) {
@@ -404,10 +403,158 @@ void SessionInput(unsigned short buttons, int hit, const NetMenuState& state) {
         case SessionAction::Return: net_menu_command(NET_RETURN_LOBBY); break;
         case SessionAction::Ready: {
             NetPartyInfo driver{};
-            if (net_party_info(0, &driver)) net_party_ready(0, !driver.ready);
+            if (net_party_info(0, &driver)) {
+                if (driver.ready) net_party_ready(0, 0);
+                else OpenDriverSelection(0);
+            }
             break;
         }
         default: break;
+    }
+}
+void DriverSelectionInput(const std::array<unsigned short, 4>& buttons, int hit, const NetMenuState& state) {
+    using GameUI::DriverSelect::Step;
+    if (!Phase(state, KartNet::Phase::Lobby)) { Change(Page::Lobby); return; }
+    const auto ports = LocalPorts();
+    unsigned mask = 0; for (int port : ports) mask |= 1u << port;
+    if (mask != driverFlow.mask) { driverFlow.Reset(mask); ClearLocalReady(); Change(Page::Party); return; }
+    if (ports.empty()) { Change(Page::Lobby); return; }
+    for (int port : ports) {
+        NetPartyInfo player{}; net_party_info(port, &player);
+        if (driverFlow.characterLocked[port] && lockedCharacters[port] != player.character) {
+            driverFlow.Reset(mask); lockedCharacters.fill(-1); ClearLocalReady(); Change(Page::Party); return;
+        }
+    }
+    if (!Joined(partyController)) partyController = ports.front();
+    const auto before = driverFlow.step;
+    if (before == Step::Character && hit == Back) { BackPage(state); return; }
+    if (before == Step::Character && hit >= CharacterFocus && hit < CharacterFocus + 4 && Joined(hit - CharacterFocus))
+        partyController = hit - CharacterFocus;
+    if (before == Step::Character && hit >= CharacterFirst && hit < CharacterFirst + 8) {
+        if (net_party_select_character(partyController, hit - CharacterFirst)) {
+            driverFlow.characterLocked[partyController] = false; Sound();
+        }
+    }
+    for (int port : ports) {
+        NetPartyInfo player{}; net_party_info(port, &player);
+        unsigned short input = buttons[port];
+        if (hit == Back && port == partyController) input |= B_BUTTON;
+        if (before == Step::Character && hit == CharacterConfirm + port) input |= A_BUTTON;
+        if (before != Step::Character && hit == TransmissionFirst + port * 10 + 3) input |= B_BUTTON;
+        if (input & B_BUTTON) {
+            if (before == Step::Character && !driverFlow.characterLocked[port] && port == ports.front()) {
+                BackPage(state); return;
+            }
+            if (driverFlow.Back(port)) { ClearLocalReady(); Sound(true); }
+            if (driverFlow.step != before) break;
+            continue;
+        }
+        if (before == Step::Character) {
+            const int horizontal = input & L_JPAD ? -1 : input & R_JPAD ? 1 : 0;
+            const int vertical = input & U_JPAD ? -4 : input & D_JPAD ? 4 : 0;
+            if (horizontal || vertical) {
+                const auto current = std::find(std::begin(CharacterGrid), std::end(CharacterGrid), player.character);
+                const int index = int(current - std::begin(CharacterGrid));
+                for (int n = 1; n <= 8; ++n) {
+                    const int character = CharacterGrid[Wrap(index + (horizontal ? horizontal : vertical) * n, 8)];
+                    if (net_party_select_character(port, character)) {
+                        driverFlow.characterLocked[port] = false; partyController = port; break;
+                    }
+                }
+            }
+            if (input & (A_BUTTON | START_BUTTON)) {
+                if (driverFlow.ConfirmCharacter(port)) {
+                    net_party_info(port, &player); lockedCharacters[port] = player.character; Sound();
+                }
+            }
+        } else if (before == Step::Transmission) {
+            int choice = -1;
+            if (input & (L_JPAD | R_JPAD)) choice = !player.transmission;
+            if (hit == TransmissionFirst + port * 10) choice = KART_TRANSMISSION_AUTOMATIC;
+            if (hit == TransmissionFirst + port * 10 + 1) choice = KART_TRANSMISSION_MANUAL;
+            if (choice >= 0) {
+                driverFlow.transmissionLocked[port] = false;
+                if (choice != player.transmission) net_party_adjust(port, 1, 1);
+            }
+            if ((input & (A_BUTTON | START_BUTTON)) || hit == TransmissionFirst + port * 10 + 2)
+                if (driverFlow.ConfirmTransmission(port)) Sound();
+        } else if ((input & (A_BUTTON | START_BUTTON)) || hit == DriverReady + port) {
+            net_party_ready(port, 1); Sound();
+        }
+        if (driverFlow.step != before) break;
+    }
+    if (driverFlow.step != before) { Change(Page::Party); return; }
+    if (driverFlow.step == Step::Ready && std::all_of(ports.begin(), ports.end(), [](int port) {
+        NetPartyInfo player{}; return net_party_info(port, &player) && player.ready;
+    })) Change(Page::Lobby);
+}
+void DriverButton(int id, GameUI::DriverSelect::Rect rect, const char* label, bool focused, bool enabled = true) {
+    Button(id, rect.x, rect.y, rect.w, rect.h, label, focused, enabled);
+}
+void DrawDriverSelection() {
+    using namespace GameUI::DriverSelect;
+    const auto ports = LocalPorts();
+    if (driverFlow.step == Step::Character) {
+        Title("PLAYER SELECT");
+        for (int cell = 0; cell < 8; ++cell) {
+            const int character = CharacterGrid[cell]; const auto rect = CharacterTile(cell);
+            int owner = -1; bool remote = false;
+            for (int port : ports) {
+                NetPartyInfo player{}; net_party_info(port, &player);
+                if (player.character == character) { owner = port; break; }
+            }
+            for (int i = 0; owner < 0 && i < 8; ++i) {
+                NetRosterInfo player{};
+                if (net_roster_info(i, &player) && !player.local && player.character == character) {
+                    owner = player.controller; remote = true; break;
+                }
+            }
+            const bool focused = owner == partyController && !remote;
+            if (focused) gDisplayListHead = draw_flash_select_case_slow(gDisplayListHead, rect.x - 1, rect.y - 1, rect.x + rect.w, rect.y + rect.h);
+            else gDisplayListHead = draw_box_fill(gDisplayListHead, rect.x - 1, rect.y - 1, rect.x + rect.w, rect.y + rect.h,
+                owner >= 0 && !remote ? PlayerColors[owner][0] : 96,
+                owner >= 0 && !remote ? PlayerColors[owner][1] : 96,
+                owner >= 0 && !remote ? PlayerColors[owner][2] : 96, 255);
+            gDisplayListHead = render_menu_textures(gDisplayListHead, D_800E8320[D_800EFD64[character]][0].mk64Texture, rect.x + 1, rect.y + 1);
+            gDisplayListHead = draw_box_fill(gDisplayListHead, rect.x + 1, rect.y + 53, rect.x + 64, rect.y + 64, 0, 0, 0, 220);
+            set_text_color(TEXT_YELLOW);
+            race_mods_text_fit_center(rect.x + 33, rect.y + 63, Characters[character], .38f, 60);
+            if (owner >= 0) {
+                const std::string badge = remote ? "REMOTE" : Number(owner + 1) + "P" + (driverFlow.characterLocked[owner] ? " OK" : "");
+                gDisplayListHead = draw_box_fill(gDisplayListHead, rect.x + 1, rect.y + 1, rect.x + 64, rect.y + 13, 0, 0, 0, 200);
+                race_mods_text_fit_center(rect.x + 33, rect.y + 11, badge.c_str(), .36f, 60);
+            }
+            if (net_party_character_available(partyController, character))
+                menu_pointer_target(Context(), CharacterFirst + character, rect.x, rect.y, rect.w, rect.h);
+        }
+        for (int port : ports) {
+            const int x = 16 + port * 74;
+            Button(CharacterFocus + port, x, 187, 28, 23, (Number(port + 1) + "P").c_str(), partyController == port);
+            Button(CharacterConfirm + port, x + 30, 187, 38, 23, driverFlow.characterLocked[port] ? "OK" : "PICK", driverFlow.characterLocked[port]);
+        }
+        Button(Back, 16, 214, 66, 24, "BACK", false);
+        return;
+    }
+    if (ports.size() >= 2) gDisplayListHead = draw_box_fill(gDisplayListHead, 0, 119, 319, 120, 0, 0, 0, 255);
+    if (ports.size() >= 3) gDisplayListHead = draw_box_fill(gDisplayListHead, 159, 0, 160, 239, 0, 0, 0, 255);
+    for (int slot = 0; slot < int(ports.size()); ++slot) {
+        const int port = ports[slot]; NetPartyInfo player{}; net_party_info(port, &player);
+        const auto view = Viewport(int(ports.size()), slot);
+        const int cx = view.x + view.w / 2, cy = view.y + view.h / 2;
+        set_text_color(TEXT_YELLOW);
+        race_mods_text_fit_center(cx, cy - 38, ("PLAYER " + Number(port + 1)).c_str(), .48f, view.w - 20);
+        race_mods_text_fit_center(cx, cy - 23, PlayerName(player).c_str(), .52f, view.w - 20);
+        if (driverFlow.step == Step::Transmission && !driverFlow.transmissionLocked[port]) {
+            DriverButton(TransmissionFirst + port * 10, AutoButton(int(ports.size()), slot), "AUTOMATIC", player.transmission == KART_TRANSMISSION_AUTOMATIC);
+            DriverButton(TransmissionFirst + port * 10 + 1, ManualButton(int(ports.size()), slot), "MANUAL", player.transmission == KART_TRANSMISSION_MANUAL);
+            DriverButton(TransmissionFirst + port * 10 + 2, ConfirmButton(int(ports.size()), slot), "OK", false);
+        } else {
+            race_mods_text_fit_center(cx, cy - 3, player.transmission == KART_TRANSMISSION_MANUAL ? "MANUAL" : "AUTOMATIC", .55f, view.w - 20);
+            if (driverFlow.step == Step::Ready)
+                DriverButton(DriverReady + port, ReadyButton(int(ports.size()), slot), player.ready ? "READY" : "CONFIRM", player.ready);
+            else race_mods_text_fit_center(cx, cy + 25, "CONFIRMED", .46f, view.w - 20);
+        }
+        DriverButton(TransmissionFirst + port * 10 + 3, BackButton(int(ports.size()), slot), "BACK", false);
     }
 }
 void DrawMain() {
@@ -430,12 +577,11 @@ void DrawMain() {
         if (focused) gDisplayListHead = render_menu_textures(gDisplayListHead, D_800E8234[1], rect.x, rect.y);
         if (!is_screen_being_faded()) menu_pointer_target(Context(), 400 + mode, rect.x, rect.y, rect.w, rect.h);
     }
-    constexpr int colors[][3] = {{240, 72, 64}, {48, 192, 96}, {64, 144, 248}, {248, 208, 48}};
     for (int i = 0; i < 4; ++i) {
         const auto rect = GameUI::Lobby::MainPlayerRect(i);
         const bool joined = Joined(i);
         gDisplayListHead = draw_box_fill(gDisplayListHead, rect.x, rect.y, rect.x + rect.w - 1, rect.y + rect.h - 1,
-                                       colors[i][0], colors[i][1], colors[i][2], joined ? 255 : 100);
+                                       PlayerColors[i][0], PlayerColors[i][1], PlayerColors[i][2], joined ? 255 : 100);
         gDisplayListHead = draw_box_fill(gDisplayListHead, rect.x + 2, rect.y + 2, rect.x + rect.w - 3, rect.y + rect.h - 3, 0, 0, 0, 255);
         set_text_color(TEXT_YELLOW);
         race_mods_text_fit_center(rect.x + 15, rect.y + 19, (Number(i + 1) + "P").c_str(), .55f, 24);
@@ -519,7 +665,8 @@ const char* PageTitle() {
         case Page::LocalSetup: return singlePlayer ? "1P RACE SETUP" : "LOCAL RACE SETUP";
         case Page::Browser: return "LAN SERVER BROWSER";
         case Page::Direct: return "DIRECT CONNECT";
-        case Page::Party: return "LOCAL DRIVER";
+        case Page::Party: return driverFlow.step == GameUI::DriverSelect::Step::Character ? "CHARACTER SELECT" :
+            driverFlow.step == GameUI::DriverSelect::Step::Transmission ? "TRANSMISSION" : "DRIVER READY";
         default: return "SPAGHETTI KART";
     }
 }
@@ -561,19 +708,9 @@ void DrawRows(const NetMenuState& state) {
         }
     }
     Button(Back, 16, 212, 78, 26, "BACK", false);
-    if (page == Page::Party) {
-        if (!singlePlayer || !state.localOnly) {
-            Button(1004, 103, 212, 49, 26, "", false);
-            Button(1005, 168, 212, 49, 26, "", false);
-            race_mods_draw_pointer_arrow(127, 225, -1); race_mods_draw_pointer_arrow(192, 225, 1);
-        }
-        set_text_color(TEXT_YELLOW);
-        race_mods_text_fit_center(160, 203, ("PLAYER " + Number(partyController + 1)).c_str(), .5f, 150);
-    } else {
-        if (first > 0) { Button(Previous, 106, 212, 44, 26, "", false); race_mods_draw_pointer_arrow(128, 225, -1); }
-        if (end < int(rows.size())) { Button(Next, 170, 212, 44, 26, "", false); race_mods_draw_pointer_arrow(192, 225, 1); }
-        Status(state);
-    }
+    if (first > 0) { Button(Previous, 106, 212, 44, 26, "", false); race_mods_draw_pointer_arrow(128, 225, -1); }
+    if (end < int(rows.size())) { Button(Next, 170, 212, 44, 26, "", false); race_mods_draw_pointer_arrow(192, 225, 1); }
+    Status(state);
     if (page == Page::Online || page == Page::Browser) {
         set_text_color(TEXT_YELLOW);
         race_mods_text_fit_center(160, 35, "LAN DISCOVERY / INTERNET BY ADDRESS", .36f, 280);
@@ -587,6 +724,21 @@ void DrawRows(const NetMenuState& state) {
 extern "C" int game_lobby_is_open(void) { return Visible(); }
 extern "C" const char* game_lobby_page(void) { return Visible() ? PageName() : ""; }
 extern "C" int game_lobby_context(void) { return Visible() ? Context() : -1; }
+extern "C" void game_lobby_driver_selection(GameDriverSelectionInfo* info) {
+    if (!info) return;
+    *info = {}; std::fill_n(info->ports, 4, -1);
+    info->open = Visible() && page == Page::Party;
+    info->step = int(driverFlow.step);
+    const auto ports = LocalPorts(); info->localCount = int(ports.size());
+    for (int slot = 0; slot < int(ports.size()); ++slot) {
+        const int port = ports[slot]; const auto view = GameUI::DriverSelect::Viewport(int(ports.size()), slot);
+        info->ports[slot] = port;
+        info->characterLocked[slot] = driverFlow.characterLocked[port];
+        info->transmissionLocked[slot] = driverFlow.transmissionLocked[port];
+        info->x[slot] = view.x; info->y[slot] = view.y;
+        info->width[slot] = view.w; info->height[slot] = view.h;
+    }
+}
 extern "C" int game_lobby_row_count(void) {
     return Visible() && HasRows(page) && rowsPage == page ? static_cast<int>(rows.size()) : 0;
 }
@@ -616,16 +768,21 @@ extern "C" void game_lobby_scroll(int pages) {
     }
 }
 extern "C" void game_lobby_net_input(unsigned int buttons, int x, int y) {
-    networkPad.buttonPressed = buttons & ~networkPad.button; networkPad.button = buttons;
+    game_lobby_net_input_for(0, buttons, x, y);
+}
+extern "C" void game_lobby_net_input_for(int localViewport, unsigned int buttons, int x, int y) {
+    if (localViewport < 0 || localViewport >= 4) return;
+    auto& pad = networkPads[localViewport];
+    pad.buttonPressed = buttons & ~pad.button; pad.button = buttons;
     unsigned short stick = (x < -30 ? L_JPAD : x > 30 ? R_JPAD : 0) | (y < -30 ? D_JPAD : y > 30 ? U_JPAD : 0);
-    networkPad.stickPressed = stick & ~networkPad.stickDirection; networkPad.stickDirection = stick;
+    pad.stickPressed = stick & ~pad.stickDirection; pad.stickDirection = stick;
 }
 extern "C" int game_lobby_input(void) {
     if (!Visible()) return 0;
     NetMenuState state{}; net_menu_state(&state);
     if (state.active) {
         sawSession = true;
-        if (Phase(state, KartNet::Phase::Finished) && page != Page::Standings && page != Page::Party) Change(Page::Standings);
+        if (Phase(state, KartNet::Phase::Finished) && page != Page::Standings) Change(Page::Standings);
         else if (SessionPage(state) && !Phase(state, KartNet::Phase::Finished) &&
                  page != Page::Lobby && page != Page::Party && page != Page::Editor &&
                  page != Page::HostSetup && page != Page::LocalSetup) Change(Page::Lobby);
@@ -637,33 +794,29 @@ extern "C" int game_lobby_input(void) {
     if (MainMenu() && !is_screen_being_faded()) gMainMenuSelection = MAIN_MENU_PLAYER_SELECT;
     if (is_screen_being_faded()) return 1;
     unsigned short buttons = kart_input_get_menu_pressed(gGamestate == RACING ? &networkPad : &gControllers[0]);
-    networkPad.buttonPressed = networkPad.stickPressed = 0;
+    std::array<unsigned short, 4> driverButtons{};
+    const auto ports = LocalPorts();
+    for (int slot = 0; slot < int(ports.size()); ++slot)
+        driverButtons[ports[slot]] = kart_input_get_menu_pressed(gGamestate == RACING ? &networkPads[slot] : &gControllers[ports[slot]]);
+    for (auto& pad : networkPads) pad.buttonPressed = pad.stickPressed = 0;
     if (HasRows(page)) Rows(state);
     int hit = menu_pointer_take(Context());
-    if (backRequested || hit == Back) { backRequested = false; buttons = B_BUTTON; }
+    if (backRequested || hit == Back) { backRequested = false; buttons = B_BUTTON; if (page == Page::Party) hit = Back; }
     if (page == Page::Main) {
         net_party_set_limit(4);
         for (int i = 1; i < 4; ++i) PartyInput(i, kart_input_get_menu_pressed(&gControllers[i]), false);
         MainInput(buttons, hit); return 1;
     }
-    if (page == Page::Party && partyController > 0 && gGamestate != RACING)
-        buttons |= kart_input_get_menu_pressed(&gControllers[partyController]);
+    if (page == Page::Party) { DriverSelectionInput(driverButtons, hit, state); return 1; }
     if (buttons & B_BUTTON) { BackPage(state); return 1; }
     if (page == Page::Editor) { EditorInput(buttons, hit); return 1; }
     if (gGamestate != RACING) {
         for (int i = 1; i < 4; ++i) {
-            if (page == Page::Party && partyController == i) continue;
             PartyInput(i, kart_input_get_menu_pressed(&gControllers[i]), page == Page::Lobby && Phase(state, KartNet::Phase::Lobby));
         }
     }
     if (page == Page::Lobby || page == Page::Standings) { SessionInput(buttons, hit, state); return 1; }
-    if (page == Page::Party) {
-        if (hit == 1004 || hit == 1005 || (buttons & START_BUTTON)) {
-            partyController = Wrap(partyController + (hit == 1004 ? -1 : 1), singlePlayer && state.localOnly ? 1 : 4);
-            selected = 0; ++generation;
-            menu_pointer_cancel();
-        }
-    }
+    if (page == Page::Party) return 1;
     Rows(state);
     if (hit == Previous || hit == Next) selected = std::clamp(selected + (hit == Previous ? -6 : 6), 0, std::max(0, int(rows.size()) - 1));
     else if (hit >= 0 && hit < int(rows.size()) * 3) {
@@ -685,6 +838,7 @@ extern "C" void game_lobby_draw(void) {
     menu_pointer_clear_targets();
     race_mods_draw_native_backdrop(0, page == Page::Main ? 0 : 100);
     if (page == Page::Main) DrawMain();
+    else if (page == Page::Party) DrawDriverSelection();
     else if (page == Page::Editor) DrawEditor();
     else if (page == Page::Lobby || page == Page::Standings) DrawSession(state);
     else DrawRows(state);

@@ -311,19 +311,40 @@ extern "C" void net_party_ready(int controller, int ready) {
         if (session.Active()) session.SetPlayerReady(uint8_t(i), ready != 0);
     }
 }
+extern "C" int net_party_character_available(int controller, int selected) {
+    if (selected < 0 || selected >= 8 || (session.Active() && session.phase != KartNet::Phase::Lobby)) return 0;
+    const auto own = std::find_if(party.begin(), party.end(), [controller](const auto& p) { return p.controller == controller; });
+    if (own == party.end()) return 0;
+    for (const auto& p : party) if (p.controller != controller && p.character == selected) return 0;
+    if (session.Active()) {
+        for (const auto& r : session.roster)
+            if (r.character == selected && r.connection != session.LocalConnection()) return 0;
+    }
+    return 1;
+}
+extern "C" int net_party_select_character(int controller, int selected) {
+    if (!net_party_character_available(controller, selected)) return 0;
+    auto own = std::find_if(party.begin(), party.end(), [controller](const auto& p) { return p.controller == controller; });
+    if (own->character == selected) return 1;
+    const auto oldParty = party;
+    own->character = uint8_t(selected); own->ready = false;
+    if (session.Active() && !session.UpdateParty(party)) { party = oldParty; return 0; }
+    if (controller == 0) { character = selected; CVarSetInteger("gNet.Character", character); }
+    return 1;
+}
 extern "C" void net_party_adjust(int controller, int field, int direction) {
     if (field == 2) { NetPartyInfo info{}; if (net_party_info(controller, &info)) net_party_ready(controller, !info.ready); return; }
     if (session.Active() && session.phase != KartNet::Phase::Lobby) return;
+    if (field == 0) {
+        NetPartyInfo info{}; if (!net_party_info(controller, &info)) return;
+        const int step = direction < 0 ? -1 : 1;
+        for (int offset = 1; offset <= 8; ++offset)
+            if (net_party_select_character(controller, (info.character + offset * step + 8) % 8)) return;
+        return;
+    }
     const auto oldParty = party;
     for (auto& p : party) if (p.controller == controller) {
-        if (field == 0) {
-            const int step = direction < 0 ? -1 : 1;
-            int selected = p.character;
-            do { selected = (selected + step + 8) % 8; }
-            while (std::any_of(party.begin(), party.end(), [&](const auto& other) { return other.controller != controller && other.character == selected; }));
-            p.character = uint8_t(selected);
-            if (controller == 0) { character = selected; CVarSetInteger("gNet.Character", character); }
-        } else if (field == 1) p.transmission = !p.transmission;
+        if (field == 1) p.transmission = !p.transmission;
         p.ready = false;
     }
     if (session.Active() && !session.UpdateParty(party)) party = oldParty;
@@ -430,7 +451,7 @@ extern "C" void net_read_inputs(void) {
     auto oldPhase = session.phase;
     session.Poll();
     for (const auto& identity : session.roster) {
-        if (identity.connection == session.LocalConnection() && identity.controller < party.size()) {
+        if (!session.PartyUpdatePending() && identity.connection == session.LocalConnection() && identity.controller < party.size()) {
             party[identity.controller].character = identity.character;
             party[identity.controller].transmission = identity.transmission;
             party[identity.controller].ready = identity.ready;

@@ -91,6 +91,32 @@ void codecs() {
     check(!Decode(bytes.data(), bytes.size(), out), "Local menu button does not travel as driving input");
     m.input.buttons = 0x37010800; bytes = Encode(m);
     check(Decode(bytes.data(), bytes.size(), out), "Manual shifting, clutch and directional item actions survive the wire");
+    for (auto kind : {Kind::UpdateParty, Kind::Welcome, Kind::Lobby}) {
+        for (uint32_t token : {0u, 0x01020304u, 0xffffffffu}) {
+            m = {}; m.kind = kind; m.session = 123; m.connection = 2;
+            m.revision = 0x12345678; m.partyRevision = token;
+            m.party = party(2, 4); m.party[1].controller = 3;
+            m.party[1].transmission = 1; m.party[1].ready = false;
+            m.roster = {{1, 1, 0, 0, 0, 0, true, true}, {2, 2, 1, 0, 4, 1, false, true}};
+            bytes = Encode(m);
+            check(Decode(bytes.data(), bytes.size(), out) && out.kind == kind && out.partyRevision == token,
+                  "Party request and per-peer Welcome/Lobby acknowledgment token roundtrip");
+            if (kind == Kind::UpdateParty) {
+                check(out.party.size() == 2 && out.party[0].character == 4 && out.party[1].controller == 3 &&
+                      out.party[1].character == 5 && out.party[1].transmission == 1 && !out.party[1].ready,
+                      "Party token preserves complete gapped physical-port update");
+            } else {
+                check(out.revision == m.revision && out.connection == 2 && out.roster.size() == 2 &&
+                      out.roster[1].character == 4 && out.roster[1].transmission == 1,
+                      "Party acknowledgment token remains distinct from lobby revision");
+            }
+            for (size_t n = 0; n < bytes.size(); ++n) {
+                out.partyRevision = 0x87654321;
+                check(!Decode(bytes.data(), n, out) && out.partyRevision == 0x87654321,
+                      "Party request and acknowledgment truncation is transactional");
+            }
+        }
+    }
     check(Newer(1, 0xffffffff) && !Newer(4, 5) && !Newer(4, 4), "Sequence wrap");
     std::mt19937 random(42);
     for (int i = 0; i < 20000; ++i) {
@@ -129,6 +155,88 @@ void localCup() {
     }
     check(local.CupComplete() && !local.Start(), "Cup stops after four races");
     check(local.ReturnToLobby() && !local.CupComplete() && local.standings[0] == 0, "New cup resets session standings");
+}
+void partyUpdateAcknowledgments(uint16_t port) {
+    Session host, client; RaceSettings settings;
+    auto joined = party(2, 4); joined[1].controller = 3;
+    check(host.Host(port, 123, party(2), settings, {}, "127.0.0.1"), "Party acknowledgment host");
+    check(client.Join("127.0.0.1", port, 123, joined), "Party acknowledgment gapped client joins");
+    until({&host, &client}, [&] { return client.phase == Phase::Lobby && host.roster.size() == 4; },
+          "Party acknowledgment admission");
+    pump({&host, &client}, 25);
+    check(!client.PartyUpdatePending() && !host.PartyUpdatePending(), "Welcome starts with no pending party update");
+    const auto localCharacter = [&](const Session& session, int controller) {
+        for (const auto& player : session.roster)
+            if (player.connection == client.LocalConnection() && player.controller == controller) return int(player.character);
+        return -1;
+    };
+    auto first = joined;
+    first[0].character = 0; first[0].transmission = 1;
+    first[1].character = 1;
+    check(client.UpdateParty(first) && client.PartyUpdatePending(), "First party update immediately pending");
+    // No host Poll: neither host processing nor an acknowledgment can occur.
+    pump({&client}, 25);
+    check(client.PartyUpdatePending() && localCharacter(host, 0) == 4 && localCharacter(client, 0) == 4,
+          "Client polling without host leaves first request pending and acknowledged roster unchanged");
+    until({&host}, [&] { return localCharacter(host, 0) == 2 && localCharacter(host, 1) == 3; },
+          "Host normalizes first requested characters occupied by host drivers");
+    check(client.PartyUpdatePending() && localCharacter(client, 0) == 4,
+          "Host processing alone does not acknowledge on client");
+    auto second = first;
+    second[0].character = 6; second[0].transmission = 0;
+    second[1].character = 0; second[1].transmission = 1;
+    check(client.UpdateParty(second) && client.PartyUpdatePending(), "Second complete party update supersedes pending first");
+    // The first ack is queued, but the host has not processed the second request.
+    until({&client}, [&] { return localCharacter(client, 0) == 2 && localCharacter(client, 1) == 3; },
+          "Client receives first normalized roster while second request remains unprocessed");
+    check(client.PartyUpdatePending(), "First acknowledgment does not clear newer pending request");
+    pump({&client}, 25);
+    check(client.PartyUpdatePending() && localCharacter(host, 0) == 2,
+          "Earlier acknowledgment stays pending until latest host update");
+    until({&host, &client}, [&] { return !client.PartyUpdatePending(); }, "Latest acknowledgment clears pending request");
+    check(host.phase == Phase::Lobby && client.phase == Phase::Lobby && ValidRoster(host.roster) && ValidRoster(client.roster),
+          "Acknowledged normalized parties remain valid in lobby");
+    check(host.roster.size() == 4 && client.roster.size() == 4 && client.LocalCount() == 2,
+          "Complete gapped party update retains both local seats");
+    check(localCharacter(host, 0) == 6 && localCharacter(host, 1) == 2 &&
+          localCharacter(client, 0) == 6 && localCharacter(client, 1) == 2,
+          "Latest acknowledgment carries host-normalized choices for every local driver");
+    for (size_t i = 0; i < host.roster.size(); ++i) {
+        const auto& expected = host.roster[i]; const auto& actual = client.roster[i];
+        check(actual.participant == expected.participant && actual.connection == expected.connection &&
+              actual.controller == expected.controller && actual.character == expected.character &&
+              actual.transmission == expected.transmission && actual.ready == expected.ready,
+              "Latest acknowledgment roster matches host identities, characters, transmission and readiness");
+        if (actual.connection == client.LocalConnection())
+            check(actual.transmission == second[actual.controller].transmission && !actual.ready,
+                  "Latest complete party transmission choices survive host normalization and readiness reset");
+    }
+    host.SetReady(true); client.SetReady(true);
+    until({&host, &client}, [&] {
+        return host.CanStart() && std::all_of(client.roster.begin(), client.roster.end(), [](auto player) { return player.ready; });
+    }, "Acknowledged party readies before authoritative load");
+    const auto frozen = client.roster;
+    auto late = second; late[0].character = 7; late[0].transmission = 1;
+    check(client.UpdateParty(late) && client.PartyUpdatePending(), "Profile edit is pending before host freezes load");
+    // Start without host Poll, so Load uses the previously acknowledged roster.
+    check(host.Start() && host.phase == Phase::Loading, "Host freezes load before processing in-flight profile edit");
+    until({&host, &client}, [&] { return client.phase == Phase::Loading; }, "Authoritative Load reaches pending client");
+    check(!client.PartyUpdatePending(), "Authoritative Load cancels unacknowledged profile intent");
+    pump({&host, &client}, 25);
+    check(host.phase == Phase::Loading && client.phase == Phase::Loading && !client.PartyUpdatePending(),
+          "Late party request does not reopen pending state or interrupt load");
+    for (const auto* session : {&host, &client}) {
+        check(session->roster.size() == frozen.size(), "Frozen load retains acknowledged party seats");
+        for (size_t i = 0; i < frozen.size(); ++i)
+            check(session->roster[i].character == frozen[i].character &&
+                  session->roster[i].transmission == frozen[i].transmission,
+                  "In-flight edit does not replace authoritative frozen profile choices");
+    }
+    host.Loaded(); client.Loaded();
+    until({&host, &client}, [&] { return host.phase == Phase::Racing && client.phase == Phase::Racing; },
+          "Cancelled in-flight profile intent does not stall the shared load barrier");
+    client.Close();
+    check(!client.PartyUpdatePending(), "Close clears party request tracking");
 }
 void eightRace(uint16_t port) {
     Session host, client, duplicate; RaceSettings settings;
@@ -396,8 +504,8 @@ void lobbyReconnect(uint16_t port) {
 }
 int main() {
     try {
-        codecs(); rosterChecks(); localCup();
+        codecs(); rosterChecks(); localCup(); partyUpdateAcknowledgments(testPort());
         eightRace(testPort()); admission(testPort()); eightSystems(testPort()); networkCup(testPort()); lobbyReconnect(testPort());
-        std::cout << "Codec, malformed packets, local GP, full network GP, eight-system race, admission and reconnect checks passed\n";
+        std::cout << "Codec, party acknowledgments, malformed packets, local GP, full network GP, eight-system race, admission and reconnect checks passed\n";
     } catch (const std::exception& ex) { std::cerr << ex.what() << '\n'; return 1; }
 }

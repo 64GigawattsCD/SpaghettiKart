@@ -5,7 +5,7 @@
 #include <vector>
 
 namespace KartNet {
-constexpr uint16_t ProtocolVersion = 3;
+constexpr uint16_t ProtocolVersion = 4;
 constexpr uint32_t RulesVersion = 0x20261025;
 constexpr size_t MaxPacket = 1200, KartsPerPacket = 4;
 constexpr uint32_t DrivingButtonMask = 0x37ffef30;
@@ -42,6 +42,7 @@ struct Message {
     Kind kind = Kind::Hello;
     uint64_t session = 0, content = 0;
     uint32_t rules = RulesVersion, tick = 0, acknowledgedInput = 0, revision = 0, race = 0;
+    uint32_t partyRevision = 0;
     uint16_t connection = 0;
     uint8_t character = 0, round = 0, part = 0, parts = 1, controller = 255;
     bool ready = false, cupComplete = false;

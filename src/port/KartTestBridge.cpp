@@ -144,6 +144,13 @@ json menuState() {
                   {"host", !!session.host}, {"local_only", !!session.localOnly}, {"capacity", session.maxPlayers},
                   {"mode", session.mode}, {"cup", session.cup}, {"course", session.course}, {"laps", session.laps},
                   {"round", session.raceIndex}, {"cup_complete", !!session.cupComplete}, {"can_start", !!session.canStart}};
+    GameDriverSelectionInfo selection{}; game_lobby_driver_selection(&selection);
+    json selectionPlayers = json::array();
+    for (int slot = 0; slot < selection.localCount; ++slot)
+        selectionPlayers.push_back({{"slot", slot}, {"controller", selection.ports[slot]},
+            {"character_locked", !!selection.characterLocked[slot]}, {"transmission_locked", !!selection.transmissionLocked[slot]},
+            {"viewport", {selection.x[slot], selection.y[slot], selection.width[slot], selection.height[slot]}}});
+    lobby["driver_selection"] = {{"open", !!selection.open}, {"step", selection.step}, {"players", selectionPlayers}};
     json targets = json::array();
     const int count = menu_pointer_count();
     for (int i = 0; i < count; ++i) {

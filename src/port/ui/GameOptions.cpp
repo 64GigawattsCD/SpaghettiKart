@@ -561,7 +561,7 @@ extern "C" void game_options_net_input(unsigned int buttons, int x, int y) {
 }
 extern "C" void game_options_net_input_for(int localViewport, unsigned int buttons, int x, int y) {
     if (localViewport < 0 || localViewport >= 4) return;
-    if (localViewport == 0) game_lobby_net_input(buttons, x, y);
+    game_lobby_net_input_for(localViewport, buttons, x, y);
     const bool canOpen = gGamestate == RACING && net_active() && !game_options_is_open() && !game_lobby_is_open();
     if (networkInput.Update(localViewport, buttons, x, y, canOpen)) requested = true;
     if (networkInput.owner == localViewport) networkController = networkInput.pads[localViewport];

@@ -28,6 +28,13 @@ int game_lobby_is_open(void);
 void game_lobby_request_back(void);
 void game_lobby_scroll(int pages);
 void game_lobby_net_input(unsigned int buttons, int stickX, int stickY);
+void game_lobby_net_input_for(int localViewport, unsigned int buttons, int stickX, int stickY);
+typedef struct {
+    int open, step, localCount;
+    int ports[4], characterLocked[4], transmissionLocked[4];
+    int x[4], y[4], width[4], height[4];
+} GameDriverSelectionInfo;
+void game_lobby_driver_selection(GameDriverSelectionInfo* info);
 int game_lobby_poll_race_load(void);
 /* Called once by the original Options handler before its save-dialog logic. */
 int game_options_legacy_input(unsigned short* pressed);
