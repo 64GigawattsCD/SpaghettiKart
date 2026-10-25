@@ -35,8 +35,13 @@
 #include <assets/models/tracks/wario_stadium/wario_stadium_data.h>
 #include <assets/models/tracks/frappe_snowland/frappe_snowland_data.h>
 #include "port/Game.h"
+#include "port/net/NetRace.h"
 #include "port/interpolation/FrameInterpolation.h"
 #include "engine/CoreMath.h"
+
+struct Controller* stock_item_controller_for_player(s32 playerId);
+s16 stock_item_throw_yaw_offset(Player* player);
+void stock_item_reset_controls(void);
 
 #include <assets/other/tracks/moo_moo_farm/moo_moo_farm_data.h>
 
@@ -1438,6 +1443,8 @@ void destroy_all_actors(void) {
  *
  */
 void init_actors_and_load_textures(void) {
+    stock_item_reset_controls();
+    gActorHotAirBalloonItemBox = NULL;
     init_red_shell_texture();
     destroy_all_actors();
 
@@ -2008,6 +2015,7 @@ bool query_collision_actor_vs_actor(struct Actor* arg0, struct Actor* arg1) {
 }
 
 void destroy_destructable_actor(struct Actor* actor) {
+    if (net_race_active() && !net_is_host()) return;
     struct ShellActor* shell;
     struct BananaActor* banana;
     struct FakeItemBox* fakeItemBox;
@@ -2195,6 +2203,7 @@ void play_sound_on_destructible_actor_collision(struct Actor* arg0, struct Actor
 }
 
 void evaluate_actor_collision_between_two_destructible_actors(struct Actor* actor1, struct Actor* actor2) {
+    if (net_race_active() && !net_is_host()) return;
     if (query_collision_actor_vs_actor(actor1, actor2) == COLLISION) {
         if ((actor1->type == ACTOR_BLUE_SPINY_SHELL) && (actor2->type == ACTOR_BLUE_SPINY_SHELL)) {
             destroy_destructable_actor(actor1);
@@ -2222,6 +2231,7 @@ void evaluate_actor_collision_between_two_destructible_actors(struct Actor* acto
 }
 
 void evaluate_collision_between_player_actor(Player* player, struct Actor* actor) {
+    if (net_race_active() && !net_is_host()) return;
     UNUSED s32 pad;
     s16 temp_lo;
     UNUSED s32 pad2[2];
@@ -2437,6 +2447,7 @@ void evaluate_collision_between_player_actor(Player* player, struct Actor* actor
 }
 
 void evaluate_collision_for_players_and_actors(void) {
+    if (net_race_active() && !net_is_host()) return;
     struct Actor* temp_a1;
     s32 i;
     size_t j;
@@ -2463,6 +2474,7 @@ void evaluate_collision_for_players_and_actors(void) {
 
 // It's look like to check collision between item and other different item
 void evaluate_collision_for_destructible_actors(void) {
+    if (net_race_active() && !net_is_host()) return;
     struct Actor* actor1;
     struct Actor* actor2;
     size_t i, j;
@@ -2538,6 +2550,7 @@ void evaluate_collision_for_destructible_actors(void) {
 }
 
 void func_802A1064(struct FakeItemBox* fake_item_box) {
+    if (net_race_active() && !net_is_host()) return;
     if ((u32) (CM_FindActorIndex(fake_item_box)) <= (u32) ACTOR_LIST_SIZE) {
         if (((fake_item_box->flags & 0x8000) != 0) && (fake_item_box->type == ACTOR_FAKE_ITEM_BOX)) {
             fake_item_box->state = 1;
@@ -2769,6 +2782,7 @@ void render_course_actors(ScreenContext* screen) {
 }
 
 void update_course_actors(void) {
+    if (net_race_active() && !net_is_host()) return;
     struct Actor* actor;
     size_t i;
     for (i = 0; i < CM_GetActorSize(); i++) {

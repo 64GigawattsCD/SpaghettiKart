@@ -2661,7 +2661,7 @@ void draw_simplified_lap_count(s32 playerId) {
     // which composes the real "current/total"; otherwise a 1- or 2-lap race read as "n/3".
     if (total == 3) {
         draw_hud_2d_texture_32x16(playerHUD[playerId].lapX + 0x1C, (s32) playerHUD[playerId].lapY,
-                                  (u8*) gHudLapTextures[playerHUD[playerId].alsoLapCount]);
+                                  (u8*) gHudLapTextures[MIN(MAX(playerHUD[playerId].alsoLapCount, 0), 2)]);
     } else {
         draw_lap_fraction_digits(playerHUD[playerId].lapX + 0x1C, playerHUD[playerId].lapY,
                                  playerHUD[playerId].alsoLapCount, total);
@@ -3916,6 +3916,37 @@ typedef struct ArcadeKartHudTimerValueLeaf {
     s32 timerValue;
 } ArcadeKartHudTimerValueLeaf;
 
+typedef struct ArcadeKartHudLapLeaf { s32 lap, total; } ArcadeKartHudLapLeaf;
+
+static void draw_arcadekart_hud_lap_leaf(UNUSED const HudLayoutContext* ctx, UNUSED HudWidgetId widgetId,
+                                       HudRect rect, void* userData) {
+    ArcadeKartHudLapLeaf* leaf = (ArcadeKartHudLapLeaf*)userData;
+    s32 total = MAX(leaf->total, 1);
+    s32 current = MIN(MAX(leaf->lap + 1, 1), total <= 9 ? total : 99);
+    f32 scale = get_arcadekart_rect_scale(rect, 32.0f, 16.0f);
+    if (total == 3) {
+        draw_hud_2d_texture_scaled((s32)(rect.x + rect.w * 0.5f), (s32)(rect.y + rect.h * 0.5f),
+                                  32, 16, scale, (u8*)gHudLapTextures[current - 1]);
+        return;
+    }
+    gSPDisplayList(gDisplayListHead++, D_0D008108);
+    gSPDisplayList(gDisplayListHead++, D_0D007EF8);
+    gDPSetAlphaCompare(gDisplayListHead++, G_AC_THRESHOLD);
+    load_texture_block_rgba16_mirror((u8*)common_texture_hud_normal_digit, 104, 16);
+    if (current > 9) render_texture_rectangle_scaled((s32)rect.x, (s32)rect.y,
+        get_arcadekart_scaled_size(8 * scale), get_arcadekart_scaled_size(16 * scale), 8, 16, (current / 10) * 8, 0);
+    render_texture_rectangle_scaled((s32)(rect.x + (current > 9 ? 6 : 2) * scale), (s32)rect.y,
+        get_arcadekart_scaled_size(8 * scale), get_arcadekart_scaled_size(16 * scale), 8, 16, (current % 10) * 8, 0);
+    render_texture_rectangle_scaled((s32)(rect.x + 22 * scale), (s32)rect.y,
+        get_arcadekart_scaled_size(8 * scale), get_arcadekart_scaled_size(16 * scale), 8, 16, (total <= 9 ? total : 0) * 8, 0);
+    if (total > 9) render_texture_rectangle_scaled((s32)(rect.x + 18 * scale), (s32)rect.y,
+        get_arcadekart_scaled_size(8 * scale), get_arcadekart_scaled_size(16 * scale), 8, 16, 0, 0);
+    load_texture_block_rgba16_mirror((u8*)common_texture_hud_123, 32, 8);
+    render_texture_rectangle_scaled((s32)(rect.x + 12 * scale), (s32)(rect.y + 4 * scale),
+        get_arcadekart_scaled_size(8 * scale), get_arcadekart_scaled_size(8 * scale), 8, 8, 24, 0);
+    gSPDisplayList(gDisplayListHead++, D_0D007EB8);
+}
+
 static void draw_arcadekart_hud_texture_leaf(UNUSED const HudLayoutContext* ctx, UNUSED HudWidgetId widgetId,
                                              HudRect rect, void* userData) {
     ArcadeKartHudTextureLeaf* leaf = (ArcadeKartHudTextureLeaf*) userData;
@@ -3987,7 +4018,7 @@ static void render_arcadekart_timer_strip(s32 playerId) {
     ArcadeKartHudTextureLeaf timeLabelLeaf;
     ArcadeKartHudTextureLeaf lapLabelLeaf;
     ArcadeKartHudTimerGlyphLeaf timerGlyphLeaves[8];
-    ArcadeKartHudTextureLeaf lapCounterLeaf;
+    ArcadeKartHudLapLeaf lapCounterLeaf;
     HudLayoutContext layout;
     HudWidgetId root;
     HudWidgetId topBox;
@@ -4015,9 +4046,8 @@ static void render_arcadekart_timer_strip(s32 playerId) {
     lapLabelLeaf.texture = (u8*) common_texture_hud_lap;
     lapLabelLeaf.width = 32;
     lapLabelLeaf.height = 8;
-    lapCounterLeaf.texture = (u8*) gHudLapTextures[playerHUD[playerId].alsoLapCount];
-    lapCounterLeaf.width = 32;
-    lapCounterLeaf.height = 16;
+    lapCounterLeaf.lap = playerHUD[playerId].alsoLapCount;
+    lapCounterLeaf.total = race_mods_total_laps();
     func_8004F6D0(timerValue);
     for (digitIndex = 0; digitIndex < 8; digitIndex++) {
         timerGlyphLeaves[digitIndex].glyphIndex = D_801657D0[digitIndex];
@@ -4046,7 +4076,7 @@ static void render_arcadekart_timer_strip(s32 playerId) {
     hud_layout_box_add(&layout, topBox, widget,
                        hud_layout_auto_slot(hud_layout_padding(0.0f, 0.0f, 1.0f * topScale, 0.0f),
                                             hud_layout_vec2(0.0f, 0.5f), false));
-    widget = hud_layout_draw(&layout, hud_layout_vec2(32.0f * topScale, 16.0f * topScale), draw_arcadekart_hud_texture_leaf,
+    widget = hud_layout_draw(&layout, hud_layout_vec2(32.0f * topScale, 16.0f * topScale), draw_arcadekart_hud_lap_leaf,
                              &lapCounterLeaf);
     hud_layout_box_add(&layout, topBox, widget,
                        hud_layout_auto_slot(hud_layout_padding(0.0f, 0.0f, 0.0f, 0.0f),

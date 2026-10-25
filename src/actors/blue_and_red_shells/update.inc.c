@@ -299,7 +299,7 @@ void update_actor_red_blue_shell(struct ShellActor* shell) {
                 if (gDemoMode) {
                     controller = gControllerOne;
                 } else {
-                    controller = &gControllers[shell->playerId];
+                    controller = stock_item_controller_for_player(shell->playerId);
                 }
             // } else {
             //     controller = gControllerOne;
@@ -361,7 +361,7 @@ void update_actor_red_blue_shell(struct ShellActor* shell) {
                 somePosVel[0] = 0.0f;
                 somePosVel[1] = 0.0f;
                 somePosVel[2] = height;
-                func_802B64C4(somePosVel, (s16) (player->rotation[1] + player->unk_0C0 + vr_item_throw_yaw_offset((player->type & PLAYER_HUMAN) != 0)));
+                func_802B64C4(somePosVel, (s16) (player->rotation[1] + player->unk_0C0 + stock_item_throw_yaw_offset(player)));
                 shell->velocity[0] = somePosVel[0];
                 shell->velocity[1] = somePosVel[1];
                 shell->velocity[2] = somePosVel[2];

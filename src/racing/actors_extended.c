@@ -18,6 +18,7 @@ extern short vr_item_throw_yaw_offset(int isHumanPlayer); // port/vr - head-aime
 #include "sounds.h"
 #include "kart_input.h"
 #include "port/Game.h"
+#include "port/net/NetRace.h"
 
 #define KART_ITEM_DIRECTION_NONE 0
 #define KART_ITEM_DIRECTION_FORWARD 1
@@ -32,6 +33,30 @@ static s8 get_player_item_direction_from_pressed_commands(struct Controller* con
 static s8 get_player_item_direction_from_axis(struct Controller* controller);
 static s8 kart_item_direction_or_default(s8 direction, s8 defaultDirection);
 static void consume_item_command_press(struct Controller* controller);
+
+static bool item_simulation_is_client(void) {
+    return net_race_active() && !net_is_host();
+}
+
+struct Controller* stock_item_controller_for_player(s32 playerId) {
+    if (playerId < 0 || playerId >= NUM_PLAYERS) return NULL;
+    if (net_race_active()) return net_controller_for_racer(playerId);
+    return &gControllers[playerId];
+}
+
+void stock_item_reset_controls(void) {
+    for (s32 i = 0; i < NUM_PLAYERS; ++i) sKartItemUseDirection[i] = KART_ITEM_DIRECTION_NONE;
+}
+
+// Remote racers must never inherit the host headset's throw direction.
+s16 stock_item_throw_yaw_offset(Player* player) {
+    bool localHuman = (player->type & PLAYER_HUMAN) != 0;
+    if (net_race_active()) {
+        struct Controller* controller = stock_item_controller_for_player(player - gPlayerOne);
+        localHuman = localHuman && controller == &gControllers[0];
+    }
+    return vr_item_throw_yaw_offset(localHuman);
+}
 
 void copy_collision(struct Collision* src, struct Collision* dest) {
     dest->unk30 = src->unk30;
@@ -50,6 +75,7 @@ void copy_collision(struct Collision* src, struct Collision* dest) {
 }
 
 void triple_shell_actor_collide_with_player(struct ShellActor* shell, s32 shellType) {
+    if (item_simulation_is_client()) return;
     TripleShellParent* parent = (TripleShellParent*) GET_ACTOR(shell->parentIndex);
 
     parent->shellsAvailable--;
@@ -84,6 +110,7 @@ void triple_shell_actor_collide_with_player(struct ShellActor* shell, s32 shellT
 // Sets velocities for a banana, used when a racer runs into
 // a banana bunch.
 void func_802B039C(struct BananaActor* banana) {
+    if (item_simulation_is_client()) return;
     banana->state = DROPPED_BANANA;
     banana->unk_04 = 0x00B4;
     banana->velocity[0] = ((f32) (random_int(0x00C8) - 0x64) * 0.015);
@@ -113,6 +140,7 @@ void func_802B04E8(UNUSED struct BananaActor* arg0, s16 bananaIndex) {
 
 // Handle a banana being ran over while it is still part of a banana bunch
 void destroy_banana_in_banana_bunch(struct BananaActor* banana) {
+    if (item_simulation_is_client()) return;
     struct BananaBunchParent* temp_v0_2;
 
     func_802B0464(banana->youngerIndex);
@@ -134,6 +162,7 @@ void destroy_banana_in_banana_bunch(struct BananaActor* banana) {
 
 // Drop a banana from a banana bunch?
 void drop_banana_in_banana_bunch(struct BananaBunchParent* banana_bunch) {
+    if (item_simulation_is_client()) return;
     s16 elderIndex;
     struct BananaActor* banana;
 
@@ -170,6 +199,7 @@ void drop_banana_in_banana_bunch(struct BananaBunchParent* banana_bunch) {
 
 // Drop a banana from a banana bunch and throw it forward?
 void func_802B0788(s16 rawStickY, struct BananaBunchParent* banana_bunch, Player* player) {
+    if (item_simulation_is_client()) return;
     Vec3f velocity;
     struct BananaActor* banana;
     struct BananaActor* elderBanana;
@@ -232,6 +262,7 @@ s32 func_802B09C0(s16 bananaId) {
 }
 
 void update_actor_banana_bunch(struct BananaBunchParent* banana_bunch) {
+    if (item_simulation_is_client()) return;
     UNUSED s32 pad[2];
     Player* owner;
     struct Controller* controller;
@@ -312,7 +343,7 @@ void update_actor_banana_bunch(struct BananaBunchParent* banana_bunch) {
                 destroy_actor((struct Actor*) banana_bunch);
                 owner->triggers &= ~DRAG_ITEM_EFFECT;
             } else if ((owner->type & PLAYER_HUMAN) != 0) {
-                controller = &gControllers[banana_bunch->playerId];
+                controller = stock_item_controller_for_player(banana_bunch->playerId);
                 s8 itemDirection = get_player_item_direction_from_pressed_commands(controller);
                 if (itemDirection != 0) {
                     consume_item_command_press(controller);
@@ -350,6 +381,7 @@ bool is_shell_exist(s16 arg0) {
 }
 
 void update_actor_triple_shell(TripleShellParent* parent, s16 shellType) {
+    if (item_simulation_is_client()) return;
     UNUSED s32 pad[2];
     s16 playerId;
     UNUSED s32 pad2;
@@ -444,13 +476,13 @@ void update_actor_triple_shell(TripleShellParent* parent, s16 shellType) {
                 destroy_actor((struct Actor*) parent);
                 break;
             }
-            if (get_player_item_direction_from_pressed_commands(&gControllers[parent->playerId]) != 0) {
+            if (get_player_item_direction_from_pressed_commands(stock_item_controller_for_player(parent->playerId)) != 0) {
                 /**
                  * Fires shell. Uses += 1.0f because this code is ran multiple times per frame.
                  * A bool would be turned on and off again resulting in no change
                  */
                 parent->firePressed += 1.0f;
-                consume_item_command_press(&gControllers[parent->playerId]);
+                consume_item_command_press(stock_item_controller_for_player(parent->playerId));
             }
             if (parent->firePressed > 0.0f) { // Fires a shell and resets firePressed to zero
                 if (parent->shellIndices[0] > 0.0f) {
@@ -562,6 +594,7 @@ void update_actor_triple_shell(TripleShellParent* parent, s16 shellType) {
 }
 
 s32 use_banana_bunch_item(Player* player) {
+    if (item_simulation_is_client()) return -1;
     Vec3f startingVelocity = { 0.0f, 0.0f, 0.0f };
     Vec3s startingRot = { 0, 0, 0 };
     Vec3f startingPos = { 0.0f, 0.0f, 0.0f };
@@ -581,6 +614,7 @@ s32 use_banana_bunch_item(Player* player) {
 }
 
 s32 use_triple_shell_item(Player* player, s16 tripleShellType) {
+    if (item_simulation_is_client()) return -1;
     Vec3f startingVelocity = { 0.0f, 0.0f, 0.0f };
     Vec3s startingRot = { 0, 0, 0 };
     Vec3f startingPos = { 0.0f, 0.0f, 0.0f };
@@ -603,6 +637,7 @@ s32 use_triple_shell_item(Player* player, s16 tripleShellType) {
 }
 
 s32 init_triple_shell(TripleShellParent* parent, Player* player, s16 shellType, u16 shellId) {
+    if (item_simulation_is_client()) return -1;
     Vec3f startingVelocity = { 0.0f, 0.0f, 0.0f };
     Vec3s startingRot = { 0, 0, 0 };
     Vec3f startingPos;
@@ -649,6 +684,7 @@ s32 init_triple_shell(TripleShellParent* parent, Player* player, s16 shellType, 
 }
 
 s32 use_green_shell_item(Player* player) {
+    if (item_simulation_is_client()) return -1;
     Vec3f startingVelocity = { 0.0f, 0.0f, 0.0f };
     Vec3s startingRot = { 0, 0, 0 };
     Vec3f startingPos;
@@ -689,6 +725,7 @@ s32 use_green_shell_item(Player* player) {
 }
 
 s32 use_red_shell_item(Player* player) {
+    if (item_simulation_is_client()) return -1;
     Vec3f startingVelocity = { 0.0f, 0.0f, 0.0f };
     Vec3s startingRot = { 0, 0, 0 };
     Vec3f startingPos;
@@ -731,6 +768,7 @@ s32 use_red_shell_item(Player* player) {
 // Interestingly blue shells start their life as a red shell,
 // and then just change the type from red to blue shell
 s32 use_blue_shell_item(Player* player) {
+    if (item_simulation_is_client()) return -1;
     // GET_ACTOR(use_red_shell_item(player))->type = ACTOR_BLUE_SPINY_SHELL;    // Original code was just this line, without return statement! So I commented out.
 
     // Fix the CPU strategy not properly releasing the blue shell. This function originally doesnt have a return value, so it returns UB.
@@ -745,6 +783,7 @@ s32 use_blue_shell_item(Player* player) {
 
 // This function could reasonably be called "spawn_bananas_for_banana_bunch" or similar
 void func_802B2914(struct BananaBunchParent* banana_bunch, Player* player, s16 bananaId) {
+    if (item_simulation_is_client()) return;
     s16 actorIndex;
     Vec3f startingVelocity;
     Vec3s startingRot;
@@ -824,6 +863,7 @@ void func_802B2914(struct BananaBunchParent* banana_bunch, Player* player, s16 b
 }
 
 s32 use_fake_itembox_item(Player* player) {
+    if (item_simulation_is_client()) return -1;
     struct FakeItemBox* itemBox;
     UNUSED s32 pad[5];
     s16 actorIndex;
@@ -866,6 +906,7 @@ s32 use_fake_itembox_item(Player* player) {
 }
 
 s32 use_banana_item(Player* player) {
+    if (item_simulation_is_client()) return -1;
     UNUSED s32 pad[6];
     u16 playerId;
     s16 actorIndex;
@@ -918,6 +959,7 @@ s32 use_banana_item(Player* player) {
  * @param Activating player (not to be struck)
  */
 void use_thunder_item(Player* player) {
+    if (item_simulation_is_client()) return;
     s32 index;
     Player* otherPlayer;
 
@@ -993,6 +1035,9 @@ static void consume_item_command_release(struct Controller* controller) {
 }
 
 s8 consume_item_release_direction(struct Controller* controller, s32 playerId) {
+    if (item_simulation_is_client() || playerId < 0 || playerId >= NUM_PLAYERS) return KART_ITEM_DIRECTION_NONE;
+    // Stock .inc update bodies pass legacy pointers; replace before any input is read or consumed.
+    if (net_race_active()) controller = stock_item_controller_for_player(playerId);
     s8 direction = get_player_item_direction_from_released_commands(controller, playerId);
     if (direction != KART_ITEM_DIRECTION_NONE) {
         consume_item_command_release(controller);
@@ -1003,6 +1048,7 @@ s8 consume_item_release_direction(struct Controller* controller, s32 playerId) {
 
 // Handles item use
 void player_use_item(Player* player) {
+    if (item_simulation_is_client()) return;
     s32 playerId = player - gPlayerOne;
 
     switch (player->currentItemCopy) {
@@ -1057,16 +1103,17 @@ void player_use_item(Player* player) {
 
 // Check if a player is using an item?
 void check_player_use_item(void) {
+    if (item_simulation_is_client()) return;
     Player* player;
-    struct Controller* target;
     struct Controller* controller;
-    struct Controller* loopController;
 
-    for (player = &gPlayers[0], loopController = &gControllers[0], target = &gControllers[4]; loopController != target;
-         player++, loopController++) {
-        controller = loopController;
+    const s32 playerCount = net_race_active() ? NUM_PLAYERS : 4;
+    for (s32 playerId = 0; playerId < playerCount; ++playerId) {
+        player = &gPlayers[playerId];
+        controller = stock_item_controller_for_player(playerId);
+        if (controller == NULL) continue;
         if (prevent_item_use(player) == false) {
-            if ((player->type & PLAYER_INVISIBLE_OR_BOMB) != 0) {
+            if (!net_race_active() && (player->type & PLAYER_INVISIBLE_OR_BOMB) != 0) {
                 if ((player - gPlayerTwo) == 0) {
                     controller = gControllerSix;
                 } else if ((player - gPlayerThree) == 0) {

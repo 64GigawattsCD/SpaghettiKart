@@ -78,3 +78,39 @@ inline Page Classify(std::string_view section, std::string_view sidebar, std::st
     return Page::General;
 }
 } // namespace GameUI::Options
+
+namespace GameUI::Lobby {
+inline int Wrap(int index, int count) {
+    return count > 0 ? (index % count + count) % count : 0;
+}
+inline int PageFirst(int selected, int rows = 6) { return std::max(0, selected) / rows * rows; }
+inline bool PartyFits(int party, int occupied, int capacity) {
+    return party > 0 && party <= 4 && occupied >= 0 && capacity <= 8 && occupied + party <= capacity;
+}
+inline bool BrowserJoinable(int party, int occupied, int capacity, bool compatible, int phase) {
+    return compatible && phase == 2 && PartyFits(party, occupied, capacity);
+}
+inline std::string HiddenText(size_t size) { return size ? std::string(std::min<size_t>(size, 16), '-') : "NONE"; }
+inline int KeyboardMove(int key, int horizontal, int vertical) {
+    key = std::clamp(key, 0, 43);
+    if (horizontal) return key < 40 ? key / 10 * 10 + Wrap(key % 10 + horizontal, 10) : 40 + Wrap(key - 40 + horizontal, 4);
+    if (vertical > 0) return key >= 40 ? (key - 40) * 3 : key >= 30 ? 40 + std::min(3, key % 10 / 3) : key + 10;
+    if (vertical < 0) return key >= 40 ? 30 + (key - 40) * 3 : key < 10 ? 40 + std::min(3, key / 3) : key - 10;
+    return key;
+}
+inline bool ValidPort(std::string_view text) {
+    if (text.empty() || text.size() > 5) return false;
+    unsigned number = 0;
+    for (char c : text) {
+        if (c < '0' || c > '9') return false;
+        number = number * 10 + unsigned(c - '0');
+    }
+    return number > 0 && number <= 65535;
+}
+inline int PortKeyboardMove(int key, int horizontal, int vertical) {
+    int position = key >= 27 && key <= 35 ? key - 27 : key == 40 ? 9 : key == 43 ? 11 : 10;
+    if (horizontal) position = position / 3 * 3 + Wrap(position % 3 + horizontal, 3);
+    else if (vertical) position = Wrap(position + vertical * 3, 12);
+    return position < 9 ? position + 27 : position == 9 ? 40 : position == 10 ? 26 : 43;
+}
+} // namespace GameUI::Lobby

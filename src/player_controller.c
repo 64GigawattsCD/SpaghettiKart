@@ -459,6 +459,13 @@ void func_80028F70(void) {
     // ClearEffectsMatrixPool();
     gMatrixEffectCount = 0;
 
+    if (net_race_active()) {
+        for (size_t i = 0; i < NUM_PLAYERS; ++i) {
+            func_80028E70(&gPlayers[i], camera1, i, 0);
+        }
+        return;
+    }
+
     switch(gActiveScreenMode) {
         default:
             for (size_t i = 0; i < NUM_PLAYERS; i++) {
@@ -4541,7 +4548,10 @@ void handle_a_press_for_player_during_race(Player* player, struct Controller* co
 
 void handle_a_press_for_all_players_during_race(void) {
     if (net_race_active()) {
-        for (s32 i = 0; i < 2; ++i) handle_a_press_for_player_during_race(&gPlayers[i], &gControllers[i], i);
+        for (s32 i = 0; i < NUM_PLAYERS; ++i) {
+            struct Controller* controller = net_controller_for_racer(i);
+            if (controller) handle_a_press_for_player_during_race(&gPlayers[i], controller, i);
+        }
         return;
     }
     u16 temp_v0_3;

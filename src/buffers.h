@@ -4,6 +4,7 @@
 #include <libultra/types.h>
 #include <mk64.h>
 #include <common_structs.h>
+#include "kart_texture_layout.h"
 
 /*
  * This type could reasonably be called decodedTexture or similar
@@ -28,7 +29,7 @@ typedef struct {
  */
 typedef union {
     struct_D_802BFB80_4 arraySize4[2][2][4];
-    struct_D_802BFB80_8 arraySize8[2][2][8];
+    struct_D_802BFB80_8 arraySize8[KART_TEXTURE_BUFFERS][KART_TEXTURE_SCREENS][KART_TEXTURE_RACERS];
 } union_D_802BFB80;
 
 /*
@@ -70,7 +71,7 @@ typedef struct {
 extern u16 gRandomSeed16;
 extern u8 randomSeedPadding[216];
 extern union_D_802BFB80 D_802BFB80;
-extern struct_D_802DFB80 gEncodedKartTexture[][2][8];
+extern struct_D_802DFB80 gEncodedKartTexture[KART_TEXTURE_BUFFERS][KART_TEXTURE_SCREENS][KART_TEXTURE_RACERS];
 
 /**
  * It would be nice to define gPlayerPalettesList as "struct_D_802F1F80 gPlayerPalettesList[2][4][8]".

@@ -950,8 +950,8 @@ void func_8003C0F0(void) {
 }
 
 void spawn_and_set_player_spawns(void) {
-    s16 sp5E;
-    s16 sp5C;
+    s16 sp5E = 0;
+    s16 sp5C = 0;
     s16 sp5A = 0;
     s32 temp;
 
@@ -966,7 +966,10 @@ void spawn_and_set_player_spawns(void) {
         }
     }
 
-    if (net_spawn_players(sp5E, sp5C, sp5A)) { init_players(); return; }
+    if (net_spawn_players(sp5E, sp5C, sp5A)) {
+        if (gModeSelection != BATTLE) init_players();
+        return;
+    }
     if ((gModeSelection != BATTLE) && (!IsPodiumCeremony())) {
         switch (gActiveScreenMode) {
             case SCREEN_MODE_1P:
@@ -1279,23 +1282,13 @@ void func_8003CD98(Player* player, Camera* camera, s8 playerId, s8 screenId) {
             func_8002D268(player, camera, screenId, playerId);
         }
         func_8002934C(player, camera, screenId, playerId);
-        if ((screenId == 0) || (screenId == 1)) {
-            load_kart_palette(player, playerId, screenId, 0);
-            load_kart_palette(player, playerId, screenId, 1);
-            load_kart_texture(player, playerId, screenId, screenId, 0);
+        load_kart_palette(player, playerId, screenId, 0);
+        load_kart_palette(player, playerId, screenId, 1);
+        load_kart_texture(player, playerId, screenId, screenId, 0);
 #ifdef TARGET_N64
-            mio0decode((u8*) &gEncodedKartTexture[0][screenId][playerId],
-                       (u8*) &D_802BFB80.arraySize8[0][screenId][playerId]);
+        mio0decode((u8*) &gEncodedKartTexture[0][screenId][playerId],
+                   (u8*) &D_802BFB80.arraySize8[0][screenId][playerId]);
 #endif
-        } else {
-            load_kart_palette(player, playerId, screenId, 0);
-            load_kart_palette(player, playerId, screenId, 1);
-            load_kart_texture(player, (s8) (playerId + 4), screenId, (s8) (screenId - 2), 0);
-#ifdef TARGET_N64
-            mio0decode((u8*) &gEncodedKartTexture[0][screenId - 2][playerId + 4],
-                       (u8*) &D_802BFB80.arraySize8[0][screenId - 2][playerId + 4]);
-#endif
-        }
 
         gLastAnimFrameSelector[screenId][playerId] = player->animFrameSelector[screenId];
         gLastAnimGroupSelector[screenId][playerId] = player->animGroupSelector[screenId];
@@ -1426,6 +1419,7 @@ void spawn_single_player_camera(u32 mode) {
 }
 
 void spawn_multiplayer_cameras(u32 mode) {
+    if (net_race_active()) mode = 1;
     Camera* camera;
     size_t screens = 0;
     switch(gActiveScreenMode) {
@@ -1488,7 +1482,8 @@ void load_kart_textures(void) {
 
     static const size_t playerCounts[4] = { 8, 8, 4, 4 };
     for (size_t i = 0; i < screens; i++) {
-        for (size_t ply = 0; ply < playerCounts[gPlayerCountSelection1 - 1]; ply++) {
+        const size_t count = net_race_active() ? NUM_PLAYERS : playerCounts[gPlayerCountSelection1 - 1];
+        for (size_t ply = 0; ply < count; ply++) {
             func_8003CD98(&gPlayers[ply], gScreenContexts[i].camera, ply, i);
         }
     }

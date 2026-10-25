@@ -119,6 +119,31 @@ json menuState() {
     }
     json options = {{"open", !!game_options_is_open()}, {"page", game_options_page()},
         {"context", game_options_context()}, {"live_network", !!game_options_is_live_network()}, {"rows", optionRows}};
+    json lobbyRows = json::array(), party = json::array(), roster = json::array();
+    for (int i = 0; i < game_lobby_row_count(); ++i) {
+        GameOptionRowInfo row{};
+        if (game_lobby_row_info(i, &row)) lobbyRows.push_back({{"label", row.label}, {"value", row.value},
+            {"index", row.index}, {"id", row.index * 3}, {"enabled", !!row.enabled},
+            {"adjustable", !!row.adjustable}, {"visible", !!row.visible}});
+    }
+    for (int i = 0; i < 4; ++i) {
+        NetPartyInfo info{}; net_party_info(i, &info);
+        party.push_back({{"controller", i}, {"joined", !!info.joined}, {"character", info.character},
+                         {"transmission", info.transmission}, {"ready", !!info.ready}});
+    }
+    for (int i = 0; i < 8; ++i) {
+        NetRosterInfo info{};
+        if (net_roster_info(i, &info)) roster.push_back({{"participant", info.participant}, {"connection", info.connection},
+            {"controller", info.controller}, {"character", info.character}, {"ready", !!info.ready},
+            {"local", !!info.local}, {"connected", !!info.connected}, {"rank", info.rank},
+            {"points", info.points}, {"finished", !!info.finished}});
+    }
+    NetMenuState session{}; net_menu_state(&session);
+    json lobby = {{"open", !!game_lobby_is_open()}, {"page", game_lobby_page()}, {"context", game_lobby_context()},
+                  {"rows", lobbyRows}, {"party", party}, {"roster", roster}, {"phase", session.phase},
+                  {"host", !!session.host}, {"local_only", !!session.localOnly}, {"capacity", session.maxPlayers},
+                  {"mode", session.mode}, {"cup", session.cup}, {"course", session.course}, {"laps", session.laps},
+                  {"round", session.raceIndex}, {"cup_complete", !!session.cupComplete}, {"can_start", !!session.canStart}};
     json targets = json::array();
     const int count = menu_pointer_count();
     for (int i = 0; i < count; ++i) {
@@ -140,7 +165,7 @@ json menuState() {
             {"player_count", gPlayerCount}, {"mode", gModeSelection}, {"cc", gCCSelection},
             {"cup", gCupSelection}, {"course", gCourseIndexInCup}, {"course_id", gCurrentCourseId},
             {"paused", gIsGamePaused}, {"fading", !!is_screen_being_faded()},
-            {"players", players}, {"targets", targets}, {"sound_mode", gSoundMode}, {"options", options}};
+            {"players", players}, {"targets", targets}, {"sound_mode", gSoundMode}, {"options", options}, {"lobby", lobby}};
 }
 json state() {
     const auto& p = gPlayers[0];
@@ -220,6 +245,30 @@ void accept() {
             if (step.contains("stereo") && !step["stereo"].is_boolean()) throw std::runtime_error("Stereo must be boolean");
             auto buttons = step.value("buttons", int64_t(0));
             if (buttons < 0 || buttons > UINT32_MAX) throw std::runtime_error("Invalid button mask");
+            for (const char* axis : {"throttle", "brake"}) {
+                float value = step.value(axis, 0.f);
+                if (!std::isfinite(value) || value < 0.f || value > 1.f) throw std::runtime_error("Pedal outside 0..1");
+            }
+            if (step.contains("pads")) {
+                const auto& pads = step.at("pads");
+                if (!pads.is_array() || pads.empty() || pads.size() > 4) throw std::runtime_error("Expected 1-4 local pads");
+                unsigned ports = 0;
+                for (const auto& pad : pads) {
+                    int port = pad.at("port").get<int>();
+                    if (port < 0 || port > 3 || (ports & (1u << port))) throw std::runtime_error("Duplicate or invalid local pad port");
+                    ports |= 1u << port;
+                    auto mask = pad.value("buttons", int64_t(0));
+                    if (mask < 0 || mask > UINT32_MAX) throw std::runtime_error("Invalid local pad button mask");
+                    for (const char* axis : {"stick_x", "stick_y", "look_x", "look_y"}) {
+                        int value = pad.value(axis, 0);
+                        if (value < -80 || value > 80) throw std::runtime_error("Local pad axis outside -80..80");
+                    }
+                    for (const char* axis : {"throttle", "brake"}) {
+                        float value = pad.value(axis, 0.f);
+                        if (!std::isfinite(value) || value < 0.f || value > 1.f) throw std::runtime_error("Local pad pedal outside 0..1");
+                    }
+                }
+            }
         }
         if (total > 9000) throw std::runtime_error("Queue exceeds 9000 ticks");
         id = nextId; error.clear(); captures = json::array(); events = json::array();
@@ -295,14 +344,19 @@ extern "C" void kart_test_read_inputs(OSContPad* pads) {
             if (current.contains("vr_view")) CVarSetInteger("gVRViewMode", current.at("vr_view").get<int>());
             events.push_back({{"start", state()}, {"step", current}});
         }
-        auto& pad = pads[0];
-        pad.button = current.value("buttons", uint32_t(0));
-        pad.stick_x = current.value("stick_x", 0);
-        pad.stick_y = current.value("stick_y", 0);
-        pad.right_stick_x = current.value("look_x", 0);
-        pad.right_stick_y = current.value("look_y", 0);
-        for (int i = 0; i < CONTROLLER_BUTTON_VALUE_COUNT; ++i)
-            pad.button_value[i] = (pad.button & (CONTROLLERBUTTONS_T(1) << i)) ? 1.0f : 0.0f;
+        const auto applyPad = [](const json& input, OSContPad& pad) {
+            pad = {};
+            pad.button = input.value("buttons", uint32_t(0));
+            pad.stick_x = input.value("stick_x", 0); pad.stick_y = input.value("stick_y", 0);
+            pad.right_stick_x = input.value("look_x", 0); pad.right_stick_y = input.value("look_y", 0);
+            for (int i = 0; i < CONTROLLER_BUTTON_VALUE_COUNT; ++i)
+                pad.button_value[i] = (pad.button & (CONTROLLERBUTTONS_T(1) << i)) ? 1.0f : 0.0f;
+            pad.button_value[15] = input.value("throttle", pad.button_value[15]);
+            pad.button_value[14] = input.value("brake", pad.button_value[14]);
+            pad.right_trigger = pad.button_value[15]; pad.left_trigger = pad.button_value[14];
+        };
+        applyPad(current, pads[0]);
+        if (current.contains("pads")) for (const auto& input : current.at("pads")) applyPad(input, pads[input.at("port").get<int>()]);
         if (current.contains("pointer")) {
             if (pointerUiActive) cancelPointer();
             const auto& pointer = current.at("pointer");

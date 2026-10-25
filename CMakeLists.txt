@@ -171,7 +171,11 @@ endif()
 
 include(cmake/dependencies/common.cmake)
 include(cmake/dependencies/enet.cmake)
-target_link_libraries(${PROJECT_NAME} PRIVATE enet)
+include(cmake/dependencies/monocypher.cmake)
+target_link_libraries(${PROJECT_NAME} PRIVATE enet monocypher)
+if(WIN32)
+  target_link_libraries(${PROJECT_NAME} PRIVATE bcrypt)
+endif()
 
 include(cmake/dependencies/FindLib.cmake)
 

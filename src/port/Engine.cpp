@@ -1,4 +1,5 @@
 #include "Engine.h"
+#include "LocalPartyDevices.h"
 #include "KartTestBridge.h"
 #include "audio/AudioProbe.h"
 #include "audio/AudioMix.h"
@@ -73,6 +74,10 @@ Fast::Interpreter* GetInterpreter() {
         .lock()
         .get();
 }
+
+extern "C" int GameEngine_ReadPartyPads(void* pads) { return KartNet::ReadLocalPartyPads(pads); }
+extern "C" const char* GameEngine_LocalPartyDeviceName(int port) { return KartNet::LocalPartyDeviceName(port); }
+extern "C" int GameEngine_LocalPartyDeviceInstance(int port) { return KartNet::LocalPartyDeviceInstance(port); }
 
 GameEngine* GameEngine::Instance;
 

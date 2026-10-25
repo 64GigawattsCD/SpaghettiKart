@@ -9627,6 +9627,7 @@ void handle_menus_with_pri_arg(s32 priSpecial) {
     }
 
     if (priSpecial != 0 && game_options_is_live_network()) game_options_draw();
+    if (priSpecial != 0 && game_lobby_is_open()) game_lobby_draw();
     if (priSpecial == 0) {
         if (gMenuSelection == COURSE_SELECT_MENU) {
             track_roulette_draw_hint(); // Z reroll / GP shuffle hint
@@ -9634,9 +9635,10 @@ void handle_menus_with_pri_arg(s32 priSpecial) {
         custom_cc_draw_row();     // port additions: after every menu item so the overlays sit on top
         versus_1p_rival_hint();   // 1P VERSUS character-screen guidance
         menu_pointer_draw_navigation();
-        quit_menu_draw_confirm();
         race_mods_draw();
         if (game_options_is_frontend()) game_options_draw();
+        if (game_lobby_is_open()) game_lobby_draw();
+        quit_menu_draw_confirm();
     }
 }
 

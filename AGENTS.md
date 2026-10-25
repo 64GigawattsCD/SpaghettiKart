@@ -27,9 +27,9 @@
 | Phone controls | `android/app/src/main/java/dev/spaghettikart/phone/TouchControls.java`, `ShifterGate.java` | `docs/touch-controls-art.md`, `tests/android/` |
 | Android/native input | `src/port/AndroidPhone.cpp`, `src/port/Engine.cpp` | `android/README.md`, `tests/kart_assets/android_client.py` |
 | HUD/RPM | `src/hud_layout.c`, `src/hud_race_layout.c`, `src/hud_rpm.h`, `src/render_objects.c` | `docs/arcadekart-hud-layout.md`, `tests/hud/`, `tests/vr_refresh/` |
-| Menus/options | `src/port/ui/GameOptions.cpp`, `src/port/ui/PortMenu.cpp`, `src/menus.c`, `src/menu_pointer.c` | `docs/ui-unification-audit-2026-10-25.md`, `tests/game_options/`, `tests/menu_pointer/` |
+| Menus/options | `src/port/ui/GameLobby.cpp`, `src/port/ui/GameOptions.cpp`, `src/port/ui/PortMenu.cpp`, `src/menus.c` | `tests/lobby/`, `tests/game_options/`, `tests/menu_pointer/` |
 | Camera/cockpit | `src/engine/cameras/GameCamera.cpp`, `src/first_person_kart.c` | `docs/cockpit-and-autonomous-tests.md`, `tools/kart_assets/author_cockpit.py` |
-| LAN | `src/port/net/`, `src/port/ui/LanRaceWindow.cpp` | `docs/network-lan-prototype-2026-10-16.md`, `tests/network/` |
+| Local/online | `src/port/net/`, `src/port/LocalPartyDevices.*` | `docs/network-lan-prototype-2026-10-16.md`, `tests/network/`, `tests/kart_assets/test_lobby_menus.py` |
 | Audio | `src/port/Engine.cpp`, `src/port/audio/` | `docs/android-audio-diagnosis-2026-10-16.md`, `tests/audio/` |
 | Renderer | `libultraship/` (separate Git repo) | Check its status before editing or publishing |
 

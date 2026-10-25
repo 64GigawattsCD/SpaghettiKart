@@ -30,5 +30,6 @@ public:
 
 private:
     FVector Pos;
+    bool _alwaysVisible = true;
     bool *_visible;
 };

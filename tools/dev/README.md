@@ -22,7 +22,7 @@ Do not pass credentials in arguments/output. This helper does not mute games.
 ```
 
 Focused native checks (no game or phone launch): choose only the affected suite.
-Names: `audio`, `hud`, `menu_pointer`, `network`, `vr_refresh`, `game_options`. Network tests use
+Names: `audio`, `hud`, `menu_pointer`, `network`, `vr_refresh`, `game_options`, `lobby`. Network tests use
 local ENet loopback; initial configuration can download the pinned dependency.
 
 ```powershell
@@ -30,6 +30,16 @@ cmake -S tests/hud -B build/hud-tests -G 'Visual Studio 17 2022' -A x64
 cmake --build build/hud-tests --config Debug
 ./tools/dev/run-logged.ps1 -Label hud -Command ctest -CommandArgs @('--test-dir','build/hud-tests','-C','Debug','--output-on-failure')
 ```
+
+Reuse an existing build directory's generator; `build/network-tests` uses Visual
+Studio 18 2026. Reconfigure the main CMake tree after adding source files. Keep one
+writer per build directory to prevent concurrent MSVC PDB writes.
+
+`python tests/kart_assets/test_lobby_menus.py` runs offline helper tests only.
+Its `--run` flag explicitly launches the muted menu runner; `--race` additionally
+drives four local pads. Legacy menu runners use old contexts and are not evidence
+for the Local/Online flow. The bridge reports `menu.lobby` semantics and accepts
+queued `pads` entries with explicit ports 0-3.
 
 Desktop executable: `build/x64/Debug/Spaghettify.exe`.
 Phone APK: `android/app/build/outputs/apk/release/app-release.apk`.

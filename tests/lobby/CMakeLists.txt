@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.20)
+project(lobby_tests LANGUAGES CXX)
+enable_testing()
+add_executable(lobby_model_test lobby_model_test.cpp)
+target_compile_features(lobby_model_test PRIVATE cxx_std_17)
+add_test(NAME lobby_party_browser_and_native_editor COMMAND lobby_model_test)

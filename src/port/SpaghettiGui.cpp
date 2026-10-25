@@ -82,6 +82,8 @@ namespace Ship {
         ImGuiIO& io = ImGui::GetIO();
         if (game_options_is_open() && !GameUI::OptionsBindingsOpen() && io.MouseWheel != 0)
             game_options_scroll(io.MouseWheel > 0 ? -1 : 1);
+        else if (game_lobby_is_open() && io.MouseWheel != 0)
+            game_lobby_scroll(io.MouseWheel > 0 ? -1 : 1);
         const ImVec2 pointer = testPointer ? ImVec2(pos.x+testX*size.x,pos.y+testY*size.y) : io.MousePos;
         const bool down = testPointer ? testDown != 0 : ImGui::IsMouseDown(0);
         const float scale = size.y / 240.0f;
@@ -475,6 +477,7 @@ namespace Ship {
         if (f1 && ImGui::GetIO().KeyCtrl && ImGui::GetIO().KeyShift && CVarGetInteger("gEnableDebugMode", 0) && GetMenu())
             GetMenu()->ToggleVisibility();
         else if (GetMenuOrMenubarVisible() && GetMenu()) GetMenu()->Hide();
+        else if (escape && !game_options_is_open() && game_lobby_is_open()) game_lobby_request_back();
         else if (game_options_is_open() || (escape && (game_options_page()[0] != '\0' ||
                  (gGamestate != RACING && (gMenuSelection == CHARACTER_SELECT_MENU ||
                   gMenuSelection == COURSE_SELECT_MENU || gMenuSelection == DATA_MENU ||
@@ -483,14 +486,14 @@ namespace Ship {
         else game_options_request();
         if (wnd->IsFullscreen()) {
             Context::GetRawInstance()->GetWindow()->SetMouseCapture(
-                !(GetMenuOrMenubarVisible() || wnd->ShouldForceCursorVisibility()));
+                !(GetMenuOrMenubarVisible() || game_options_is_open() || game_lobby_is_open() || wnd->ShouldForceCursorVisibility()));
         }
     }
     if (GameUI::OptionsBindingsOpen() || (CVarGetInteger(CVAR_IMGUI_CONTROLLER_NAV, 0) && GetMenuOrMenubarVisible()))
         mImGuiIo->ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
     else mImGuiIo->ConfigFlags &= ~ImGuiConfigFlags_NavEnableGamepad;
     static bool nativeMenuWasOpen = false;
-    const bool nativeMenuOpen = game_options_is_open();
+    const bool nativeMenuOpen = game_options_is_open() || game_lobby_is_open();
     if (nativeMenuOpen || nativeMenuWasOpen) {
         const bool cursor = nativeMenuOpen || GetMenuOrMenubarVisible() ||
                             menu_pointer_count() > 0 || wnd->ShouldForceCursorVisibility();

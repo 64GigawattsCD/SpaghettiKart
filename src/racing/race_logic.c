@@ -95,12 +95,12 @@ void func_8028E028(void) {
 void update_player_battle_status(void) {
     Player* player;
     s32 playerIndex;
-    s16 playersAlive[4];
-    s16 playersDead[4];
+    s16 playersAlive[NUM_PLAYERS];
+    s16 playersDead[NUM_PLAYERS];
     s16 aliveCounter = 0;
     s16 deadCounter = 0;
 
-    for (playerIndex = 0; playerIndex < 4; playerIndex++) {
+    for (playerIndex = 0; playerIndex < NUM_PLAYERS; playerIndex++) {
         player = &gPlayers[playerIndex];
         if (!(player->type & PLAYER_EXISTS)) {
             continue;
@@ -881,7 +881,10 @@ void func_8028FC34(void) {
 
 void func_8028FCBC(void) {
     if (net_race_active() && gRaceState >= RACE_IN_PROGRESS) {
-        if (net_is_host()) update_race_position_data();
+        if (net_is_host()) {
+            update_race_position_data();
+            net_update_display();
+        }
         return;
     }
     Player* ply = &gPlayers[0];
@@ -940,7 +943,8 @@ void func_8028FCBC(void) {
                 gRaceState = RACE_STAGING;
                 D_800DC5B0 = 0;
                 D_800DC5B8 = 1;
-                if (!net_race_active()) CM_SpawnStarterLakitu(); // LAN starts at the shared load barrier.
+                if (net_race_active()) CM_InitRaceLakitus();
+                else CM_SpawnStarterLakitu(); // Sessions start at the shared load barrier.
                 if ((gModeSelection == TIME_TRIALS) && (bCourseGhostDisabled == 0)) {
                     phi_v0_4 = 0x1;
                     //! @warning this used to be < gCurrentCourseId

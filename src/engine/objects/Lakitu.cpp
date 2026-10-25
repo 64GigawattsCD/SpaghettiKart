@@ -5,6 +5,7 @@
 #include "port/interpolation/FrameInterpolation.h"
 
 #include "port/Game.h"
+#include "port/net/NetRace.h"
 
 extern "C" {
 #include "racing/memory.h"
@@ -55,10 +56,11 @@ OLakitu::OLakitu(s32 playerId, LakituType type) {
         }
     }
 
-    _idx = _count;
-    find_unused_obj_index(&gIndexLakituList[_count]);
-    init_object(gIndexLakituList[_count], (s32) type);
-    mLakituId = gIndexLakituList[_count];
+    _idx = playerId;
+    find_unused_obj_index(&gIndexLakituList[playerId]);
+    init_object(gIndexLakituList[playerId], (s32) type);
+    mLakituId = gIndexLakituList[playerId];
+    if (type == LakituType(0)) func_80072428(mLakituId);
 
     _count += 1;
 }
@@ -917,6 +919,7 @@ void OLakitu::func_8007A88C(s32 playerId) {
 }
 
 void OLakitu::func_8007A910(s32 arg0) {
+    if (net_race_active() && !net_is_host()) return;
     if (D_801657B4 == 0) {
         OLakitu::func_8007A88C(arg0);
     }

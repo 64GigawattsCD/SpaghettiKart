@@ -32,6 +32,7 @@
 #include <assets/models/common_data.h>
 #include "audio/external.h"
 #include "kart_input.h"
+#include "port/net/NetRace.h"
 #include "objects.h"
 #include "bomb_kart.h"
 #include "menus.h"
@@ -283,7 +284,7 @@ Mtx D_80183D60;
 s32 D_80183DA0;
 f32 D_80183DA8[4];
 //! Lakitu?
-s32 gIndexLakituList[4];
+s32 gIndexLakituList[NUM_PLAYERS];
 f32 D_80183DC8[4];
 //! Indexes for the objects associated with the Bomb Karts
 s32 gIndexObjectBombKart[NUM_BOMB_KARTS_MAX];
@@ -333,7 +334,7 @@ s32 indexObjectList2[32];
  * I'm also not certain about its dimensions
  * I think the entires in this array are way over-sized
  */
-const char* gLakituTextureBuffer[4][2];
+const char* gLakituTextureBuffer[NUM_PLAYERS][2];
 /**
  * Boos in Banshee Boardwalk
  * Spawners for the 4 small fire breaths inside Bowser's Castle
@@ -383,7 +384,7 @@ s32 gObjectParticle4[gObjectParticle4_SIZE];
  * trees when you bonk into them
  */
 s32 gLeafParticle[gLeafParticle_SIZE];
-hud_player playerHUD[4];
+hud_player playerHUD[8];
 /**
  * List of object list indices used by the clouds and stars in some stages
  * Also used for snowflakes like gObjectParticle1? Not sure what's up with that
@@ -1129,6 +1130,11 @@ void func_80059AC8(void) {
                 break;
         }
 
+        if (net_race_active() && net_is_host()) {
+            for (i = gPlayerCountSelection1; i < NUM_PLAYERS; ++i) {
+                if (gPlayers[i].type & PLAYER_EXISTS) func_8007BB9C(i);
+            }
+        }
         CM_TickObjects60fps();
     }
 }
@@ -1257,7 +1263,7 @@ void func_8005A070(void) {
     gMatrixHudCount = 0;
     D_801655C0 = 0;
     func_80041D34();
-    if (gIsGamePaused == false && (Editor_IsPaused() == false)) {
+    if (gIsGamePaused == false && !net_world_paused() && (Editor_IsPaused() == false)) {
         func_8005C728();
         if (gGamestate == ENDING) {
             // func_80086604();
@@ -2342,22 +2348,21 @@ void func_8005CB60(s32 playerId, s32 lapCount) {
     if (playerHUD[playerId].lapCount < D_8018D320) {
         playerHUD[playerId].someTimer = (u32) (s32) (gCourseTimer * 100.0f);
         if (*huh < lapCount) {
-            // The lap-time arrays only hold 3 entries; with a lap override past 3 the later laps
-            // reuse the last slot (the results screen shows three lap rows either way).
-            s32 lapSlot = (*huh > 2) ? 2 : *huh;
+            // The three split rows retain the first three laps, even in longer races.
+            s32 lapSlot = *huh;
+            s32 previousFinish = playerHUD[playerId].timeLastTouchedFinishLine;
+            s32 replicated = net_race_active() && !net_is_host();
             temp_a0_2 = gTimePlayerLastTouchedFinishLine[playerId] * 100.0f;
+            if (replicated) temp_a0_2 = lapSlot < 3 ? playerHUD[playerId].lapCompletionTimes[lapSlot] : (s32)(gCourseTimer * 100.0f);
             playerHUD[playerId].timeLastTouchedFinishLine = temp_a0_2;
-            playerHUD[playerId].lapCompletionTimes[lapSlot] = temp_a0_2;
-            if (lapSlot == 0) {
-                playerHUD[playerId].lapDurations[lapSlot] = playerHUD[playerId].timeLastTouchedFinishLine;
-            } else {
-                playerHUD[playerId].lapDurations[lapSlot] = playerHUD[playerId].lapCompletionTimes[lapSlot] -
-                                                            playerHUD[playerId].lapCompletionTimes[lapSlot - 1];
+            playerHUD[playerId].someTimer1 = temp_a0_2 - previousFinish;
+            if (lapSlot >= 0 && lapSlot < 3 && !replicated) {
+                playerHUD[playerId].lapCompletionTimes[lapSlot] = temp_a0_2;
+                playerHUD[playerId].lapDurations[lapSlot] = playerHUD[playerId].someTimer1;
             }
-            playerHUD[playerId].someTimer1 = playerHUD[playerId].lapDurations[lapSlot];
-            playerHUD[playerId].blinkTimer = 0x003C;
+            playerHUD[playerId].blinkTimer = replicated && lapSlot >= 3 ? 0 : 0x003C;
             if (lapCount == race_mods_total_laps()) {
-                playerHUD[playerId].someTimer = playerHUD[playerId].lapCompletionTimes[lapSlot];
+                playerHUD[playerId].someTimer = temp_a0_2;
             }
             if (gModeSelection == (s32) 1) {
                 if (D_80165638 >= playerHUD[playerId].someTimer1) {
@@ -2366,7 +2371,7 @@ void func_8005CB60(s32 playerId, s32 lapCount) {
                     }
                     func_800C90F4(0U, (player->characterId * 0x10) + SOUND_ARG_LOAD(0x29, 0x00, 0x80, 0x0D));
                     D_80165638 = playerHUD[playerId].someTimer1;
-                    D_80165658[lapCount - 1] = 1;
+                    if (lapCount >= 1 && lapCount <= 3) D_80165658[lapCount - 1] = 1;
                     D_801657E3 = 1;
                 }
                 if ((lapCount == race_mods_total_laps()) && ((u32) playerHUD[playerId].someTimer < (u32) D_80165648)) {
@@ -7423,6 +7428,12 @@ void func_8006DD3C(Player* player, s8 playerId, s8 screenId) {
 }
 
 void func_8006E058(void) {
+    if (net_race_active()) {
+        for (s32 playerId = 0; playerId < NUM_PLAYERS; ++playerId) {
+            func_8006E420(&gPlayers[playerId], playerId, 0);
+        }
+        return;
+    }
     switch (gActiveScreenMode) {
         case SCREEN_MODE_1P:
             switch (gModeSelection) {

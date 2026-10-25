@@ -6,6 +6,7 @@
 #include <stdio.h>
 
 #include "update_objects.h"
+#include "port/net/NetRace.h"
 #include "main.h"
 #include "memory.h"
 #include "camera.h"
@@ -2412,8 +2413,8 @@ s32 func_8007B040(s32 objectIndex, s32 playerId) {
     s32 var_t3;
     s32 temp_a0;
     s32 item;
-    s32 sp50[4];
-    s32 sp40[4];
+    s32 sp50[NUM_PLAYERS];
+    s32 sp40[NUM_PLAYERS];
     s32 var_v1_2;
     Player* sp38;
     s16 temp_a1;
@@ -2440,7 +2441,9 @@ s32 func_8007B040(s32 objectIndex, s32 playerId) {
         var_t3 = 1;
         gObjectList[objectIndex].textureListIndex = gObjectList[objectIndex].unk_0A2 = item;
     } else {
-        for (var_v1_2 = 0; var_v1_2 < gPlayerCountSelection1; var_v1_2++) {
+        for (var_v1_2 = 0; var_v1_2 < (net_race_active() ? NUM_PLAYERS : gPlayerCountSelection1); var_v1_2++) {
+            if (net_race_active() && (!(gPlayers[var_v1_2].type & PLAYER_EXISTS) ||
+                (gModeSelection == BATTLE && gPlayerBalloonCount[var_v1_2] < 0))) continue;
             temp_a0 = gItemWindowObjectByPlayerId[var_v1_2];
             if (var_v1_2 != playerId) {
                 if (gObjectList[temp_a0].type != 0) {
@@ -2452,6 +2455,7 @@ s32 func_8007B040(s32 objectIndex, s32 playerId) {
         }
         if (var_a3 != 0) {
             item = random_int(var_a3);
+            if (item >= var_a3) item = var_a3 - 1;
             temp_a1 = sp40[item];
             gObjectList[objectIndex].unk_0A2 = temp_a1;
             gObjectList[objectIndex].textureListIndex = temp_a1;
@@ -2501,16 +2505,19 @@ void func_8007B254(s32 objectIndex, s32 arg1) {
 }
 
 void func_8007B34C(s32 playerId) {
+    if (net_race_active() && !net_is_host()) return;
     s32 temp_s0;
     s32 sp40;
     Object* object;
     Player* sp38;
     struct Controller* new_var;
+    struct Controller neutral = {0};
 
     temp_s0 = gItemWindowObjectByPlayerId[playerId];
     sp38 = &gPlayerOne[playerId];
     sp40 = 0;
-    new_var = &gControllerOne[playerId];
+    new_var = net_race_active() ? net_controller_for_racer(playerId) : &gControllerOne[playerId];
+    if (!new_var) new_var = &neutral;
     if (new_var->buttonPressed & 0x2000) {
         sp40 = 1;
     }

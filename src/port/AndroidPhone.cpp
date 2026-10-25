@@ -132,7 +132,7 @@ Java_dev_spaghettikart_phone_MainActivity_touchPad(JNIEnv*, jclass, jint token, 
 extern "C" void android_phone_merge_pad(void) {
     // Only the game thread reads engine globals and ImGui. JNI reads published atomics only.
     const int mode = classifyTouchMode(gGamestate, gGamestateNext, gRaceState, gPlayers[0].type,
-                                       gIsGamePaused != 0 || game_options_is_open(), gDemoMode != 0 || gDemoUseController != 0,
+                                       gIsGamePaused != 0 || game_options_is_open() || game_lobby_is_open(), gDemoMode != 0 || gDemoUseController != 0,
                                        gIsInQuitToMenuTransition != 0, portGuiOpen());
     if (mode != android_phone_touch_mode())
         __android_log_print(ANDROID_LOG_INFO, "KartTouch", "mode=%d game=%d next=%d race=%d player=%x pause=%d demo=%d/%d leaving=%d",

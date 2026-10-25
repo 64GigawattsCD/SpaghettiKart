@@ -187,7 +187,7 @@ static bool arcade_kart_should_debug_quick_boot_hud_race(void) {
 }
 
 static u32 arcade_kart_get_debug_quick_boot_random_track_index(void) {
-    if (net_race_active()) return 0;
+    if (net_race_active()) return (u32) net_course_index();
     if (kart_test_active()) return (u32) CVarGetInteger("gKartTest.Track", 0) % 16;
     u64 now = osGetTime();
     u32 seed = (u32) (now ^ (now >> 32));
@@ -203,6 +203,16 @@ static void arcade_kart_set_debug_quick_boot_random_track(void) {
     s32 randomTrackIndex = (s32) arcade_kart_get_debug_quick_boot_random_track_index();
     s32 cup = randomTrackIndex / 4;
     s32 course = randomTrackIndex % 4;
+
+    if (net_race_active() && randomTrackIndex >= 16 && randomTrackIndex < 20) {
+        static const char* arenas[] = {"mk:block_fort", "mk:skyscraper", "mk:double_deck", "mk:big_donut"};
+        static const s16 arenaIds[] = {TRACK_BLOCK_FORT, TRACK_SKYSCRAPER, TRACK_DOUBLE_DECK, TRACK_BIG_DONUT};
+        gCupSelection = BATTLE_CUP;
+        gCourseIndexInCup = 0;
+        gCurrentCourseId = arenaIds[randomTrackIndex - 16];
+        TrackBrowser_SetTrack(arenas[randomTrackIndex - 16]);
+        return;
+    }
 
     switch (cup) {
         case MUSHROOM_CUP:
@@ -270,12 +280,12 @@ static void arcade_kart_debug_quick_boot_hud_race(void) {
         gCharacterGridIsSelected[i] = false;
     }
 
-    if (net_race_active()) net_configure_race();
     arcade_kart_set_debug_quick_boot_random_track();
 
     for (i = 0; i < ARRAY_COUNT(gGPPointsByCharacterId); i++) {
         gGPPointsByCharacterId[i] = 0;
     }
+    if (net_race_active()) net_configure_race();
     func_8000F124();
 
     gGhostPlayerInit = 0;
@@ -284,6 +294,13 @@ static void arcade_kart_debug_quick_boot_hud_race(void) {
     gMenuSelection = RACING_DUPLICATE;
     gGotoMode = RACING;
     gGamestateNext = RACING;
+}
+
+/* The game loop polls this before its state-change check, including successive GP races. */
+int game_lobby_poll_race_load(void) {
+    if (gGamestate != RACING || !net_active() || !net_take_load()) return 0;
+    arcade_kart_debug_quick_boot_hud_race();
+    return 1;
 }
 
 /**
@@ -324,7 +341,7 @@ static void pointer_nav_button(int id, int x, int width, const char* label) {
 
 void menu_pointer_draw_navigation(void) {
     if (gGamestate == RACING || is_screen_being_faded()) return;
-    if (game_options_is_frontend()) return;
+    if (game_options_is_frontend() || game_lobby_is_open()) return;
     if (gMenuSelection == START_MENU || gMenuSelection == START_MENU_FROM_QUIT ||
         gMenuSelection == LOGO_INTRO_MENU || gMenuSelection == HARBOUR_MASTERS_MENU) {
         menu_pointer_target(800+gMenuSelection, A_BUTTON, 0, 0, 320, 240);
@@ -382,6 +399,7 @@ void update_menus(void) {
     race_mods_menu_reopen_poll();
 
     if (gFadeModeSelection == FADE_MODE_NONE && game_options_frontend_input()) return;
+    if (gFadeModeSelection == FADE_MODE_NONE && game_lobby_input()) return;
 
     if (gFadeModeSelection == FADE_MODE_NONE) {
         if (!is_screen_being_faded()) {

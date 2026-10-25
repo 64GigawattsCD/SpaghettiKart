@@ -44,7 +44,7 @@ void update_actor_fake_item_box(struct FakeItemBox* fake_item_box) {
             check_bounding_collision(&fake_item_box->unk30, fake_item_box->boundingBoxSize, fake_item_box->pos[0],
                                      fake_item_box->pos[1], fake_item_box->pos[2]);
             func_802B4E30((struct Actor*) fake_item_box);
-            temp_v1_3 = &gControllers[temp_v1];
+            temp_v1_3 = stock_item_controller_for_player(temp_v1);
             if ((temp_v0_4->type & PLAYER_HUMAN) != 0) {
 
                 if (consume_item_release_direction(temp_v1_3, temp_v1) != 0) {

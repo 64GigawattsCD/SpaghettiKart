@@ -869,6 +869,24 @@ void CM_DrawTransparency(ScreenContext* screen, uint16_t pathCounter, uint16_t c
 /**
  * This should only be ran once per track, otherwise animation/timings might become sped up.
  */
+static OLakitu* CM_EnsureRaceLakitu(s32 playerId) {
+    if (playerId < 0 || playerId >= NUM_PLAYERS || !(gPlayers[playerId].type & PLAYER_HUMAN) ||
+        !(gPlayers[playerId].type & PLAYER_EXISTS)) return nullptr;
+    auto& lakitus = GetWorld()->Lakitus;
+    auto it = lakitus.find(playerId);
+    if (it != lakitus.end() && it->second) return it->second;
+    auto lakitu = std::make_unique<OLakitu>(playerId, OLakitu::LakituType(0));
+    auto* result = lakitu.get();
+    lakitus[playerId] = result;
+    GetWorld()->AddObject(std::move(lakitu));
+    return result;
+}
+
+void CM_InitRaceLakitus() {
+    if (gDemoMode || gGamestate == CREDITS_SEQUENCE) return;
+    for (s32 playerId = 0; playerId < NUM_PLAYERS; ++playerId) CM_EnsureRaceLakitu(playerId);
+}
+
 void CM_SpawnStarterLakitu() {
     if ((gDemoMode) || (gGamestate == CREDITS_SEQUENCE)) {
         return;
@@ -894,28 +912,28 @@ void CM_ActivateFinishLakitu(s32 playerId) {
     if ((gDemoMode) || (gGamestate == CREDITS_SEQUENCE)) {
         return;
     }
-    GetWorld()->Lakitus[playerId]->Activate(OLakitu::LakituType::FINISH);
+    if (auto* lakitu = CM_EnsureRaceLakitu(playerId)) lakitu->Activate(OLakitu::LakituType::FINISH);
 }
 
 void CM_ActivateSecondLapLakitu(s32 playerId) {
     if ((gDemoMode) || (gGamestate == CREDITS_SEQUENCE)) {
         return;
     }
-    GetWorld()->Lakitus[playerId]->Activate(OLakitu::LakituType::SECOND_LAP);
+    if (auto* lakitu = CM_EnsureRaceLakitu(playerId)) lakitu->Activate(OLakitu::LakituType::SECOND_LAP);
 }
 
 void CM_ActivateFinalLapLakitu(s32 playerId) {
     if ((gDemoMode) || (gGamestate == CREDITS_SEQUENCE)) {
         return;
     }
-    GetWorld()->Lakitus[playerId]->Activate(OLakitu::LakituType::FINAL_LAP);
+    if (auto* lakitu = CM_EnsureRaceLakitu(playerId)) lakitu->Activate(OLakitu::LakituType::FINAL_LAP);
 }
 
 void CM_ActivateReverseLakitu(s32 playerId) {
     if ((gDemoMode) || (gGamestate == CREDITS_SEQUENCE)) {
         return;
     }
-    GetWorld()->Lakitus[playerId]->Activate(OLakitu::LakituType::REVERSE);
+    if (auto* lakitu = CM_EnsureRaceLakitu(playerId)) lakitu->Activate(OLakitu::LakituType::REVERSE);
 }
 
 size_t GetCupCursorPosition() {

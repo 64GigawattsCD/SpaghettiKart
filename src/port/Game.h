@@ -73,6 +73,7 @@ void CM_SetCupIndex(size_t index);
 void CM_DrawTrack(ScreenContext* arg0);
 
 void CM_SpawnStarterLakitu();
+void CM_InitRaceLakitus();
 void CM_ActivateFinishLakitu(s32 playerId);
 void CM_ActivateSecondLapLakitu(s32 playerId);
 void CM_ActivateFinalLapLakitu(s32 playerId);

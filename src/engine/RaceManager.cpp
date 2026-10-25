@@ -1,4 +1,5 @@
 #include "RaceManager.h"
+#include <algorithm>
 
 #include "AllActors.h"
 #include "World.h"
@@ -6,6 +7,7 @@
 #include "engine/editor/Editor.h"
 #include "engine/editor/SceneManager.h"
 #include "engine/RandomItemTable.h"
+#include "port/net/NetRace.h"
 
 extern "C" {
 #include "racing/render_courses.h"
@@ -69,6 +71,7 @@ void RaceManager::PreInit() {
     } else {
         gPlaceItemBoxes = true;
     }
+    if (net_race_active()) gPlaceItemBoxes = net_items_enabled() != 0;
 
     RaceManager::SetItemTables();
 }
@@ -125,6 +128,11 @@ void RaceManager::SetItemTables() {
 
     switch(gModeSelection) {
         case GRAND_PRIX:
+            if (net_race_active()) {
+                humanTableName = "mk:human_grand_prix";
+                cpuTableName = "mk:cpu_grand_prix";
+                break;
+            }
             if (CVarGetInteger("gHarderCPU", false) == true) {
                 humanTableName = "mk:hard_cpu_grand_prix";
                 cpuTableName = "mk:hard_cpu_grand_prix";
@@ -134,6 +142,11 @@ void RaceManager::SetItemTables() {
             }
             break;
         case VERSUS:
+            if (net_race_active()) {
+                humanTableName = "mk:human_grand_prix";
+                cpuTableName = "mk:cpu_grand_prix";
+                break;
+            }
             switch (gPlayerCountSelection1) {
                 case TWO_PLAYERS_SELECTED:
                     humanTableName = "mk:versus_2p";
@@ -271,6 +284,12 @@ static int16_t InfectedModeFilter(int16_t item) {
 }
 
 extern "C" int16_t RaceManager_GetRandomHumanItem(uint32_t rank) {
+    if (net_race_active()) {
+        if (!net_items_enabled()) return ITEM_NONE;
+        if (net_item_mode() == 1) return int16_t(1 + std::min<int>(random_int(ITEM_MAX - 1), ITEM_MAX - 2));
+        auto* table = GetWorld()->GetRaceManager().GetHumanItemTable();
+        return table ? table->Roll(std::min(rank, uint32_t(7))) : ITEM_NONE;
+    }
     int16_t forced = RaceModsItemOverride(false);
     if (forced >= 0) {
         return InfectedModeFilter(forced);
@@ -288,6 +307,12 @@ extern "C" int16_t RaceManager_GetRandomHumanItem(uint32_t rank) {
 }
 
 extern "C" int16_t RaceManager_GetRandomCPUItem(uint32_t rank) {
+    if (net_race_active()) {
+        if (!net_items_enabled()) return ITEM_NONE;
+        if (net_item_mode() == 1) return int16_t(1 + std::min<int>(random_int(ITEM_MAX - 1), ITEM_MAX - 2));
+        auto* table = GetWorld()->GetRaceManager().GetCPUItemTable();
+        return table ? table->Roll(std::min(rank, uint32_t(7))) : ITEM_NONE;
+    }
     int16_t forced = RaceModsItemOverride(true);
     if (forced >= 0) {
         return InfectedModeFilter(forced);

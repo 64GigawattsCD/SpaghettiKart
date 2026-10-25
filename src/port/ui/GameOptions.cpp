@@ -52,6 +52,52 @@ bool legacy = false;
 bool bindingsPopup = false;
 bool liveNetwork = false;
 Controller networkController{};
+struct NetworkMenuInput {
+    Controller pads[4]{};
+    int owner = -1;
+    constexpr bool Update(int viewport, unsigned int buttons, int x, int y, bool canOpen) {
+        if (viewport < 0 || viewport >= 4) return false;
+        auto& pad = pads[viewport];
+        pad.buttonPressed = buttons & ~pad.button;
+        pad.buttonDepressed = pad.button & ~buttons;
+        pad.button = buttons;
+        pad.rawStickX = std::clamp(x, -80, 80);
+        pad.rawStickY = std::clamp(y, -80, 80);
+        const unsigned short stick = (x < -30 ? L_JPAD : x > 30 ? R_JPAD : 0) |
+                                     (y < -30 ? D_JPAD : y > 30 ? U_JPAD : 0);
+        pad.stickPressed = stick & ~pad.stickDirection;
+        pad.stickDepressed = pad.stickDirection & ~stick;
+        pad.stickDirection = stick;
+        if (canOpen && owner < 0 && (pad.buttonPressed & START_BUTTON)) {
+            owner = viewport; return true;
+        }
+        return false;
+    }
+};
+NetworkMenuInput networkInput;
+constexpr bool NetworkMenuInputChecks() {
+    for (int viewport = 0; viewport < 4; ++viewport) {
+        NetworkMenuInput candidate;
+        if (!candidate.Update(viewport, START_BUTTON, 0, 0, true) || candidate.owner != viewport) return false;
+        if (candidate.Update((viewport + 1) % 4, START_BUTTON, 0, 0, true) || candidate.owner != viewport) return false;
+    }
+    NetworkMenuInput input;
+    if (input.Update(-1, START_BUTTON, 0, 0, true) || input.Update(4, START_BUTTON, 0, 0, true)) return false;
+    if (!input.Update(2, START_BUTTON, 40, -40, true) || input.owner != 2) return false;
+    if (input.Update(0, START_BUTTON, -40, 40, true) || input.owner != 2) return false;
+    if (input.pads[2].stickPressed != (R_JPAD | D_JPAD) || input.pads[0].stickPressed != (L_JPAD | U_JPAD)) return false;
+    if (input.Update(2, START_BUTTON, 40, -40, false) || input.pads[2].buttonPressed || input.pads[2].stickPressed) return false;
+    input.owner = -1;
+    if (input.Update(0, START_BUTTON, 0, 0, true)) return false;
+    input.Update(0, 0, 0, 0, true);
+    if (!input.Update(0, START_BUTTON, 0, 0, true) || input.owner != 0) return false;
+    input.owner = -1;
+    if (input.Update(3, START_BUTTON, 100, -100, false) || input.owner != -1) return false;
+    if (input.pads[3].rawStickX != 80 || input.pads[3].rawStickY != -80) return false;
+    input.Update(3, 0, 0, 0, true);
+    return input.Update(3, START_BUTTON, 0, 0, true) && input.owner == 3;
+}
+static_assert(NetworkMenuInputChecks(), "Network menu ownership and per-viewport input edges");
 int heldDirection = 0, holdFrames = 0;
 int legacyRequest = 0, pageScroll = 0, generation = 0;
 std::string notice;
@@ -70,7 +116,7 @@ const char* PageTitle(Page page) {
         case Page::Effects: return "EFFECTS";
         case Page::Rules: return "RACE RULES";
         case Page::Cheats: return "EXTRAS";
-        case Page::Network: return "LAN RACE";
+        case Page::Network: return "ONLINE";
         case Page::Address: return "HOST ADDRESS";
         case Page::Saves: return "SAVE DATA";
         case Page::Bindings: return "CONTROLLER BINDINGS";
@@ -86,7 +132,10 @@ void Open(bool paused, bool stock) {
     liveNetwork = false; heldDirection = holdFrames = pageScroll = 0;
     stack.clear(); Push(paused ? Page::Pause : Page::Root);
 }
-void Close() { stack.clear(); liveNetwork = false; ChangedPage(); Save(); }
+void Close() {
+    stack.clear(); liveNetwork = false; networkInput.owner = -1; networkController = {};
+    ChangedPage(); Save();
+}
 void Resume() {
     Close();
     if (fromPause && gIsGamePaused) {
@@ -153,8 +202,10 @@ void BuildRows() {
     }
     if (page == Page::Root) {
         for (auto category : {Page::General, Page::Display, Page::Audio, Page::Controls, Page::Camera,
-                              Page::Hud, Page::Effects, Page::Rules, Page::Cheats, Page::Network, Page::Saves})
+                              Page::Hud, Page::Effects, Page::Rules, Page::Cheats, Page::Network, Page::Saves}) {
+            if (category == Page::Network && fromPause) continue;
             rows.push_back({PageTitle(category), nullptr, category});
+        }
         return;
     }
     if (page == Page::Saves) {
@@ -368,7 +419,13 @@ std::string RowValue(const Row& row) {
 int Activate(const Row& row, int direction) {
     if (!row.enabled) return 0;
     if (direction == 0 || Adjustable(row)) play_sound2(SOUND_MENU_SELECT);
-    if (row.destination) { if (direction == 0) Push(*row.destination); return 0; }
+    if (row.destination) {
+        if (direction == 0) {
+            if (*row.destination == Page::Network && !fromPause) { Close(); game_lobby_open_online(); }
+            else Push(*row.destination);
+        }
+        return 0;
+    }
     if (row.widget) { ChangeWidget(*row.widget, direction); return 0; }
     if (!Adjustable(row) && direction != 0) return 0;
     switch (row.action) {
@@ -488,31 +545,49 @@ extern "C" int game_options_row_info(int index, GameOptionRowInfo* info) {
     info->visible = index >= first && index < first + Cursor::PageRows;
     return 1;
 }
-extern "C" void game_options_request(void) { requested = true; }
+extern "C" void game_options_request(void) {
+    if (gGamestate == RACING && net_active() && !game_options_is_open() && networkInput.owner < 0)
+        networkInput.owner = 0;
+    requested = true;
+}
 extern "C" int game_options_is_live_network(void) { return liveNetwork && game_options_is_open(); }
+extern "C" int game_options_local_owner(void) {
+    if (networkInput.owner >= 0 && (requested || game_options_is_live_network())) return networkInput.owner;
+    if (fromPause && game_options_is_open() && gIsGamePaused) return std::clamp<int>(gIsGamePaused - 1, 0, 3);
+    return -1;
+}
 extern "C" void game_options_net_input(unsigned int buttons, int x, int y) {
-    networkController.buttonPressed = buttons & ~networkController.button;
-    networkController.button = buttons;
-    const unsigned short stick = (x < -30 ? L_JPAD : x > 30 ? R_JPAD : 0) |
-                                 (y < -30 ? D_JPAD : y > 30 ? U_JPAD : 0);
-    networkController.stickPressed = stick & ~networkController.stickDirection;
-    networkController.stickDirection = stick;
-    if (!game_options_is_open() && (networkController.buttonPressed & START_BUTTON)) requested = true;
+    game_options_net_input_for(0, buttons, x, y);
+}
+extern "C" void game_options_net_input_for(int localViewport, unsigned int buttons, int x, int y) {
+    if (localViewport < 0 || localViewport >= 4) return;
+    if (localViewport == 0) game_lobby_net_input(buttons, x, y);
+    const bool canOpen = gGamestate == RACING && net_active() && !game_options_is_open() && !game_lobby_is_open();
+    if (networkInput.Update(localViewport, buttons, x, y, canOpen)) requested = true;
+    if (networkInput.owner == localViewport) networkController = networkInput.pads[localViewport];
 }
 extern "C" void game_options_before_frame(void) {
+    if (liveNetwork && (gGamestate != RACING || !net_active())) Close();
+    if (gGamestate != RACING || !net_active()) networkInput.owner = -1;
+    if (gGamestate == RACING && !fromPause && !stack.empty()) Close();
+    if (gGamestate == RACING && net_active() && requested && !game_options_is_open()) {
+        if (networkInput.owner < 0) networkInput.owner = 0;
+        networkController = networkInput.pads[networkInput.owner];
+        Open(true, false); liveNetwork = true; requested = false;
+        return;
+    }
+    if (gGamestate == RACING && game_lobby_input()) {
+        requested = backRequested = false; networkInput.owner = -1; return;
+    }
     if (backRequested && !game_options_is_open()) {
         backRequested = false;
         gControllers[0].buttonPressed |= KART_MENU_CANCEL_BUTTON;
     }
-    if (gGamestate == RACING && !fromPause && !stack.empty()) Close();
     if (gGamestate == RACING && net_active()) {
-        if (requested && !game_options_is_open()) {
-            Open(true, false); liveNetwork = true; requested = false;
-            return;
-        }
         if (liveNetwork && game_options_is_open()) {
             if (requested) { requested = false; backRequested = true; }
             Input(&networkController);
+            networkController.buttonPressed = networkController.stickPressed = 0;
         }
         return;
     }
@@ -520,8 +595,14 @@ extern "C" void game_options_before_frame(void) {
         gControllers[0].buttonPressed |= START_BUTTON;
     }
 }
-extern "C" void game_options_request_back(void) { backRequested = true; }
-extern "C" void game_options_scroll(int pages) { pageScroll = std::clamp(pageScroll + pages, -1, 1); }
+extern "C" void game_options_request_back(void) {
+    if (game_lobby_is_open()) game_lobby_request_back();
+    else backRequested = true;
+}
+extern "C" void game_options_scroll(int pages) {
+    if (game_lobby_is_open()) game_lobby_scroll(pages);
+    else pageScroll = std::clamp(pageScroll + pages, -1, 1);
+}
 
 extern "C" int game_options_frontend_input(void) {
     if (gGamestate == RACING) return 0;

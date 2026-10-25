@@ -44,6 +44,7 @@
 #include "engine/wasm.h"
 #include "port/Game.h"
 #include "port/Engine.h"
+#include "port/LocalPartyDevices.h"
 #include "engine/Matrix.h"
 #include "engine/TrackBrowser.h"
 #include "port/vr/vr.h"
@@ -426,10 +427,10 @@ void update_controller(s32 index) {
 
     // The unplugged gate must not silence a VR-only player: with motion controllers live, pad 0
     // always updates (the merge below is its input source even with no gamepad attached).
-    if (sIsController1Unplugged && !kart_test_active() && !(index == 0 && (vr_controllers_active() || android_phone_active()))) {
+    if (sIsController1Unplugged && !kart_test_active() && !net_race_active() && !(index == 0 && (vr_controllers_active() || android_phone_active()))) {
         return;
     }
-    if (index == 0 && !kart_test_active()) {
+    if (index == 0 && !kart_test_active() && !net_race_active()) {
         vr_merge_pad0();
     }
 
@@ -481,9 +482,10 @@ void read_controllers(void) {
 
     osContStartReadData(&gSIEventMesgQueue);
     // osRecvMesg(&gSIEventMesgQueue, &msg, OS_MESG_BLOCK);
-    osContGetReadData(gControllerPads);
+    if (!GameEngine_ReadPartyPads(gControllerPads)) osContGetReadData(gControllerPads);
     android_phone_merge_pad();
     kart_test_read_inputs(gControllerPads);
+    if (net_race_active() && !kart_test_active()) vr_merge_pad0();
     net_read_inputs();
     update_controller(0);
     update_controller(1);
@@ -819,7 +821,7 @@ void race_logic_loop(void) {
         replays_loop();
     }
 
-    if (gIsGamePaused == false) {
+    if (gIsGamePaused == false && !net_world_paused()) {
         for (size_t i = 0; i < (size_t) gTickLogic; i++) {
             process_game_tick();
         }
@@ -829,7 +831,9 @@ void race_logic_loop(void) {
     }
     net_update_display();
     func_8005A070();
-    CM_TickEditor();
+    if (!net_world_paused()) {
+        CM_TickEditor();
+    }
     profiler_log_thread5_time(LEVEL_SCRIPT_EXECUTE);
     sNumVBlanks = 0;
     gNumScreens = 0;
@@ -1266,6 +1270,10 @@ void thread5_iteration(void) {
     if (GfxDebuggerIsDebugging()) {
         Graphics_PushFrame(gGfxPool->gfxPool);
         return;
+    }
+    if (game_lobby_poll_race_load()) {
+        gGamestate = RACING;
+        update_gamestate();
     }
     // Update the gamestate if it has changed (racing, menus, credits, etc.).
     if (gGamestateNext != gGamestate) {

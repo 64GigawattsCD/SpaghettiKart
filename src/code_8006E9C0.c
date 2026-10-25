@@ -33,6 +33,7 @@
 #include "engine/editor/Editor.h"
 #include "engine/tracks/Track.h"
 #include "engine/sky/Sky.h"
+#include "port/net/NetRace.h"
 
 void init_hud(void) {
 
@@ -53,6 +54,13 @@ void init_hud(void) {
             init_hud_three_four_player();
             break;
     }
+    if (net_race_active()) {
+        const s32 allocated = gPlayerCountSelection1 <= 2 ? 2 : 4;
+        for (s32 playerId = gPlayerCountSelection1; playerId < NUM_PLAYERS; ++playerId) {
+            if (playerId >= allocated) find_unused_obj_index(&gItemWindowObjectByPlayerId[playerId]);
+            init_item_window(gItemWindowObjectByPlayerId[playerId]);
+        }
+    }
     func_80070148();
 }
 
@@ -61,14 +69,15 @@ void reset_object_variable(void) {
     s32 j;
     func_8006EB10();
     clear_object_list();
-    memset(playerHUD, 0, HUD_PLAYERS_SIZE * sizeof(hud_player));
+    const s32 hudCount = net_race_active() ? NUM_PLAYERS : HUD_PLAYERS_SIZE;
+    memset(playerHUD, 0, hudCount * sizeof(hud_player));
 
-    for (i = 0; i < HUD_PLAYERS_SIZE; i++) {
+    for (i = 0; i < hudCount; i++) {
         playerHUD[i].lapCount = 0;
         playerHUD[i].alsoLapCount = 0;
         playerHUD[i].unk_81 = 0;
     }
-    for (j = 0; j < HUD_PLAYERS_SIZE; j++) {
+    for (j = 0; j < hudCount; j++) {
         playerHUD[j].raceCompleteBool = 0;
     }
 }

@@ -282,7 +282,7 @@ static s32 pick_random_human_target(void) {
 }
 
 int race_mods_total_laps(void) {
-    if (net_race_active()) return 3;
+    if (net_race_active()) return net_total_laps();
     // A treasure hunt runs until the box is found - a lap total must never end it, so it pins
     // NO LIMIT regardless of the LAPS row (which the setup screen locks to match). Balloon
     // elimination deliberately does NOT pin: a lap count plus eliminations makes a fun race
@@ -1519,6 +1519,7 @@ static u32 hazard_roll_bit(s32 roll) {
 // Courses gate their signature-mover spawns on this at BeginPlay.
 int race_mods_prop_swap_live(void) {
     s32 m;
+    if (net_race_active()) return 0;
     if (gModeSelection != GRAND_PRIX && gModeSelection != VERSUS) {
         return 0;
     }

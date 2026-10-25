@@ -4,6 +4,7 @@
 #include <memory>
 
 #include "KalimariDesert.h"
+#include "port/net/NetRace.h"
 #include "engine/World.h"
 #include "engine/actors/Finishline.h"
 #include "engine/objects/BombKart.h"
@@ -178,9 +179,10 @@ void KalimariDesert::BeginPlay() {
 
         s32 centerWaypoint = 160;
 
-        _numTrains = CVarGetInteger("gNumTrains", 2);
-        _numCarriages = CVarGetInteger("gNumCarriages", 5);
-        _tender = (ATrain::TenderStatus)CVarGetInteger("gHasTender", 1);
+        _numTrains = net_race_active() ? 2 : CVarGetInteger("gNumTrains", 2);
+        _numCarriages = net_race_active() ? 5 : CVarGetInteger("gNumCarriages", 5);
+        _tender = net_race_active() ? ATrain::TenderStatus::HAS_TENDER :
+            (ATrain::TenderStatus)CVarGetInteger("gHasTender", 1);
 
         // PROP SWAP: the trains stay in the roundhouse - race_mods spawns the replacement
         // menagerie along the racing line instead. The crossings stay (they just never close).
@@ -195,7 +197,7 @@ void KalimariDesert::BeginPlay() {
             // If using more trains, it wraps the value to always output a valid waypoint.
             uint32_t waypoint = CalculateWaypointDistribution(i, _numTrains, gVehiclePathSize, centerWaypoint);
 
-            if (CVarGetInteger("gMultiplayerNoFeatureCuts", 0) == false) {
+            if (!net_race_active() && CVarGetInteger("gMultiplayerNoFeatureCuts", 0) == false) {
                 // Multiplayer modes have no tender and no carriages
                 if (gActiveScreenMode != SCREEN_MODE_1P) {
                     _tender = ATrain::TenderStatus::NO_TENDER;

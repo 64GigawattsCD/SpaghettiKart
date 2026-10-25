@@ -1,6 +1,7 @@
 #include "HotAirBalloon.h"
 #include "engine/World.h"
 #include "port/Game.h"
+#include "port/net/NetRace.h"
 #include "port/interpolation/FrameInterpolation.h"
 
 extern "C" {
@@ -27,8 +28,7 @@ OHotAirBalloon::OHotAirBalloon(const SpawnParams& params) : OObject(params) {
     if (IsLuigiRaceway()) {
         _visible = (bool*)&D_80165898;
     } else { // Spawn balloon on race start
-        bool mod = true;
-        _visible = &mod;
+        _visible = &_alwaysVisible;
     }
 
     find_unused_obj_index(&_objectIndex);
@@ -43,6 +43,15 @@ void OHotAirBalloon::SetSpawnParams(SpawnParams& params) {
 
 void OHotAirBalloon::Tick() {
     s32 objectIndex = _objectIndex;
+    if (net_race_active() && !net_is_host()) {
+        if (!gActorHotAirBalloonItemBox || gActorHotAirBalloonItemBox->type != ACTOR_HOT_AIR_BALLOON_ITEM_BOX ||
+            !gActorHotAirBalloonItemBox->flags) return;
+        *_visible = true;
+        if (gObjectList[objectIndex].state == 1) init_hot_air_balloon(objectIndex);
+        for (int axis = 0; axis < 3; ++axis)
+            gObjectList[objectIndex].pos[axis] = gActorHotAirBalloonItemBox->pos[axis] + (axis == 1 ? 10.0f : 0.0f);
+        return;
+    }
     
     if (*_visible) {
         if (gObjectList[objectIndex].state != 0) {
@@ -124,7 +133,7 @@ void OHotAirBalloon::init_hot_air_balloon(s32 objectIndex) {
     func_800886F4(objectIndex);
     func_80086EF0(objectIndex);
     gObjectList[objectIndex].velocity[1] = -2.0f;
-    init_actor_hot_air_balloon_item_box(0.0f, 0.0f, 0.0f);
+    if (!net_race_active() || net_is_host()) init_actor_hot_air_balloon_item_box(0.0f, 0.0f, 0.0f);
     object_next_state(objectIndex);
 }
 

@@ -4,6 +4,7 @@
 #include <memory>
 
 #include "ToadsTurnpike.h"
+#include "port/net/NetRace.h"
 #include "engine/World.h"
 #include "engine/objects/BombKart.h"
 #include "assets/models/tracks/toads_turnpike/toads_turnpike_data.h"
@@ -157,10 +158,10 @@ void ToadsTurnpike::BeginPlay() {
         f32 a = ((gCCSelection * 90.0) / 216.0f) + 4.583333333333333;
         f32 b = ((gCCSelection * 90.0) / 216.0f) + 2.9166666666666665;
 
-        _numTrucks = CVarGetInteger("gNumTrucks", 7);
-        _numBuses = CVarGetInteger("gNumBuses", 7);
-        _numTankerTrucks = CVarGetInteger("gNumTankerTrucks", 7);
-        _numCars = CVarGetInteger("gNumCars", 7);
+        _numTrucks = net_race_active() ? 7 : CVarGetInteger("gNumTrucks", 7);
+        _numBuses = net_race_active() ? 7 : CVarGetInteger("gNumBuses", 7);
+        _numTankerTrucks = net_race_active() ? 7 : CVarGetInteger("gNumTankerTrucks", 7);
+        _numCars = net_race_active() ? 7 : CVarGetInteger("gNumCars", 7);
 
         // Other game modes spawn seven of each vehicle
         if (gModeSelection == TIME_TRIALS) {

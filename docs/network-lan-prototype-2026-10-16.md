@@ -1,5 +1,86 @@
 # Phone / PC LAN Race
 
+## Eight-Player Follow-Up (2026-10-25)
+
+The sections below preserve the two-device prototype's historical test evidence.
+Current work replaces its fixed two-player protocol with a versioned eight-seat
+roster, one-to-four participants per connection, whole-party admission, per-player
+input ownership and local-first viewport mappings. Native menus now have Local /
+Online, party cards, host setup, LAN browser, direct connection, lobby and standings.
+The unified Options/Data/Back/Quit footer remains.
+
+Transport uses Monocypher 4.0.2 primitives for per-peer X25519, password derivation,
+authenticated datagrams and replay windows. This is not a PAKE or a public-server
+identity scheme. Passwords/tickets remain in RAM and are not advertised. New race
+epochs keep prior-round packets out of subsequent races; eight-kart snapshots use
+bounded four-kart chunks rather than increasing the existing packet budget.
+Whole-party reconnect tickets retain participant identities and local viewports.
+No firewall or organization settings were changed.
+
+Local-only GP uses the shared roster/results path without sockets, including four
+local drivers. Session GP progression covers four races and shared standings.
+Stock items and human-only Battle are enabled. Battle supports two to eight
+humans, one to three balloons, no CPUs. GP/VS support CPU fill, configurable laps,
+engine class, mirror and item rules. Four-player local GP no longer takes the
+stock four-racer render/texture path: each of four viewports has eight distinct
+kart texture slots. Lap HUDs handle non-three-lap races without texture overruns.
+
+Physical Start-to-join routes SDL devices to party seats, including reconnects.
+Unconfigured secondary ports borrow SDL mappings in RAM; existing mappings and
+saved ignore lists are retained. Touch and keyboard remain on the primary pad.
+Any local player can open Options. Online only that player stops driving; Local
+pauses world/object/particle simulation. Session Lakitus include remote rescue
+simulation without rerunning the stock starter countdown.
+
+The item sidecar commits complete bounded frames, remaps ownership by participant,
+replicates eight inventories and balloons, and suppresses client item authority.
+Final world frames are reliable and cached for finished reconnects. Lightning
+scale is in kart snapshots; the balloon follows its replicated pickup on clients.
+Moo Moo foliage, Kalimari trains, Turnpike vehicles and prop-swap branches use
+session spawn rules so mixed viewport counts do not shift stock actor indices.
+Custom actor-private state, course scripts, particles and the falling-rock private
+respawn timer are outside the sidecar. Course visual objects are not a complete
+general-purpose world replication system. The archive hash is not a full mod manifest.
+
+Key derivation runs in at most two workers, including retired disconnect jobs;
+handshake admission is bounded per address and globally. Encrypted traffic does
+not add public server identity or PAKE properties. Public directory/relay hosting,
+NAT traversal and client prediction/replay remain separate, unfinished work.
+Current browser means LAN discovery; direct Internet needs a reachable UDP host.
+Paid service/image credits used this pass: zero. Per-task token billing is not
+exposed; account usage was not treated as task billing.
+
+Primary cryptographic API references: [AEAD](https://monocypher.org/manual/aead),
+[password derivation](https://monocypher.org/manual/argon2), and the pinned source
+in `cmake/dependencies/monocypher.cmake`. Existing phone installations remain
+unchanged. Both devices need the new protocol-v3 application for this flow.
+
+### Verification
+
+- Six native network suites cover malformed/transactional decoding, encrypted
+  4+4 admission and racing, eight-system input/results, four network GP rounds,
+  readiness/capacity/ownership, expired input, loading/racing/finished reconnect,
+  final-world replay/clearing, LAN codecs, item frames, device assignments and
+  64 independent kart texture slots. Transport tests run only on localhost.
+- Native lobby (79,053 checks), Options and menu-pointer suites passed, as did
+  two pure Python lobby-runner helper tests. Size/packet-budget regressions added.
+- No game process, phone interaction or new gameplay screenshot was launched.
+  Full races, mixed-device latency, Battle, item effects, four-controller joining
+  and touch layouts still need user playtesting. Do not equate codecs with playtests.
+- The opt-in muted runner is `tests/kart_assets/test_lobby_menus.py --run`; add
+  `--race` for four-pad local GP. The bridge exposes `menu.lobby` and per-port
+  queued inputs. Legacy menu runners are not updated for the new contexts.
+- Windows Debug and Android arm64 release compilation passed. Final local logs:
+  `build/agent-logs/eight-racer-release-pc-20261025-162347-70485b91.log` and
+  `build/agent-logs/eight-racer-release-phone-20261025-162405-d8943381.log`.
+  All six network suites passed in
+  `build/agent-logs/eight-racer-release-tests-20261025-162428-12248d58.log`.
+  Outputs: `build/x64/Debug/Spaghettify.exe` and
+  `android/app/build/outputs/apk/release/app-release.apk`. Neither was launched.
+  Main builds reuse libultraship's identical pinned Monocypher commit; standalone
+  tests use the commit-addressed, SHA-256 checked archive. Sources match apart
+  from checkout line endings. No renderer submodule changes this pass.
+
 ## Research and scope
 
 Fetched `origin/NetworkedMultiplayer` on 2026-10-16: still e8351e29f, with discovery

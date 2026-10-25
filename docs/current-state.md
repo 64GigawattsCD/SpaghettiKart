@@ -7,11 +7,11 @@ Updated: 2026-10-25. Living summary; replace stale facts rather than accumulatin
 - Android/UI, cockpit, LAN and renderer work was pushed to the user forks on
   2026-10-25. Verify live status; this sentence is not a cleanliness assertion.
 - User said "All working" after the phone radial controls, before the menu pass.
-- Shared native Options/pause pages replace normal port overlays. User's first
-  PC review found duplicate Options entries; the follow-up consolidates the main
-  footer into Options / Data / Back / Quit, without L/R/Z menu shortcuts.
-- Menu art now reuses stock background/glyphs, black tiles and animated selections;
-  offline checks and compilation status are in the UI audit. User playtest pending.
+- Local/Online menus now retain four-player local parties and eight-racer sessions,
+  full GP progression, LAN discovery, encrypted inputs and stock item replication.
+  GP/VS and human-only Battle are enabled; see the topic doc for coverage and receipts.
+- Shared native menus retain stock art and Options / Data / Back / Quit, with no
+  dedicated L/R/Z shortcuts. Gameplay testing remains with the user.
 
 ## Keep These Behaviors
 - Phone: controls inward, HUD outward. Lap times top-right; RPM/gear bottom-right;
@@ -33,9 +33,12 @@ Updated: 2026-10-25. Living summary; replace stale facts rather than accumulatin
   Details and remaining runtime checks: `docs/ui-unification-audit-2026-10-25.md`.
 
 ## Verified Versus Pending
-- Prior muted phone/PC LAN checks passed movement, ownership and convergence.
-  A complete two-player three-lap race, matching results and leave/rejoin remain
-  pending. Items, eight racers, discovery and Internet transport are not complete.
+- Native checks cover encrypted 4+4 and eight-system races, four-round network GP,
+  ownership/readiness, loading/racing/finished reconnect and final world replay.
+  Item/discovery/device-assignment/texture/lobby codecs passed. PC/Android final
+  compilation receipts are in the topic doc; no new game/device test was launched.
+- Public directory and NAT relay service are not configured. Current browser is
+  LAN discovery; direct-address transport is distinct from public matchmaking.
 - Live headset comfort/tracking/recentering checks remain pending. Synthetic stereo
   captures do not establish headset behavior. See topic docs for dated evidence.
 - Latest test preference: user playtests after implementation; no autonomous game

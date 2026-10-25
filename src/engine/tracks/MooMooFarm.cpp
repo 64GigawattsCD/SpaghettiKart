@@ -4,6 +4,7 @@
 #include <memory>
 
 #include "MooMooFarm.h"
+#include "port/net/NetRace.h"
 #include "engine/World.h"
 #include "engine/actors/Finishline.h"
 #include "engine/objects/BombKart.h"
@@ -133,7 +134,7 @@ void MooMooFarm::Load() {
 }
 
 void MooMooFarm::BeginPlay() {
-    if (gPlayerCountSelection1 != 4) {
+    if (net_race_active() || gPlayerCountSelection1 != 4) {
         spawn_foliage((struct ActorSpawnData*)LOAD_ASSET_RAW(d_course_moo_moo_farm_tree_spawn));
     }
     spawn_all_item_boxes((struct ActorSpawnData*)LOAD_ASSET_RAW(d_course_moo_moo_farm_item_box_spawns));
