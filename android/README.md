@@ -48,11 +48,15 @@ game readback for layout QA, without operating-system screen capture.
 
 ## Controls
 
-Touch controls: left thumb stick steers and navigates menus. The gauge accelerates
-or confirms; stop sign brakes or goes back; bent arrow hops/drifts; lightning bolt
-uses items; pause bars pause; camera-switch icon toggles the cockpit.
-Multitouch allows simultaneous steering, throttle and drift. Backgrounding or
-losing focus releases all touch input. SDL Bluetooth/USB gamepads remain enabled.
+Gameplay touch controls appear only during races; native menus accept direct touch
+and mouse input. The left steering control steers. The radial pedal cluster has
+gas at center, jump above, drift right, brake below and item left. Gas begins on
+direct press and remains held through dragging until release. Outer actions engage
+on entry/press and release on exit/lift, allowing gas plus another action together.
+The camera stick sits beside the minimap with rear view above; touching the manual
+shifter engages the clutch. Controls sit inward and the HUD stays at the outer edge.
+Backgrounding or losing focus releases all touch input. SDL Bluetooth/USB gamepads
+remain enabled. Action icons are independent of controller button mappings.
 
 Physical gamepads use the PC XInput layout through SDL/ControlDeck, independently
 of the touch layout: RT throttle, LT brake, LB drift, RB or B item, A jump/confirm,

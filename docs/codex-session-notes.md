@@ -1,3 +1,22 @@
+## Lean Project Context (2026-10-25)
+
+- Startup now uses root `AGENTS.md`, the bounded living `docs/current-state.md`
+  and `tools/dev/context.ps1`; this file remains a historical lookup, not a
+  default full read. Source/topic routing is in AGENTS; recipes in tools/dev.
+- Context helper reports both Git repositories without fetch/device access and
+  retrieves one historical section. Native command helper retains full logs in
+  ignored `build/agent-logs`, prints one success line or a bounded failure tail,
+  and propagates exit codes. Offline helper assertions cover both result paths.
+- Added a local AGENTS pointer in the OneDrive launcher workspace. Existing
+  staged mods there remain untouched. No global model/tool configuration changes.
+- Corrected outdated Android README control prose to match the radial layout.
+- No gameplay or phone tests for this setup. Account credit snapshot 9736.194195,
+  weekly usage 12%, account-wide rather than a task billing measurement.
+- Verification: 23 helper assertions passed (success/failure codes, bounded
+  output, stderr capture, literal arguments, working directories with spaces,
+  missing executables and ambiguous note queries). Existing compiled offline
+  HUD suite passed through the wrapper; no game compilation was needed.
+
 ## Publication Checkpoint (2026-10-25)
 
 - User confirmed "All working" after testing the latest phone controls, then
