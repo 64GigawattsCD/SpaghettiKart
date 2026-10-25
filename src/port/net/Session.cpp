@@ -551,13 +551,13 @@ Input Session::RemoteInput() const {
 }
 uint32_t Session::SnapshotAge() const { return receivedSnapshots ? enet_time_get() - lastSnapshotAt : 0; }
 void Session::PublishWorld(const std::vector<uint8_t>& payload) {
-    if (!authority || phase != Phase::Racing || payload.empty() || payload.size() > 1100) return;
+    if (!authority || (phase != Phase::Racing && phase != Phase::Finished) || payload.empty() || payload.size() > 1100) return;
     Message m; m.kind = Kind::World; m.payload = payload; Broadcast(m, false);
 }
 void Session::PublishWorldFrame(const std::vector<std::vector<uint8_t>>& chunks, bool final) {
-    if (!authority || phase != Phase::Racing || chunks.empty() || chunks.size() > 32 ||
+    if (!authority || (phase != Phase::Racing && phase != Phase::Finished) || chunks.empty() || chunks.size() > 32 ||
         std::any_of(chunks.begin(), chunks.end(), [](const auto& bytes) { return bytes.empty() || bytes.size() > 1100; })) return;
-    if (final) finalWorld = chunks;
+    if (final || phase == Phase::Finished) finalWorld = chunks;
     for (const auto& bytes : chunks) { Message m; m.kind = Kind::World; m.payload = bytes; Broadcast(m, final); }
 }
 std::vector<std::vector<uint8_t>> Session::TakeWorld() {
@@ -576,7 +576,25 @@ void Session::Publish(Message m, bool finish) {
     for (auto& p : peers) if (p.admitted) SendSnapshot(p, m);
     if (finish) phase = Phase::Finished;
 }
-void Session::SendSnapshot(Peer& p, const Message& m) {
+void Session::PublishPresentation(Message m) {
+    if (!authority || phase != Phase::Finished || snapshot.kind != Kind::Finish ||
+        m.karts.size() != snapshot.karts.size() || !Newer(m.tick, snapshot.tick)) return;
+    unsigned seen = 0;
+    for (auto& kart : m.karts) {
+        if (!kart.participant || kart.participant > MaxRacers || (seen & (1u << kart.participant))) return;
+        seen |= 1u << kart.participant;
+        const auto result = std::find_if(snapshot.karts.begin(), snapshot.karts.end(), [&](const Kart& old) {
+            return old.participant == kart.participant;
+        });
+        if (result == snapshot.karts.end()) return;
+        kart.rank = result->rank; kart.lap = result->lap; kart.lapTimes = result->lapTimes;
+    }
+    // Movement continues behind results, but this race's scoring and finish data stay committed.
+    m.kind = Kind::Finish; m.round = settings.round; m.race = raceId;
+    m.standings = standings; m.cupComplete = cupComplete; snapshot = m;
+    for (auto& p : peers) if (p.admitted) SendSnapshot(p, m, false);
+}
+void Session::SendSnapshot(Peer& p, const Message& m, bool reliableFinish) {
     if (m.karts.empty() || m.karts.size() > MaxRacers) return;
     uint32_t ack = 0;
     for (auto r : roster) if (r.connection == p.connection && r.controller == 0) ack = inputs[r.racer].sequence;
@@ -584,7 +602,7 @@ void Session::SendSnapshot(Peer& p, const Message& m) {
         Message part = m; part.parts = uint8_t((m.karts.size() + KartsPerPacket - 1) / KartsPerPacket);
         part.part = uint8_t(start / KartsPerPacket); part.acknowledgedInput = ack;
         part.karts.assign(m.karts.begin() + start, m.karts.begin() + std::min(start + KartsPerPacket, m.karts.size()));
-        Send(p, part, m.kind == Kind::Finish);
+        Send(p, part, m.kind == Kind::Finish && reliableFinish);
     }
 }
 bool Session::ReturnToLobby() {

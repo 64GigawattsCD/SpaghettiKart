@@ -62,3 +62,36 @@ Windows Debug and Android release compilation passed:
 The APK was installed with `adb install -r` on SM-S908U at 2026-10-25 19:16
 phone time. No app launch was requested. Settings SHA-256 was unchanged:
 `61d6eec31c98f1b744a8aa6c35462016065ce844689e3fb93f11e72f9a3dcc9d`.
+
+## Live Race Ending Follow-Up
+
+The user found standings appearing over an opaque menu background immediately at
+the finish. Two independent causes were present: GameLobby always redrew stock
+menu scenery, even during races, and the session stopped host simulation as soon
+as it committed results. The shared session path made this visible in 1P too.
+
+The finish now holds for at least five simulation seconds after the last
+connected human finishes, in solo and multiplayer. Paused frames do not count;
+each race resets the hold. The existing 60-second DNF timeout still settles
+stragglers, followed by the same five-second hold. Battle uses the hold after its
+last-survivor condition. Standings appear after the hold, not during it.
+
+In-race menus retain the rendered world behind their translucent surfaces.
+Finished hosts continue simulation with road racers under CPU control. Clients
+receive fresh post-race poses and world frames, including on reconnect. Official
+ranks, completed laps, lap times, points and cup completion remain unchanged by
+this presentation traffic. Initial finish/reconnect snapshots remain reliable;
+ongoing presentation updates are unreliable so they do not queue indefinitely.
+The packet format/version is unchanged. The first standings input frame is
+consumed so a gameplay Confirm/Start edge does not immediately select Next Race.
+
+All seven native network suites pass, including 1,176 finish-hold checks and
+expanded local/4+4 pose, score-immutability and animated-world reconnect coverage.
+The three lobby suites also pass. No game or device-input test was launched.
+Art/service credits spent in this follow-up: 0; task token billing unavailable.
+
+Follow-up Windows Debug and Android release compilation passed:
+`build/agent-logs/finish-background-pc-20261025-194241-7be50d72.log` and
+`build/agent-logs/finish-background-phone-20261025-194252-17149463.log`.
+The updated APK was installed on SM-S908U at 19:45 phone time on 2026-10-25;
+the settings digest above remains unchanged. The app was not launched.

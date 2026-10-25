@@ -26,6 +26,7 @@ public:
     void Loaded();
     void Submit(Input input);
     void Publish(Message snapshot, bool finish = false);
+    void PublishPresentation(Message snapshot);
     void PublishWorld(const std::vector<uint8_t>& payload);
     void PublishWorldFrame(const std::vector<std::vector<uint8_t>>& chunks, bool final = false);
     std::vector<std::vector<uint8_t>> TakeWorld();
@@ -118,7 +119,7 @@ private:
     void RetirePeer(Peer& peer);
     bool AllowHandshake(uint32_t address);
     void PollHandshakes();
-    void SendSnapshot(Peer& peer, const Message& snapshot);
+    void SendSnapshot(Peer& peer, const Message& snapshot, bool reliableFinish = true);
     void Fail(const char* message);
     void TryBegin();
 };

@@ -3,6 +3,7 @@
 #include "Session.h"
 #include "Discovery.h"
 #include "ItemReplication.h"
+#include "RaceFinishModel.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
@@ -40,6 +41,7 @@ std::array<Controller, 8> remoteControllers{};
 std::array<int, 8> finishOrder{};
 int finishCount = 0;
 float firstFinishTime = -1.0f;
+KartNet::FinishHold finishHold;
 uint32_t loadedEpoch = ~0u;
 int command = 0;
 char address[64] = "192.168.1.1";
@@ -70,6 +72,7 @@ void resetRace() {
     sequence = hostTick = seenSnapshot = 0;
     lapTimes = {}; previous = {}; remoteControllers = {}; gears = {}; rpms = {};
     finishOrder.fill(-1); finishCount = 0; firstFinishTime = -1.0f;
+    finishHold.Reset();
 }
 bool startRulesAvailable(const KartNet::RaceSettings& rules) {
     if (rules.mode != 2) return true;
@@ -359,6 +362,15 @@ extern "C" int net_roster_info(int index, NetRosterInfo* info) {
         raceActive && slot >= 0 ? int(gPlayers[slot].currentRank) : index, session.standings[p.racer],
         raceActive && slot >= 0 && (session.settings.mode == 2 ?
             session.phase == KartNet::Phase::Finished && p.connected : gLapCountByPlayerId[slot] >= session.settings.laps)};
+    if (session.phase == KartNet::Phase::Finished) {
+        const auto result = std::find_if(session.snapshot.karts.begin(), session.snapshot.karts.end(), [&](const auto& kart) {
+            return kart.participant == p.participant;
+        });
+        if (result != session.snapshot.karts.end()) {
+            info->rank = result->rank;
+            if (session.settings.mode != 2) info->finished = result->lap >= session.settings.laps;
+        }
+    }
     return 1;
 }
 extern "C" void net_menu_text(int field, const char* text) {
@@ -597,12 +609,16 @@ extern "C" int net_before_tick(void) {
         if (OnlineItemWorldEnabled) KartNet::ApplyItemWorld(session);
         return 0;
     }
-    for (int i = 0; i < racerCount(); ++i) gPlayers[i].lapCount = std::clamp(gLapCountByPlayerId[i], 0, int(session.settings.laps));
-    return session.phase == KartNet::Phase::Racing;
+    for (int i = 0; i < racerCount(); ++i) {
+        gPlayers[i].lapCount = std::clamp(gLapCountByPlayerId[i], 0, int(session.settings.laps));
+        if (session.phase == KartNet::Phase::Finished && session.settings.mode != 2) gPlayers[i].type |= PLAYER_CPU;
+    }
+    return 1;
 }
 extern "C" void net_update_display(void) {
     if (!raceActive) return;
     if (!session.IsHost()) return;
+    if (session.phase == KartNet::Phase::Finished) return;
     if (session.settings.mode == 2) {
         std::array<int, 8> alive{}; int count = 0;
         for (int slot = 0; slot < racerCount(); ++slot) {
@@ -647,20 +663,33 @@ extern "C" void net_update_display(void) {
     }
 }
 extern "C" void net_after_frame(void) {
-    if (!raceActive || !session.IsHost() || session.phase != KartNet::Phase::Racing) return;
+    if (!raceActive || !session.IsHost()) return;
+    if (session.phase == KartNet::Phase::Finished) {
+        auto presentation = captureState();
+        if (!session.LocalOnly() && OnlineItemWorldEnabled) KartNet::CaptureItemWorld(session, false);
+        session.PublishPresentation(std::move(presentation));
+        return;
+    }
+    if (session.phase != KartNet::Phase::Racing) return;
     net_update_display();
-    bool finished = !session.roster.empty();
+    int connectedHumans = 0;
+    bool unfinished = false;
     for (const auto& p : session.roster) {
         const int slot = session.EngineSlot(p.participant);
-        if (p.connected && slot >= 0 && finishOrder[slot] < 0) finished = false;
+        if (p.connected) {
+            ++connectedHumans;
+            if (slot < 0 || finishOrder[slot] < 0) unfinished = true;
+        }
     }
     // Finishers retain their positions. Remaining drivers receive their progress order after one minute.
-    if (firstFinishTime >= 0.0f && gCourseTimer-firstFinishTime >= 60.0f) finished = true;
+    const bool timedOut = firstFinishTime >= 0.0f && gCourseTimer-firstFinishTime >= 60.0f;
+    bool finished = KartNet::FinishEligible(connectedHumans, unfinished, timedOut);
     if (session.settings.mode == 2) {
         int alive = 0;
         for (int slot = 0; slot < racerCount(); ++slot) if (gPlayerBalloonCount[slot] >= 0) ++alive;
         finished = alive <= 1 && racerCount() >= 2;
     }
+    finished = finishHold.Update(finished, gCourseTimer);
     auto m = captureState();
     if (!session.LocalOnly() && OnlineItemWorldEnabled) KartNet::CaptureItemWorld(session, finished);
     session.Publish(m, finished);

@@ -838,9 +838,12 @@ extern "C" void game_lobby_net_input_for(int localViewport, unsigned int buttons
 extern "C" int game_lobby_input(void) {
     if (!Visible()) return 0;
     NetMenuState state{}; net_menu_state(&state);
+    bool enteredStandings = false;
     if (state.active) {
         sawSession = true;
-        if (Phase(state, KartNet::Phase::Finished) && page != Page::Standings) Change(Page::Standings);
+        if (Phase(state, KartNet::Phase::Finished) && page != Page::Standings) {
+            Change(Page::Standings); enteredStandings = true;
+        }
         else if (SessionPage(state) && !Phase(state, KartNet::Phase::Finished) &&
                  page != Page::Lobby && page != Page::Party && page != Page::Editor &&
                  page != Page::HostSetup && page != Page::LocalSetup) Change(Page::Lobby);
@@ -857,6 +860,7 @@ extern "C" int game_lobby_input(void) {
     for (int slot = 0; slot < int(ports.size()); ++slot)
         driverButtons[ports[slot]] = kart_input_get_menu_pressed(gGamestate == RACING ? &networkPads[slot] : &gControllers[ports[slot]]);
     for (auto& pad : networkPads) pad.buttonPressed = pad.stickPressed = 0;
+    if (enteredStandings) return 1;
     if (HasRows(page)) Rows(state);
     int hit = menu_pointer_take(Context());
     if (backRequested || hit == Back) { backRequested = false; buttons = B_BUTTON; if (page == Page::Party) hit = Back; }
@@ -909,7 +913,7 @@ extern "C" void game_lobby_draw(void) {
     if (!Visible()) return;
     NetMenuState state{}; net_menu_state(&state);
     menu_pointer_clear_targets();
-    race_mods_draw_native_backdrop(0, page == Page::Main ? 0 : 64);
+    race_mods_draw_native_backdrop(gGamestate == RACING, page == Page::Main ? 0 : 64);
     if (page == Page::Main) DrawMain();
     else if (page == Page::Party) DrawDriverSelection();
     else if (page == Page::Editor) DrawEditor();

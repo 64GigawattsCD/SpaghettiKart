@@ -152,6 +152,15 @@ void localCup() {
         check(local.phase == Phase::Finished && local.standings[0] == 9 * (round + 1), "Authoritative GP points");
         local.Publish(state(4, round + 2, true), true);
         check(local.standings[0] == 9 * (round + 1), "Finish awards once");
+        auto coast = state(4, round + 3);
+        coast.karts[0].rank = 3; coast.karts[0].pos[0] = 543.f;
+        coast.standings.fill(999);
+        local.PublishPresentation(coast);
+        check(local.snapshot.tick == unsigned(round + 3) && local.snapshot.karts[0].pos[0] == 543.f,
+              "Local results retain a moving background");
+        check(local.snapshot.karts[0].rank == 0 && local.snapshot.karts[0].lap == 3 &&
+              local.standings[0] == 9 * (round + 1) && local.snapshot.standings == local.standings,
+              "Local background motion does not revise ranks, laps or points");
     }
     check(local.CupComplete() && !local.Start(), "Cup stops after four races");
     check(local.ReturnToLobby() && !local.CupComplete() && local.standings[0] == 0, "New cup resets session standings");
@@ -312,6 +321,39 @@ void eightRace(uint16_t port) {
     snapshot = state(8, 2, true); host.Publish(snapshot, true);
     until({&host,&client}, [&] { return client.phase == Phase::Finished; }, "Reliable final snapshot");
     check(client.standings == host.standings && client.snapshot.karts.size() == 8, "Matching standings on both systems");
+    const auto finalPoints = host.standings;
+    auto coast = state(8, 3);
+    for (auto& kart : coast.karts) {
+        kart.rank = 7; kart.lapTimes.fill(99999); kart.pos[0] += 321.f;
+    }
+    coast.standings.fill(999); coast.cupComplete = true;
+    client.PublishPresentation(coast);
+    check(client.snapshot.tick == 2, "Client cannot author post-race movement");
+    host.PublishPresentation(coast);
+    until({&host,&client}, [&] { return client.snapshot.tick == 3; }, "Post-race poses continue to every local viewport");
+    check(client.phase == Phase::Finished && host.phase == Phase::Finished && client.snapshot.karts[7].pos[0] == 1021.f,
+          "Post-race movement retains the finished phase");
+    check(client.standings == finalPoints && host.standings == finalPoints && !client.CupComplete(),
+          "Post-race movement cannot award points or complete another cup");
+    for (int i = 0; i < 8; ++i)
+        check(client.snapshot.karts[i].rank == i && client.snapshot.karts[i].lap == 3 &&
+              client.snapshot.karts[i].lapTimes == snapshot.karts[i].lapTimes,
+              "Post-race presentation preserves official finishing data");
+    auto invalid = coast; invalid.tick = 4; invalid.karts[1].participant = invalid.karts[0].participant;
+    host.PublishPresentation(invalid); host.PublishPresentation(coast);
+    check(host.snapshot.tick == 3, "Duplicate participants and stale presentation ticks are ignored");
+    auto postRaceWorld = std::vector<std::vector<uint8_t>>{{21, 22, 23}, {24, 25}};
+    host.PublishWorldFrame(postRaceWorld);
+    pump({&host,&client}, 30);
+    check(client.TakeWorld() == postRaceWorld, "World movement continues behind results");
+    const auto beforeReconnect = client.receivedSnapshots;
+    check(client.Reconnect(), "Reconnect during animated results");
+    until({&host,&client}, [&] { return client.phase == Phase::Finished && client.receivedSnapshots > beforeReconnect; },
+          "Reconnect restores the latest post-race scene");
+    pump({&host,&client}, 30);
+    check(client.snapshot.tick == 3 && client.snapshot.karts[7].pos[0] == 1021.f && client.standings == finalPoints,
+          "Reconnected scene retains final scoring and latest poses");
+    check(client.TakeWorld() == postRaceWorld, "Reconnect restores latest post-race world chunks");
     check(host.Start(), "Next GP race");
     until({&host,&client}, [&] { return client.phase == Phase::Loading && client.RaceIndex() == 1; }, "Cup progression replicated");
     host.Loaded(); client.Loaded();
