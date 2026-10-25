@@ -13,11 +13,16 @@
 - GitHub rejected private author emails in four unpublished renderer commits.
   Replaced them with the user's existing GitHub no-reply identity, preserving
   code trees, authors, dates and messages. Updated unpublished parent commits
-  and game gitlinks accordingly; published history is unchanged. Local backup
+  and game gitlinks accordingly; pre-existing published history is unchanged. Local backup
   refs under `refs/archive/pre-publication/` retain the original commit IDs.
 - The original Blender sources are stored losslessly in split 7z archives on
   `VRintegration`, since GitHub rejects new LFS uploads to this public fork.
   Archive integrity was checked; source hashes and extraction notes are included.
+- Publication succeeded for both current/refreshed game and renderer branches
+  and the original draft. Verified renderer trees exactly match their originals;
+  refreshed game history differs only in renderer gitlinks, and the final game
+  tree exactly matches the checkpoint. A Windows stdin line-ending issue in
+  the initial conversion was corrected and rechecked before completion.
 - No paid external asset calls. Account credit snapshot: 9736.194195; weekly
   usage 11%. This is account-wide, not a per-task charge or usage measurement.
 
