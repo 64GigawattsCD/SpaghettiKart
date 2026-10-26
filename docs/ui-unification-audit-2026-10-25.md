@@ -138,3 +138,22 @@ native pointer tests, seven Python menu-helper checks, and `git diff --check`.
 No phone installation or visual/gameplay test was attempted in this follow-up.
 Final compile logs: `build/agent-logs/native-menu-spacing-windows-20261025-113926-e186ef03.log`
 and `build/agent-logs/native-menu-spacing-android-20261025-114046-b6733a30.log`.
+
+## Victim Radio Portrait Assessment, 2026-10-26
+
+Assessment only; no gameplay changes or game/device tests. Stock item collision
+branches in `src/racing/actors.c` retain victim `temp_lo` and attacker `temp_v1`
+when requesting the character hit-success voice (`0x29008006` plus character).
+`func_800C90F4` receives only speaker and sound, so collision-time attribution is
+the useful event hook. Existing taunts have human-owner, self-hit and sometimes
+distance gates; portrait coverage should explicitly follow or revise those rules.
+Stock 64x64 face assets exist. Anchor one noninteractive, clipped slide-up panel
+to each victim viewport using `hud_race_viewport`; keep it clear of touch controls.
+Local presentation is modest work. Online needs an authoritative transient hit
+event with race/sequence identity, attacker/victim participants and voice choice;
+current item frames carry actor/inventory state, not that event. Deduplicate and
+expire events rather than infer hits from replicated effects. Keep audio/portrait
+dispatch paired and bound repeated-hit queues. Mouth animation is additional art,
+not supplied automatically by the face assets. VR can use the existing HUD plane
+but still needs headset review. Art/service credits spent: 0; task token billing
+unavailable.
