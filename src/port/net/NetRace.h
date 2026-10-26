@@ -24,6 +24,7 @@ void net_update_display(void);
 void net_after_frame(void);
 int net_gear(int player);
 float net_rpm(int player);
+int net_hit_taunt(int attacker, int victim);
 typedef struct {
     int active, inRace, canStart, character, port;
     char address[64];

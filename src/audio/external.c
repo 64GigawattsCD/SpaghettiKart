@@ -17,6 +17,9 @@
 #include "port/Game.h"
 #include "port/audio/HMAS.h"
 #include "engine/TrackBrowser.h"
+#include "hit_radio.h"
+#include "port/net/NetRace.h"
+#include "main.h"
 
 s8 D_8018EF10;
 UnkStruct8018EF18 D_8018EF18[16];
@@ -3045,6 +3048,26 @@ void func_800C90F4(u8 playerId, u32 soundBits) {
                 break;
         }
     }
+}
+
+void play_hit_radio_taunt(u8 localVictim, u8 character) {
+    static Vec3f origins[4];
+    if (D_800EA108 || localVictim >= 4 || character >= 8 || !hit_radio_show(localVictim, character)) return;
+    // The radio is heard at the victim, not attenuated at the attacker's world position.
+    // The mixer keys sources by position pointer; split-screen victims need distinct storage.
+    origins[localVictim][0] = origins[localVictim][1] = origins[localVictim][2] = 0.0f;
+    play_sound((character * 0x10) + SOUND_ARG_LOAD(0x29, 0x00, 0x80, 0x06),
+               &origins[localVictim], localVictim, &D_800EA1D4, &D_800EA1D4, (s8*) &D_800EA1DC);
+}
+
+void play_character_hit_taunt(u8 attacker, u8 victim) {
+    if (attacker >= NUM_PLAYERS || victim >= NUM_PLAYERS || attacker == victim) return;
+    if (net_race_active() && (!net_running() || net_hit_taunt(attacker, victim))) return;
+    if (!net_race_active() && victim < gPlayerCountSelection1 && (gPlayers[victim].type & PLAYER_HUMAN)) {
+        play_hit_radio_taunt(victim, gPlayers[attacker].characterId);
+        return;
+    }
+    func_800C90F4(attacker, (gPlayers[attacker].characterId * 0x10) + SOUND_ARG_LOAD(0x29, 0x00, 0x80, 0x06));
 }
 
 void func_800C9250(u8 arg0) {

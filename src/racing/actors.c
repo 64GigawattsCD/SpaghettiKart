@@ -2266,13 +2266,13 @@ void evaluate_collision_between_player_actor(Player* player, struct Actor* actor
             if (owner->type & PLAYER_HUMAN) {
                 if (actor->flags & 0xF) {
                     if (temp_lo != temp_v1) {
-                        func_800C90F4(temp_v1, (owner->characterId * 0x10) + SOUND_ARG_LOAD(0x29, 0x00, 0x80, 0x06));
+                        play_character_hit_taunt(temp_v1, temp_lo);
                     }
                 } else {
                     temp_f0 = actor->pos[0] - owner->pos[0];
                     temp_f2 = actor->pos[2] - owner->pos[2];
                     if ((((temp_f0 * temp_f0) + (temp_f2 * temp_f2)) < 360000.0f) && (temp_lo != temp_v1)) {
-                        func_800C90F4(temp_v1, (owner->characterId * 0x10) + SOUND_ARG_LOAD(0x29, 0x00, 0x80, 0x06));
+                        play_character_hit_taunt(temp_v1, temp_lo);
                     }
                 }
             }
@@ -2294,7 +2294,7 @@ void evaluate_collision_between_player_actor(Player* player, struct Actor* actor
             func_800C98B8(player->pos, player->velocity, SOUND_ARG_LOAD(0x19, 0x01, 0x80, 0x10));
             owner = &gPlayers[temp_v1];
             if ((owner->type & PLAYER_HUMAN) && (temp_lo != temp_v1)) {
-                func_800C90F4(temp_v1, (owner->characterId * 0x10) + SOUND_ARG_LOAD(0x29, 0x00, 0x80, 0x06));
+                play_character_hit_taunt(temp_v1, temp_lo);
             }
             destroy_destructable_actor(actor);
             break;
@@ -2313,7 +2313,7 @@ void evaluate_collision_between_player_actor(Player* player, struct Actor* actor
             }
             owner = &gPlayers[temp_v1];
             if ((owner->type & PLAYER_HUMAN) && (temp_lo != temp_v1)) {
-                func_800C90F4(temp_v1, (owner->characterId * 0x10) + SOUND_ARG_LOAD(0x29, 0x00, 0x80, 0x06));
+                play_character_hit_taunt(temp_v1, temp_lo);
             }
             if (temp_lo == actor->unk_04) {
                 destroy_destructable_actor(actor);
@@ -2338,7 +2338,7 @@ void evaluate_collision_between_player_actor(Player* player, struct Actor* actor
             }
             owner = &gPlayers[temp_v1];
             if ((owner->type & PLAYER_HUMAN) && (temp_lo != temp_v1)) {
-                func_800C90F4(temp_v1, (owner->characterId * 0x10) + SOUND_ARG_LOAD(0x29, 0x00, 0x80, 0x06));
+                play_character_hit_taunt(temp_v1, temp_lo);
             }
             destroy_destructable_actor(actor);
             break;
@@ -2398,13 +2398,13 @@ void evaluate_collision_between_player_actor(Player* player, struct Actor* actor
             if (owner->type & PLAYER_HUMAN) {
                 if (actor->flags & 0xF) {
                     if (temp_lo != temp_v1) {
-                        func_800C90F4(temp_v1, (owner->characterId * 0x10) + SOUND_ARG_LOAD(0x29, 0x00, 0x80, 0x06));
+                        play_character_hit_taunt(temp_v1, temp_lo);
                     }
                 } else {
                     temp_f0 = actor->pos[0] - owner->pos[0];
                     temp_f2 = actor->pos[2] - owner->pos[2];
                     if ((((temp_f0 * temp_f0) + (temp_f2 * temp_f2)) < 360000.0f) && (temp_lo != temp_v1)) {
-                        func_800C90F4(temp_v1, (owner->characterId * 0x10) + SOUND_ARG_LOAD(0x29, 0x00, 0x80, 0x06));
+                        play_character_hit_taunt(temp_v1, temp_lo);
                     }
                 }
                 if (actor->state == 0) {

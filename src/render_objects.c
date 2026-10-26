@@ -53,6 +53,7 @@
 #include "hud_layout.h"
 #include "hud_rpm.h"
 #include "hud_race_layout.h"
+#include "hit_radio.h"
 #include "port/AndroidPhone.h"
 #include "port/vr/vr.h"
 
@@ -4102,6 +4103,7 @@ void render_race_hud_lap_times(s32 playerId) {
     ArcadeKartHudTimerValueLeaf splitTimerLeaves[3];
     HudWidgetId splitBox, splitScaleBox, widget;
     s32 lapIndex;
+    hit_radio_draw(playerId);
     get_race_hud_layout(playerId, &raceLayout);
     if (gModeSelection == BATTLE) return;
     render_arcadekart_timer_strip(playerId);

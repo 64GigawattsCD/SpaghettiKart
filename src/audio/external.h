@@ -283,6 +283,8 @@ void func_800C8F80(u8, u32);
 void func_800C9018(u8, u32);
 void func_800C9060(u8, u32);
 void func_800C90F4(u8, u32);
+void play_character_hit_taunt(u8 attacker, u8 victim);
+void play_hit_radio_taunt(u8 localVictim, u8 character);
 void func_800C9250(u8);
 void func_800C92CC(u8, u32);
 void func_800C94A4(u8);

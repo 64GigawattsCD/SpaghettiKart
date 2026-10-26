@@ -9,6 +9,11 @@ int LocalSlot(uint16_t participant, uint16_t localParticipant) {
     return participant == localParticipant ? 0 : 1;
 }
 bool Newer(uint32_t next, uint32_t previous) { return next != previous && uint32_t(next - previous) < 0x80000000u; }
+bool ValidTaunt(const TauntEvent& e) {
+    return e.sequence && e.attacker >= 1 && e.attacker <= MaxRacers && e.victim >= 1 && e.victim <= MaxRacers &&
+           e.attacker != e.victim && e.character < 8 && std::isfinite(e.courseTime) &&
+           e.courseTime >= 0 && e.courseTime <= 10000000.0f;
+}
 namespace {
 struct Writer {
     std::vector<uint8_t> bytes;
@@ -112,6 +117,9 @@ std::vector<uint8_t> Encode(const Message& m) {
     case Kind::Ready: w.u(m.ready, 1); w.u(m.controller, 1); break;
     case Kind::UpdateParty: w.u(m.partyRevision, 4); writeParty(w, m.party); break;
     case Kind::Reject: w.text(m.reason, 96); break;
+    case Kind::Taunt:
+        w.u(m.taunt.sequence, 4); w.u(m.taunt.attacker, 2); w.u(m.taunt.victim, 2);
+        w.u(m.taunt.character, 1); w.f(m.taunt.courseTime); w.u(m.taunt.tick, 4); break;
     case Kind::World:
         if (m.payload.empty() || m.payload.size() > 1100) throw std::length_error("World payload exceeds packet budget");
         w.u(m.payload.size(), 2); w.bytes.insert(w.bytes.end(), m.payload.begin(), m.payload.end()); break;
@@ -134,7 +142,7 @@ bool Decode(const uint8_t* data, size_t length, Message& result) {
     try {
         Reader r{data, length}; Message m;
         if (r.u(4) != 0x534b4e31 || r.u(2) != ProtocolVersion) return false;
-        auto kind = r.u(1); if (kind < 1 || kind > uint8_t(Kind::World) || r.u(1) != 0) return false;
+        auto kind = r.u(1); if (kind < 1 || kind > uint8_t(Kind::Taunt) || r.u(1) != 0) return false;
         m.kind = Kind(kind); m.session = r.u(8); m.race = uint32_t(r.u(4));
         switch (m.kind) {
         case Kind::Hello:
@@ -165,6 +173,11 @@ bool Decode(const uint8_t* data, size_t length, Message& result) {
             break;
         case Kind::UpdateParty: m.partyRevision = uint32_t(r.u(4)); m.party = readParty(r); break;
         case Kind::Reject: m.reason = r.text(96); break;
+        case Kind::Taunt:
+            m.taunt.sequence = uint32_t(r.u(4)); m.taunt.attacker = r.u(2); m.taunt.victim = r.u(2);
+            m.taunt.character = r.u(1); m.taunt.courseTime = r.f(); m.taunt.tick = uint32_t(r.u(4));
+            if (!ValidTaunt(m.taunt)) return false;
+            break;
         case Kind::World: {
             size_t size = r.u(2); if (!size || size > 1100 || size > r.size - r.offset) return false;
             m.payload.assign(r.data + r.offset, r.data + r.offset + size); r.offset += size; break;

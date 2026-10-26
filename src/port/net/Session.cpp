@@ -121,9 +121,11 @@ void Session::Close() {
     handshakeRates = {}; handshakeSince = handshakeAttempts = 0;
     partySent = partyAck = 0;
     reservationAt = {};
+    tauntQueue.clear(); tauntSequence = receivedTauntSequence = 0;
 }
 void Session::Fail(const char* text) {
     error = text; phase = Phase::Error; inputs = {};
+    tauntQueue.clear();
     for (auto& p : peers) if (p.transport) enet_peer_disconnect_later(p.transport, 1);
 }
 bool Session::Open(bool server, uint16_t port, uint64_t content, const Party& party,
@@ -250,6 +252,7 @@ void Session::Reject(Peer& p, const char* text) {
 void Session::Remove(Peer& p, bool leaving) {
     auto connection = p.connection;
     RetirePeer(p);
+    tauntQueue.clear();
     if (!authority) {
         inputs = {};
         if (phase != Phase::Error) phase = Phase::Disconnected;
@@ -391,6 +394,8 @@ void Session::Receive(Peer& p, const Message& m, uint8_t channel) {
         auto count = std::count_if(m.roster.begin(), m.roster.end(), [&m](auto r) { return r.connection == m.connection; });
         if (count != int(localParty.size())) { Fail("Server admitted an incomplete party"); return; }
         const bool sameRace = raceId == m.race;
+        tauntQueue.clear();
+        if (!sameRace) tauntSequence = receivedTauntSequence = 0;
         if (!sameRace) { receivedSnapshots = 0; snapshot = {}; assembling = {}; assembled = 0; worldQueue.clear(); }
         sessionId = m.session; raceId = m.race; connectionId = m.connection; p.connection = 1; p.admitted = true;
         resumeTicket = m.ticket; disconnectedAt = reconnectAt = 0; error.clear();
@@ -429,10 +434,18 @@ void Session::Receive(Peer& p, const Message& m, uint8_t channel) {
     if (!authority && m.kind == Kind::Load && (phase == Phase::Lobby || phase == Phase::Finished) && Newer(m.race, raceId)) {
         if (m.revision != revision) { Fail("Lobby roster changed during loading"); return; }
         settings = m.settings; raceId = m.race; localLoaded = false; phase = Phase::Loading; phaseAt = enet_time_get();
+        tauntQueue.clear(); tauntSequence = receivedTauntSequence = 0;
         partySent = partyAck;
         receivedSnapshots = 0; snapshot = {}; assembling = {}; assembled = 0; worldQueue.clear(); return;
     }
     if (m.race != raceId) { ++rejected; return; }
+    if (m.kind == Kind::Taunt) {
+        if (authority || phase != Phase::Racing || p.connection != 1 || !TauntRosterMatches(m.taunt) ||
+            !Newer(m.taunt.sequence, receivedTauntSequence)) { ++rejected; return; }
+        const auto victim = std::find_if(roster.begin(), roster.end(), [&m](auto r) { return r.participant == m.taunt.victim; });
+        if (victim->connection != connectionId) { ++rejected; return; }
+        receivedTauntSequence = m.taunt.sequence; QueueTaunt(m.taunt); return;
+    }
     if (!authority && m.kind == Kind::World && (phase == Phase::Racing || phase == Phase::Finished)) {
         if (worldQueue.size() == 32) worldQueue.erase(worldQueue.begin());
         worldQueue.push_back(m.payload); return;
@@ -513,6 +526,7 @@ bool Session::Start() {
     if (!CanStart()) return false;
     if (phase == Phase::Finished && settings.mode == 0) ++settings.round;
     ++raceId; localLoaded = false; receivedSnapshots = 0; snapshot = {}; assembled = 0; worldQueue.clear(); finalWorld.clear(); inputs = {}; inputAt = {};
+    tauntQueue.clear(); tauntSequence = receivedTauntSequence = 0;
     for (auto& p : peers) p.loaded = false;
     Message m; m.kind = Kind::Load; m.settings = settings; m.revision = revision;
     Broadcast(m); phase = Phase::Loading; phaseAt = enet_time_get(); return true;
@@ -563,6 +577,39 @@ void Session::PublishWorldFrame(const std::vector<std::vector<uint8_t>>& chunks,
 std::vector<std::vector<uint8_t>> Session::TakeWorld() {
     auto queue = std::move(worldQueue); worldQueue.clear(); return queue;
 }
+bool Session::TauntRosterMatches(const TauntEvent& e) const {
+    if (!ValidTaunt(e)) return false;
+    const auto attacker = std::find_if(roster.begin(), roster.end(), [&e](auto r) { return r.participant == e.attacker; });
+    const auto victim = std::find_if(roster.begin(), roster.end(), [&e](auto r) { return r.participant == e.victim; });
+    return attacker != roster.end() && victim != roster.end() && attacker->connected && victim->connected &&
+           attacker->character == e.character;
+}
+void Session::QueueTaunt(const TauntEvent& event) {
+    if (tauntQueue.size() == MaxQueuedTaunts) tauntQueue.erase(tauntQueue.begin());
+    tauntQueue.push_back(event);
+}
+bool Session::PublishTaunt(uint16_t attacker, uint16_t victim, uint8_t character, float courseTime, uint32_t tick) {
+    if (!authority || phase != Phase::Racing) return false;
+    uint32_t sequence = tauntSequence + 1;
+    if (!sequence) sequence = 1;
+    TauntEvent event{sequence, attacker, victim, character, courseTime, tick};
+    if (!TauntRosterMatches(event)) return false;
+    const auto target = std::find_if(roster.begin(), roster.end(), [victim](auto r) { return r.participant == victim; });
+    if (target->connection == connectionId) {
+        tauntSequence = sequence; QueueTaunt(event); return true;
+    }
+    for (auto& p : peers) if (p.admitted && p.connection == target->connection) {
+        Message m; m.kind = Kind::Taunt; m.taunt = event;
+        if (!Send(p, m)) return false;
+        tauntSequence = sequence; return true;
+    }
+    return false;
+}
+std::vector<TauntEvent> Session::TakeTaunts() {
+    auto queue = std::move(tauntQueue); tauntQueue.clear();
+    if (phase != Phase::Racing) queue.clear();
+    return queue;
+}
 void Session::Publish(Message m, bool finish) {
     if (!authority || phase != Phase::Racing || m.karts.empty() || m.karts.size() > MaxRacers) return;
     m.kind = finish ? Kind::Finish : Kind::Snapshot; m.round = settings.round; m.race = raceId;
@@ -610,11 +657,13 @@ bool Session::ReturnToLobby() {
     for (const auto& p : roster) if (!p.connected) { tickets[p.connection] = {}; reservationAt[p.connection] = 0; }
     roster.erase(std::remove_if(roster.begin(), roster.end(), [](auto p) { return !p.connected; }), roster.end());
     settings.round = 0; standings = {}; cupComplete = false; finalWorld.clear();
+    tauntQueue.clear();
     for (auto& p : roster) p.ready = false;
     phase = Phase::Lobby; ++revision; BroadcastLobby(); return true;
 }
 bool Session::Reconnect() {
     if (authority || !host || remoteAddress.empty() || resumeTicket == std::array<uint8_t,16>{}) return false;
+    tauntQueue.clear();
     for (auto& p : peers) {
         if (p.transport) enet_peer_disconnect_now(p.transport, 0);
         RetirePeer(p);

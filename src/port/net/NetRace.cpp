@@ -26,6 +26,7 @@ extern "C" {
 #include "kart_input.h"
 #include "racing/race_logic.h"
 #include "racing/render_courses.h"
+#include "audio/external.h"
 }
 
 namespace {
@@ -196,6 +197,15 @@ extern "C" int net_active(void) { return session.Active(); }
 extern "C" int net_race_active(void) { return raceActive; }
 extern "C" int net_is_host(void) { return session.IsHost(); }
 extern "C" int net_running(void) { return session.phase == KartNet::Phase::Racing; }
+extern "C" int net_hit_taunt(int attacker, int victim) {
+    if (!raceActive || !session.IsHost() || session.phase != KartNet::Phase::Racing ||
+        attacker < 0 || attacker >= 8 || victim < 0 || victim >= 8 || attacker == victim) return 0;
+    if (!session.PublishTaunt(session.ParticipantForSlot(attacker), session.ParticipantForSlot(victim),
+            uint8_t(gPlayers[attacker].characterId), gCourseTimer, hostTick)) return 0;
+    if (attacker < session.LocalCount() && victim >= session.LocalCount())
+        func_800C90F4(uint8_t(attacker), uint32_t(gPlayers[attacker].characterId * 0x10) + 0x29008006u);
+    return 1;
+}
 extern "C" int net_gear(int player) { return gears[std::clamp(player, 0, 7)]; }
 extern "C" float net_rpm(int player) { return rpms[std::clamp(player, 0, 7)]; }
 extern "C" int net_total_laps(void) { return session.settings.laps; }
@@ -462,6 +472,13 @@ extern "C" void net_read_inputs(void) {
     auto oldCount = session.receivedSnapshots;
     auto oldPhase = session.phase;
     session.Poll();
+    for (const auto& taunt : session.TakeTaunts()) {
+        if (!raceActive || gGamestate != RACING || game_options_is_open() || game_lobby_is_open() ||
+            session.phase != KartNet::Phase::Racing || !std::isfinite(gCourseTimer) ||
+            gCourseTimer - taunt.courseTime > 2.5f || taunt.courseTime - gCourseTimer > 2.5f) continue;
+        const int slot = session.EngineSlot(taunt.victim);
+        if (slot >= 0 && slot < session.LocalCount()) play_hit_radio_taunt(uint8_t(slot), taunt.character);
+    }
     for (const auto& identity : session.roster) {
         if (!session.PartyUpdatePending() && identity.connection == session.LocalConnection() && identity.controller < party.size()) {
             party[identity.controller].character = identity.character;

@@ -5,12 +5,12 @@
 #include <vector>
 
 namespace KartNet {
-constexpr uint16_t ProtocolVersion = 4;
+constexpr uint16_t ProtocolVersion = 5;
 constexpr uint32_t RulesVersion = 0x20261025;
 constexpr size_t MaxPacket = 1200, KartsPerPacket = 4;
 constexpr uint32_t DrivingButtonMask = 0x37ffef30;
 enum class Kind : uint8_t { Hello = 1, Welcome, Load, Loaded, Begin, Input, Snapshot, Finish,
-                          Lobby, Ready, Reject, UpdateParty, World };
+                          Lobby, Ready, Reject, UpdateParty, World, Taunt };
 enum class Phase { Offline, Connecting, Lobby, Loading, Racing, Finished, Disconnected, Error };
 
 // Local controller/view indices never travel as global racer indices.
@@ -38,6 +38,15 @@ struct Kart {
     uint8_t lap = 0, rank = 0;
     std::array<uint32_t, 3> lapTimes{};
 };
+// Character hit-success06 only; no caller-selected sound travels on the wire.
+struct TauntEvent {
+    uint32_t sequence = 0;
+    uint16_t attacker = 0, victim = 0;
+    uint8_t character = 0;
+    float courseTime = 0;
+    uint32_t tick = 0;
+};
+bool ValidTaunt(const TauntEvent& event);
 struct Message {
     Kind kind = Kind::Hello;
     uint64_t session = 0, content = 0;
@@ -54,6 +63,7 @@ struct Message {
     RaceSettings settings;
     Party party;
     Input input;
+    TauntEvent taunt;
     std::vector<Identity> roster;
     std::vector<Kart> karts = std::vector<Kart>(2);
     std::array<uint16_t, MaxRacers> standings{};

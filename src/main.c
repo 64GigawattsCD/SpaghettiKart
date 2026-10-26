@@ -13,6 +13,7 @@
 #include "profiler.h"
 #include "main.h"
 #include "race_mods.h"
+#include "hit_radio.h"
 #include "racing/memory.h"
 #include "menus.h"
 #include "menu_pointer.h"
@@ -804,6 +805,7 @@ void race_logic_loop(void) {
         func_80290B14();
     }
     if (gIsInQuitToMenuTransition != 0) {
+        hit_radio_reset();
         func_802A38B4();
         return;
     }
@@ -822,6 +824,7 @@ void race_logic_loop(void) {
     }
 
     if (gIsGamePaused == false && !net_world_paused()) {
+        if (Editor_IsPaused() == false) hit_radio_tick(gDeltaTime);
         for (size_t i = 0; i < (size_t) gTickLogic; i++) {
             process_game_tick();
         }
@@ -1232,6 +1235,7 @@ void update_gamestate(void) {
             load_credits();
             break;
     }
+    hit_radio_reset();
 }
 
 void thread5_game_loop(void) {

@@ -1,11 +1,11 @@
 # Current State
 
-Updated: 2026-10-25. Living summary; replace stale facts rather than accumulating logs.
+Updated: 2026-10-26. Living summary; replace stale facts rather than accumulating logs.
 
 ## Checkpoint
 - Active work: `codex/vr-refresh-oct13` in `E:\SpaghettiKart-VR-refresh`.
-- Android/UI, cockpit, LAN and renderer work was pushed to the user forks on
-  2026-10-25. Verify live status; this sentence is not a cleanliness assertion.
+- Hit-radio attacker portraits and voice target victims locally and online (protocol 5).
+  Details/checks: `docs/hit-radio-portraits-2026-10-26.md`; user playtesting pending.
 - Finish holds five seconds after the last human, then translucent results over the live race.
 - 1P/Local/Online menus retain four-player local parties and eight-racer sessions,
   full GP progression, LAN discovery, encrypted inputs and stock item replication.
@@ -16,7 +16,7 @@ Updated: 2026-10-25. Living summary; replace stale facts rather than accumulatin
   the lobby for Local/Online. 1P goes setup > shared characters > transmission > race.
   Translucent native surfaces, texture focus and quiet checker/color accents are
   shared across menus. See `docs/native-menu-art-and-solo-2026-10-25.md`.
-- Latest APK installed on SM-S908U on 2026-10-25 at 19:45; settings digest unchanged.
+- Latest APK installed on SM-S908U on 2026-10-26 at 10:26; settings digest unchanged.
   App not launched during deployment. Rediscover the wireless endpoint next time.
 
 ## Keep These Behaviors

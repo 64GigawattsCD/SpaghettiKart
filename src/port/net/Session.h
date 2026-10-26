@@ -10,6 +10,7 @@
 #include "SecureChannel.h"
 
 namespace KartNet {
+constexpr size_t MaxQueuedTaunts = 32;
 class Session {
 public:
     ~Session();
@@ -30,6 +31,8 @@ public:
     void PublishWorld(const std::vector<uint8_t>& payload);
     void PublishWorldFrame(const std::vector<std::vector<uint8_t>>& chunks, bool final = false);
     std::vector<std::vector<uint8_t>> TakeWorld();
+    bool PublishTaunt(uint16_t attacker, uint16_t victim, uint8_t character, float courseTime, uint32_t tick);
+    std::vector<TauntEvent> TakeTaunts();
     Input RemoteInput() const;
     Input InputFor(uint16_t participant) const;
     void SetReady(bool ready);
@@ -64,6 +67,7 @@ public:
     uint32_t SnapshotAge() const;
     uint32_t Rtt() const;
 private:
+    friend struct SessionTestAccess;
     struct Peer {
         ENetPeer* transport = nullptr;
         std::unique_ptr<SecureChannel> crypto;
@@ -104,6 +108,10 @@ private:
     unsigned assembled = 0;
     std::vector<std::vector<uint8_t>> worldQueue;
     std::vector<std::vector<uint8_t>> finalWorld;
+    std::vector<TauntEvent> tauntQueue;
+    uint32_t tauntSequence = 0, receivedTauntSequence = 0;
+    bool TauntRosterMatches(const TauntEvent& event) const;
+    void QueueTaunt(const TauntEvent& event);
     bool Open(bool server, uint16_t port, uint64_t content, const Party& party,
               const std::string& password, const char* bindAddress);
     bool Admit(uint16_t connection, const Party& party);
